@@ -1,6 +1,6 @@
 <div align="center">
 
-# HotPot
+# Hyperbox
 
 
 <a href="https://pytorch.org/get-started/locally/"><img alt="Python" src="https://img.shields.io/badge/-Python 3.7--3.9-blue?style=for-the-badge&logo=python&logoColor=white"></a>
@@ -17,7 +17,7 @@ A clean and scalable template to kickstart your AutoML project 🚀⚡🔥<br>
 
 </div>
 
-## Why name HotPot?
+## Why name Hyperbox?
 
 ...
 
