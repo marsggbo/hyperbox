@@ -7,7 +7,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from mutables import InputChoice, LayerChoice, ValueChoice
-from utils.gumbel_softmax import *
 
 from .default_mutator import Mutator
 

@@ -5,7 +5,7 @@
 
 defaults:
   - override /trainer: debug.yaml # choose trainer from 'configs/trainer/'
-  - override /model: random_nas_model.yaml
+  - override /model: darts_model.yaml
   - override /datamodule: fakedata_datamodule.yaml
   - override /callbacks: default.yaml
   - override /logger: wandb.yaml
@@ -20,3 +20,5 @@ trainer:
   max_epochs: 2
   gradient_clip_val: 0.5
 
+datamodule:
+  get_train_val: True

@@ -1,4 +1,4 @@
-_target_: src.models.nas_model.NASModel
+_target_: src.models.random_nas_model.RandomModel
 
 network_cfg:
     _target_: src.networks.resnet.resnet20

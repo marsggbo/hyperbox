@@ -12,6 +12,7 @@ from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.loggers.wandb import WandbLogger
 from pytorch_lightning.utilities import rank_zero_only
 
+from .logger import get_logger
 
 def load_json(filename):
     if filename is None:
@@ -26,30 +27,6 @@ def load_json(filename):
     else:
         raise "Wrong argument value for %s in `load_json` function" % filename
     return data
-
-
-def get_logger(name=__name__, level=logging.INFO) -> logging.Logger:
-    """Initializes multi-GPU-friendly python logger."""
-
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    logger.propagate = False
-    if logger.hasHandlers():
-        logger.handlers.clear()
-    formatter = '[%(asctime)s] %(filename)s->%(funcName)s line:%(lineno)d [%(levelname)s] %(message)s'
-    formatter = logging.Formatter(formatter)
-    sh = logging.StreamHandler()
-    sh.setFormatter(formatter)
-
-    # this ensures all logging levels get marked with the rank zero decorator
-    # otherwise logs would get multiplied for each GPU process in multi-GPU setup
-    for level in ("debug", "info", "warning", "error", "exception", "fatal", "critical"):
-        setattr(logger, level, rank_zero_only(getattr(logger, level)))
-        setattr(sh, level, rank_zero_only(getattr(logger, level)))
-
-    logger.addHandler(sh)
-    sh.close()
-    return logger
 
 
 def extras(config: DictConfig) -> None:

@@ -33,6 +33,7 @@ class FakeDataModule(LightningDataModule):
         batch_size: int = 64,
         num_workers: int = 0,
         pin_memory: bool = False,
+        get_train_val: bool = False,
         **kwargs,
     ):
         super().__init__()
@@ -44,6 +45,7 @@ class FakeDataModule(LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.pin_memory = pin_memory
+        self.get_train_val = get_train_val
 
         self.transforms = transforms.Compose(
             [transforms.ToTensor()]
@@ -76,15 +78,24 @@ class FakeDataModule(LightningDataModule):
         )
 
     def train_dataloader(self):
-        return DataLoader(
-            dataset=self.data_train,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_memory,
-            shuffle=True,
-        )
+        train_loader = DataLoader(
+                dataset=self.data_train,
+                batch_size=self.batch_size,
+                num_workers=self.num_workers,
+                pin_memory=self.pin_memory,
+                shuffle=True,
+            )
+        if self.get_train_val:
+            train_val_loader = {
+                'train': train_loader,
+                'val': self.val_dataloader()
+            }
+            return train_val_loader
+        return train_loader
 
     def val_dataloader(self):
+        if self.get_train_val:
+            return self.test_dataloader()
         return DataLoader(
             dataset=self.data_val,
             batch_size=self.batch_size,

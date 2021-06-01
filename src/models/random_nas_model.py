@@ -6,12 +6,16 @@ from omegaconf import DictConfig
 from pytorch_lightning import LightningModule
 from torchmetrics.classification.accuracy import Accuracy
 
+from utils.logger import get_logger
+logger = get_logger(__name__)
+
+from .base_nas_model import BaseModel
 
 def instantiate(*args, **kwargs):
     return hydra.utils.instantiate(*args, **kwargs)
 
-class NASModel(LightningModule):
-    """NAS Model Template
+class RandomModel(BaseModel):
+    """Random NAS Model Template
         Example of LightningModule for MNIST classification.
 
         A LightningModule organizes your PyTorch code into 5 sections:
@@ -34,7 +38,7 @@ class NASModel(LightningModule):
         metric_cfg: Optional[Union[DictConfig, dict]] = None,
         **kwargs
     ):
-        r'''NAS model template
+        r'''Random NAS model
         Args:
             network [DictConfig, dict, torch.nn.Module]: 
             mutator [DictConfig, dict, BaseMutator]: 
@@ -42,37 +46,8 @@ class NASModel(LightningModule):
             loss Optional[DictConfig, dict, Callable]: loss function or DictConfig of loss function
             metric: metric function, such as Accuracy, Precision, etc.
         '''
-        super().__init__()
-
-        # this line ensures params passed to LightningModule will be saved to ckpt
-        # it also allows to access params with 'self.hparams' attribute
-        self.save_hyperparameters()
-
-        # init network
-        if isinstance(network_cfg, (DictConfig, dict)):
-            self.network = instantiate(DictConfig(network_cfg))
-        # else:
-        #     raise NotImplementedError, f"Not supported typing for 'network_cfg':{network_cfg}"
-
-        # init mutator
-        if isinstance(mutator_cfg, (DictConfig, dict)):
-            mutator_cfg = DictConfig(mutator_cfg)
-            self.mutator = instantiate(mutator_cfg, model=self.network)
-        self.mutator.reset()
-
-        # loss function
-        if isinstance(loss_cfg, (DictConfig,dict)):
-            self.criterion = hydra.utils.instantiate(loss_cfg)
-
-
-        # use separate metric instance for train, val and test step
-        # to ensure a proper reduction over the epoch
-        if isinstance(metric_cfg, (DictConfig,dict)):
-            self.metric = instantiate(metric_cfg)
-
-        self.train_accuracy = self.metric
-        self.val_accuracy = self.metric
-        self.test_accuracy = self.metric
+        super().__init__(network_cfg, mutator_cfg, optimizer_cfg,
+                         loss_cfg, metric_cfg, **kwargs)
 
     def forward(self, x: torch.Tensor):
         return self.network(x)
@@ -87,12 +62,12 @@ class NASModel(LightningModule):
     def training_step(self, batch: Any, batch_idx: int):
         self.network.train()
         self.mutator.eval()
-        if batch_idx % 5:
+        if batch_idx % 5==0:
             self.mutator.reset()
         loss, preds, targets = self.step(batch)
 
         # log train metrics
-        acc = self.train_accuracy(preds, targets)
+        acc = self.train_metric(preds, targets)
         self.log("train/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
         self.log("train/acc", acc, on_step=False, on_epoch=True, prog_bar=False)
 
@@ -109,7 +84,7 @@ class NASModel(LightningModule):
         loss, preds, targets = self.step(batch)
 
         # log val metrics
-        acc = self.val_accuracy(preds, targets)
+        acc = self.val_metric(preds, targets)
         self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/acc", acc, on_step=False, on_epoch=True, prog_bar=False)
 
@@ -122,7 +97,7 @@ class NASModel(LightningModule):
         loss, preds, targets = self.step(batch)
 
         # log test metrics
-        acc = self.test_accuracy(preds, targets)
+        acc = self.test_metric(preds, targets)
         self.log("test/loss", loss, on_step=False, on_epoch=True)
         self.log("test/acc", acc, on_step=False, on_epoch=True)
 
@@ -148,6 +123,6 @@ if __name__ == '__main__':
     sys.path.append(os.path.join(os.getcwd(), '..'))
     sys.path.append(os.path.join(os.getcwd(), '../..'))
     from omegaconf import OmegaConf
-    cfg = OmegaConf.load('../../configs/model/nas_model.yaml')
+    cfg = OmegaConf.load('../../configs/model/random_nas_model.yaml')
     nas_net = instantiate(cfg, _recursive_=False)
     pass
