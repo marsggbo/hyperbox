@@ -122,7 +122,7 @@ class DartsCell(nn.Module):
         return output
 
 
-class DartsStackedCells(nn.Module): 
+class DartsNetwork(nn.Module): 
     """
     builtin Darts Search Space
     Compared to Darts example, DartsSearchSpace removes Auxiliary Head, which
@@ -202,7 +202,7 @@ class DartsStackedCells(nn.Module):
 
 if __name__ == '__main__':
     from src.mutator.random_mutator import RandomMutator
-    net = DartsStackedCells(
+    net = DartsNetwork(
         in_channels=3,
         channels=16,
         n_classes=10,

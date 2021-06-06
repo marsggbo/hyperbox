@@ -1,0 +1,8 @@
+_target_: src.networks.darts.darts_network.DARTSNetwork
+in_channels: 3
+channels: 32
+n_layers: 4
+stem_multiplier: 2
+n_nodes: 4
+n_classes: 10
+mask: ''

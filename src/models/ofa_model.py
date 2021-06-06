@@ -1,0 +1,197 @@
+from typing import Any, List, Optional, Union
+
+import copy
+import random
+import logging
+import hydra
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from omegaconf import DictConfig
+from pytorch_lightning.callbacks import Callback
+
+from losses.kd_loss import KDLoss
+from utils.logger import get_logger
+logger = get_logger(__name__, logging.DEBUG, rank_zero=False)
+
+from .base_model import BaseModel
+
+
+class SampleSearch(Callback):
+
+    def on_validation_epoch_start(self, trainer, pl_module):
+        pl_module.sample_search()
+
+
+class OFAModel(BaseModel):
+    def __init__(
+        self,
+        network_cfg: Optional[Union[DictConfig, dict]] = None,
+        mutator_cfg: Optional[Union[DictConfig, dict]] = None,
+        optimizer_cfg: Optional[Union[DictConfig, dict]] = None,
+        loss_cfg: Optional[Union[DictConfig, dict]] = None,
+        metric_cfg: Optional[Union[DictConfig, dict]] = None,
+        num_valid_archs: int = 5,
+        kd_subnets_method: str = '',
+        aux_weight: float = 0.4,
+        **kwargs
+    ):
+        '''
+        kd_subnets_method: the method of knowledge distillation (kd) on subnets.
+            - '': disable kd subnets
+            - 'mutual': subnets kd each other mutually
+            - 'ensemble': using subnets' ensemble as the teacher to kd all subnets
+        '''
+        super().__init__(network_cfg, mutator_cfg, optimizer_cfg,
+                         loss_cfg, metric_cfg, **kwargs)
+        self.automatic_optimization = False
+        self.kd_subnets_method = kd_subnets_method
+        self.aux_weight = aux_weight
+        self.num_valid_archs = num_valid_archs
+        self.arch_perf_history = {}
+
+    def sample_search(self):
+        with torch.no_grad():
+            if self.trainer.world_size <= 1:
+                self.mutator.reset()
+            else:
+                logger.debug(f"process {self.rank} model is on device: {self.device}")
+                mask_dict = dict()
+                for idx in range(self.trainer.world_size):
+                    self.mutator.reset()
+                    mask = self.mutator._cache
+                    mask_dict[idx] = mask
+                mask_dict = self.trainer.accelerator.broadcast(mask_dict, src=0)
+                mask = mask_dict[self.rank]
+                logger.debug(f"{self.rank}: {mask['ValueChoice18']}")
+                for m in self.mutator.mutables:
+                    m.mask.data = mask[m.key].data.to(self.device)
+
+    def training_step(self, batch: Any, batch_idx: int):
+        self.optimizer = self.optimizers()
+        logger.debug(f"rank{self.rank} optimizer is {self.optimizer}")
+        self.optimizer.zero_grad()
+        self.sample_search()
+
+        logger.debug(f"rank{self.rank} model.fc={self.network.fc}")
+        self.optimizer.zero_grad()
+        inputs, targets = batch
+        output = self.network(inputs)
+        if isinstance(output, tuple):
+            output, aux_output = output
+            aux_loss = self.loss(aux_output, targets)
+        else:
+            aux_loss = 0.
+
+        loss = self.criterion(output, targets)
+        loss = loss + self.aux_weight * aux_loss
+        if self.kd_subnets_method:
+            outputs_list = self.allgather(output)
+            outputs_dict = {rank: outputs_list[rank] for rank in range(len(outputs_list))}
+            loss_kd_subnets = self.calc_loss_kd_subnets(self.kd_subnets_method)
+            loss = loss + 0.6 * loss_kd_subnets
+        # self.manual_backward(loss)
+        logger.debug("start backward")
+        loss.backward()
+        logger.debug("start optim.step")
+        self.optimizer.step()
+        logger.debug("finish optim.step")
+
+        # log train metrics
+        preds = torch.argmax(output, dim=1)
+        acc = self.train_metric(preds, targets)
+        self.log("train/loss", loss, on_step=True, on_epoch=True, sync_dist=True, prog_bar=False)
+        self.log("train/acc", acc, on_step=True, on_epoch=True, sync_dist=True, prog_bar=False)
+        if batch_idx % 50 ==0:
+            self.print(f"Train epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
+        return {"loss": loss, "preds": preds, "targets": targets}
+        
+
+    def calc_loss_kd_subnets(self, kd_method='ensemble'):
+        loss = 0
+        if kd_method == 'ensemble':
+            ensemble_output = torch.stack(
+                [x.detach().to(self.device) for x in outputs_list], 0).mean(0).to(self.device)
+            alpha = 1
+            temperature = 4
+            loss = KDLoss(output, ensemble_output, alpha, temperature)
+            loss_similarity = F.cosine_similarity(output.softmax(1), ensemble_output.softmax(1)).mean()
+        elif kd_method == 'mutual':
+            pass
+        return loss
+
+    def validation_step(self, batch: Any, batch_idx: int):
+        # self.print(f'rank{self.rank} epoch{self.current_epoch} {self.network.fc}')
+        loss_avg = 0.
+        acc_avg = 0.
+        inputs, targets = batch
+        output = self.network(inputs)
+        loss = self.criterion(output, targets)
+
+        # log val metrics
+        preds = torch.argmax(output, dim=1)
+        acc = self.val_metric(preds, targets)
+        if acc not in self.arch_perf_history:
+            self.arch_perf_history[self.arch] = [acc]
+        else:
+            self.arch_perf_history[self.arch].append(acc)
+        # loss_avg+=loss
+        # acc_avg+=acc
+        self.log(f"val/loss", loss, on_step=False, on_epoch=True, sync_dist=False, prog_bar=True)
+        self.log(f"val/acc", acc, on_step=False, on_epoch=True, sync_dist=False, prog_bar=True)
+        # self.print(f"Valid: arch={self.arch} loss={loss}, acc={acc}")
+        # loss_avg = self.all_gather(loss_avg).mean()
+        # acc_avg = self.all_gather(acc_avg).mean()
+        # self.log("val/loss", loss_avg, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True)
+        # self.log("val/acc", acc_avg, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True)
+        # if batch_idx % 10 == 0:
+        if True:
+            self.print(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
+        return {"loss": loss, "preds": preds, "targets": targets}
+
+    # def validation_epoch_end(self, outputs: List[Any]):
+    def test_step(self, batch: Any, batch_idx: int):
+        loss_avg = 0.
+        acc_avg = 0.
+        inputs, targets = batch
+        for i in range(self.num_valid_archs):
+            self.mutator.reset()
+            output = self.network(inputs)
+            loss = self.criterion(output, targets)
+
+            # log test metrics
+            preds = torch.argmax(output, dim=1)
+            acc = self.test_metric(preds, targets)
+            loss_avg += loss
+            acc_avg += acc
+            # self.log(f"test/{self.arch}_loss", loss, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True)
+            # self.log(f"test/{self.arch}_acc", acc, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True)
+            # self.print(f"Valid: arch={self.arch} loss={loss}, acc={acc}")
+        loss_avg = self.all_gather(loss_avg).mean()
+        acc_avg = self.all_gather(acc_avg).mean()
+        self.log("test/loss", loss_avg, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True)
+        self.log("test/acc", acc_avg, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True)
+        if batch_idx % 10 == 0:
+            self.print(f"Test batch{batch_idx}: loss={loss}, acc={acc}")
+        return {"loss": loss, "preds": preds, "targets": targets}
+
+    def configure_optimizers(self):
+        """Choose what optimizers and learning-rate schedulers to use in your optimization.
+        Normally you'd need one. But in the case of GANs or similar you might have multiple.
+
+        See examples here:
+            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+        """
+        optimizer_cfg = DictConfig(self.hparams.optimizer_cfg)
+        optim = hydra.utils.instantiate(optimizer_cfg, params=self.network.parameters())
+        return optim
+
+    def configure_callbacks(self):
+        sample_search_callback = SampleSearch()
+        return [
+            sample_search_callback
+        ]
+
+    @property
+    def arch(self):
+        return self.network.arch

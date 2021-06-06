@@ -119,3 +119,7 @@ class BaseModel(LightningModule):
         optimizer_cfg = DictConfig(self.hparams.optimizer_cfg)
         optim = instantiate(optimizer_cfg, params=self.network.parameters())
         return optim
+
+    @property
+    def rank(self):
+        return self.global_rank

@@ -7,7 +7,10 @@ import torch
 import torch.nn as nn
 from omegaconf import DictConfig
 
-from .base_nas_model import BaseModel
+from utils.logger import get_logger
+logger = get_logger(__name__)
+
+from .base_model import BaseModel
 
 class DARTSModel(BaseModel):
     def __init__(
@@ -55,6 +58,8 @@ class DARTSModel(BaseModel):
         acc = self.train_metric(preds, trn_y)
         self.log("train/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
         self.log("train/acc", acc, on_step=False, on_epoch=True, prog_bar=False)
+        if batch_idx % 50 ==0:
+            self.print(f"Train epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": trn_y}
 
     def _logits_and_loss(self, X, y):
@@ -165,7 +170,9 @@ class DARTSModel(BaseModel):
         acc = self.val_metric(preds, targets)
         self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/acc", acc, on_step=False, on_epoch=True, prog_bar=False)
-
+        if batch_idx % 10 == 0:
+        # if True:
+            self.print(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def validation_epoch_end(self, outputs: List[Any]):
@@ -180,7 +187,8 @@ class DARTSModel(BaseModel):
         acc = self.test_metric(preds, targets)
         self.log("test/loss", loss, on_step=False, on_epoch=True)
         self.log("test/acc", acc, on_step=False, on_epoch=True)
-
+        if batch_idx % 10 == 0:
+            self.print(f"Test batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def test_epoch_end(self, outputs: List[Any]):

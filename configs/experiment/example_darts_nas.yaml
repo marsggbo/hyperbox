@@ -21,4 +21,4 @@ trainer:
   gradient_clip_val: 0.5
 
 datamodule:
-  get_train_val: True
+  is_customized: True

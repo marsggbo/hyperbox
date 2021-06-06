@@ -7,12 +7,10 @@ from pytorch_lightning import LightningModule
 from torchmetrics.classification.accuracy import Accuracy
 
 from utils.logger import get_logger
+from .base_model import BaseModel
+
 logger = get_logger(__name__)
 
-from .base_nas_model import BaseModel
-
-def instantiate(*args, **kwargs):
-    return hydra.utils.instantiate(*args, **kwargs)
 
 class RandomModel(BaseModel):
     """Random NAS Model Template
@@ -106,16 +104,6 @@ class RandomModel(BaseModel):
     def test_epoch_end(self, outputs: List[Any]):
         pass
 
-    def configure_optimizers(self):
-        """Choose what optimizers and learning-rate schedulers to use in your optimization.
-        Normally you'd need one. But in the case of GANs or similar you might have multiple.
-
-        See examples here:
-            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-        """
-        optimizer_cfg = DictConfig(self.hparams.optimizer_cfg)
-        optim = instantiate(optimizer_cfg, params=self.network.parameters())
-        return optim
 
 if __name__ == '__main__':
     import sys
@@ -124,5 +112,5 @@ if __name__ == '__main__':
     sys.path.append(os.path.join(os.getcwd(), '../..'))
     from omegaconf import OmegaConf
     cfg = OmegaConf.load('../../configs/model/random_nas_model.yaml')
-    nas_net = instantiate(cfg, _recursive_=False)
+    nas_net = hydra.utils.instantiate(cfg, _recursive_=False)
     pass
