@@ -1,0 +1,12 @@
+_target_: src.datamodules.cifar_datamodule.CIFAR10DataModule
+
+data_dir: /home/comp/18481086/datasets/cifar10
+val_split: 0.1
+num_workers: 4
+normalize: True
+batch_size: 64
+seed: 666
+shuffle: True
+pin_memory: False
+drop_last: False
+is_customized: False

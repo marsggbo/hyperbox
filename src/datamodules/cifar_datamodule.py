@@ -1,0 +1,130 @@
+from typing import Optional, Tuple, Union, Any, List, Callable
+
+from pytorch_lightning import LightningDataModule
+from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
+from pl_bolts.datamodules import CIFAR10DataModule as bolt_cifar10
+from torchvision.datasets import CIFAR10, CIFAR100
+from torchvision.transforms import transforms
+
+
+class CIFAR10DataModule(bolt_cifar10):
+    """
+    Example of LightningDataModule for CIFAR10 dataset.
+
+        A DataModule implements 5 key methods:
+            - prepare_data (things to do on 1 GPU/TPU, not on every GPU/TPU in distributed mode)
+            - setup (things to do on every accelerator in distributed mode)
+            - train_dataloader (the training dataloader)
+            - val_dataloader (the validation dataloader(s))
+            - test_dataloader (the test dataloader(s))
+
+        This allows you to share a full dataset without explaining how to download,
+        split, transform and process the data
+
+        Read the docs:
+            https://pytorch-lightning.readthedocs.io/en/latest/extensions/datamodules.html
+    """
+    name = "cifar10"
+    dataset_cls = CIFAR10
+    dims = (3, 32, 32)
+    EXTRA_ARGS = {}
+
+    def __init__(
+        self,
+        data_dir: Optional[str] = None,
+        val_split: Union[int, float] = 0.5,
+        num_workers: int = 4,
+        normalize: bool = False,
+        batch_size: int = 32,
+        seed: int = 666,
+        shuffle: bool = False,
+        pin_memory: bool = False,
+        drop_last: bool = False,
+        num_classes: int = 10,
+        is_customized: bool = False,
+        *args: Any,
+        **kwargs: Any,
+    ):
+        super().__init__(
+            data_dir, val_split, num_workers, normalize, batch_size, seed,
+            shuffle, pin_memory, drop_last, *args, **kwargs)
+
+        self._num_classes = num_classes
+        self.is_customized = is_customized
+
+    @property
+    def num_classes(self) -> int:
+        return self._num_classes
+
+    def default_transforms(self) -> Callable:
+        """ Default transform for the dataset """
+        return transforms.Compose(
+            [transforms.ToTensor()]
+        )
+
+    def setup(self, stage: Optional[str] = None):
+        if stage == "fit" or stage is None:
+            train_transforms = self.default_transforms() if self.train_transforms is None else self.train_transforms
+            val_transforms = self.default_transforms() if self.val_transforms is None else self.val_transforms
+
+            dataset_train = self.dataset_cls(self.data_dir, train=True, transform=train_transforms, **self.EXTRA_ARGS)
+            dataset_val = self.dataset_cls(self.data_dir, train=True, transform=val_transforms, **self.EXTRA_ARGS)
+
+            # Split
+            self.dataset_train = self._split_dataset(dataset_train)
+            self.dataset_val = self._split_dataset(dataset_val, train=False)
+            test_transforms = self.default_transforms() if self.test_transforms is None else self.test_transforms
+            self.dataset_test = self.dataset_cls(
+                self.data_dir, train=False, transform=test_transforms, **self.EXTRA_ARGS
+            )
+
+        if stage == "test" or stage is None:
+            test_transforms = self.default_transforms() if self.test_transforms is None else self.test_transforms
+            self.dataset_test = self.dataset_cls(
+                self.data_dir, train=False, transform=test_transforms, **self.EXTRA_ARGS
+            )
+
+    def train_dataloader(self):
+        train_loader = self._data_loader(self.dataset_train, shuffle=self.shuffle)
+        if self.is_customized:
+            train_val_loader = {
+                'train': train_loader,
+                'val': self.val_dataloader()
+            }
+            return train_val_loader
+        return train_loader
+
+    def val_dataloader(self):
+        return self.test_dataloader()
+        if self.is_customized:
+            return self.test_dataloader()
+        return self._data_loader(self.dataset_val)
+
+    def test_dataloader(self):
+        return self._data_loader(self.dataset_test)
+
+
+class CIFAR100DataModule(CIFAR10DataModule):
+    
+    name = "cifar100"
+    dataset_cls = CIFAR100
+
+    def __init__(
+        self,
+        data_dir: Optional[str] = None,
+        val_split: Union[int, float] = 0.5,
+        num_workers: int = 4,
+        normalize: bool = False,
+        batch_size: int = 32,
+        seed: int = 666,
+        shuffle: bool = False,
+        pin_memory: bool = False,
+        drop_last: bool = False,
+        num_classes: int = 100,
+        is_customized: bool = False,
+        *args: Any,
+        **kwargs: Any,
+    ):
+        super().__init__(data_dir, val_split, num_workers, normalize, batch_size, seed,
+                         shuffle, pin_memory, drop_last, num_classes, is_customized, *args, **kwargs)
+        
