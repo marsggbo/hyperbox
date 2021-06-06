@@ -1,6 +1,8 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+from typing import Any, List, Optional, Union, List
+
 import torch
 import torch.nn as nn
 
@@ -110,7 +112,12 @@ class MutableScope(Mutable):
 
 
 class LayerChoice(Mutable):
-    def __init__(self, op_candidates, reduction="sum", is_search=True, return_mask=False, key=None):
+    def __init__(self,
+                 op_candidates: Union[list],
+                 reduction: str = "sum",
+                 is_search: bool = True,
+                 return_mask: bool = False,
+                 key: Optional[str] = None):
         super().__init__(key)
         self.length = len(op_candidates)
         self.choices = nn.ModuleList(op_candidates)
@@ -146,22 +153,29 @@ class LayerChoice(Mutable):
 
 class InputChoice(Mutable):
     """
-    Input choice selects `n_chosen` inputs from `choose_from` (contains `n_candidates` keys). For beginners,
-    use `n_candidates` instead of `choose_from` is a safe option. To get the most power out of it, you might want to
-    know about `choose_from`.
+    Description:
+        Input choice selects `n_chosen` inputs from `choose_from` (contains `n_candidates` keys). For beginners,
+        use `n_candidates` instead of `choose_from` is a safe option. To get the most power out of it, you might want to
+        know about `choose_from`.
 
-    The keys in `choose_from` can be keys that appear in past mutables, or ``NO_KEY`` if there are no suitable ones.
-    The keys are designed to be the keys of the sources. To help mutators make better decisions,
-    mutators might be interested in how the tensors to choose from come into place. For example, the tensor is the
-    output of some operator, some node, some cell, or some module. If this operator happens to be a mutable (e.g.,
-    ``LayerChoice`` or ``InputChoice``), it has a key naturally that can be used as a source key. If it's a
-    module/submodule, it needs to be annotated with a key: that's where a ``MutableScope`` is needed.
+        The keys in `choose_from` can be keys that appear in past mutables, or ``NO_KEY`` if there are no suitable ones.
+        The keys are designed to be the keys of the sources. To help mutators make better decisions,
+        mutators might be interested in how the tensors to choose from come into place. For example, the tensor is the
+        output of some operator, some node, some cell, or some module. If this operator happens to be a mutable (e.g.,
+        ``LayerChoice`` or ``InputChoice``), it has a key naturally that can be used as a source key. If it's a
+        module/submodule, it needs to be annotated with a key: that's where a ``MutableScope`` is needed.
     """
 
     NO_KEY = ""
 
-    def __init__(self, n_candidates=None, choose_from=None, n_chosen=None, is_search=True,
-                 reduction="sum", return_mask=False, key=None):
+    def __init__(self,
+                 n_candidates: Optional[int] = None,
+                 choose_from: Optional[List[str]] = None,
+                 n_chosen: Optional[int] = None,
+                 is_search: bool = True,
+                 reduction: str = "sum",
+                 return_mask: bool = False,
+                 key: Optional[str] = None):
         """
         Initialization.
 
@@ -202,7 +216,7 @@ class InputChoice(Mutable):
         self.return_mask = return_mask
         self.is_search = is_search
 
-    def forward(self, optional_inputs):
+    def forward(self, optional_inputs: Union[list, dict]):
         """
         Forward method of LayerChoice.
 
@@ -237,19 +251,18 @@ class InputChoice(Mutable):
 
 
 class ValueChoice(Mutable):
-    def __init__(self, candidates, mask=None, index=None, key=None):
+    def __init__(self,
+                 candidates: List[Any],
+                 mask: Optional[Union[dict, list]] = None,
+                 index: int = None,
+                 key: Optional[str] = None):
         '''
-        Args:
-            candidates: list[Any]
-            mask:  list[Bool] or dict (optional)
-            index: int (optional)
-                If provided, a binary mask will be generated,
-                e.g., for 3 candidates and index=1, [0,1,0] is generated
-            key: str
         >>> ValueChoice([8,16,24], index=1)
         ValueChoice([8, 16, 24], key='ValueChoice1', value=16)
         >>> ValueChoice([3,5,7], index=0)
         ValueChoice([3, 5, 7], key='ValueChoice2', value=3)
+        >>> ValueChoice([3,5,7], mask={'key0': [1,0,0], 'key1':[0,1]}, key='key0')
+        ValueChoice([3, 5, 7], key='key0', value=3)
         '''
         super().__init__(key)
         self.candidates = candidates
@@ -342,6 +355,7 @@ class ValueChoice(Mutable):
         new_instance._key = self.key
         new_instance.mask = self.mask
         return new_instance
+
 
 # if __name__=='__main__':
 #     import doctest
