@@ -12,7 +12,7 @@ from pytorch_lightning.callbacks import Callback
 
 from losses.kd_loss import KDLoss
 from utils.logger import get_logger
-logger = get_logger(__name__, logging.DEBUG, rank_zero=False)
+logger = get_logger(__name__, logging.INFO, rank_zero=True)
 
 from .base_model import BaseModel
 
@@ -37,14 +37,14 @@ class OFAModel(BaseModel):
         **kwargs
     ):
         '''
-        kd_subnets_method: the method of knowledge distillation (kd) on subnets.
-            - '': disable kd subnets
-            - 'mutual': subnets kd each other mutually
-            - 'ensemble': using subnets' ensemble as the teacher to kd all subnets
+        Args:
+            kd_subnets_method (str): the method of knowledge distillation (kd) on subnets.
+                - '': disable kd subnets
+                - 'mutual': subnets kd each other mutually
+                - 'ensemble': using subnets' ensemble as the teacher to kd all subnets
         '''
         super().__init__(network_cfg, mutator_cfg, optimizer_cfg,
                          loss_cfg, metric_cfg, **kwargs)
-        self.automatic_optimization = False
         self.kd_subnets_method = kd_subnets_method
         self.aux_weight = aux_weight
         self.num_valid_archs = num_valid_archs
@@ -68,13 +68,11 @@ class OFAModel(BaseModel):
                     m.mask.data = mask[m.key].data.to(self.device)
 
     def training_step(self, batch: Any, batch_idx: int):
-        self.optimizer = self.optimizers()
-        logger.debug(f"rank{self.rank} optimizer is {self.optimizer}")
-        self.optimizer.zero_grad()
+        self.network.train()
+        self.mutator.eval()
         self.sample_search()
 
         logger.debug(f"rank{self.rank} model.fc={self.network.fc}")
-        self.optimizer.zero_grad()
         inputs, targets = batch
         output = self.network(inputs)
         if isinstance(output, tuple):
@@ -86,20 +84,17 @@ class OFAModel(BaseModel):
         loss = self.criterion(output, targets)
         loss = loss + self.aux_weight * aux_loss
         if self.kd_subnets_method:
-            outputs_list = self.allgather(output)
-            outputs_dict = {rank: outputs_list[rank] for rank in range(len(outputs_list))}
-            loss_kd_subnets = self.calc_loss_kd_subnets(self.kd_subnets_method)
+            outputs_list = self.all_gather(output)
+            if isinstance(output, list):
+                # horovod
+                outputs_list = torch.cat(outputs_list, 0)
+            loss_kd_subnets = self.calc_loss_kd_subnets(output, outputs_list, self.kd_subnets_method)
             loss = loss + 0.6 * loss_kd_subnets
-        # self.manual_backward(loss)
-        logger.debug("start backward")
-        loss.backward()
-        logger.debug("start optim.step")
-        self.optimizer.step()
-        logger.debug("finish optim.step")
 
         # log train metrics
         preds = torch.argmax(output, dim=1)
         acc = self.train_metric(preds, targets)
+        logger.debug(f"rank{self.rank} loss={loss} acc={acc}")
         self.log("train/loss", loss, on_step=True, on_epoch=True, sync_dist=True, prog_bar=False)
         self.log("train/acc", acc, on_step=True, on_epoch=True, sync_dist=True, prog_bar=False)
         if batch_idx % 50 ==0:
@@ -107,7 +102,7 @@ class OFAModel(BaseModel):
         return {"loss": loss, "preds": preds, "targets": targets}
         
 
-    def calc_loss_kd_subnets(self, kd_method='ensemble'):
+    def calc_loss_kd_subnets(self, output, outputs_list, kd_method='ensemble'):
         loss = 0
         if kd_method == 'ensemble':
             ensemble_output = torch.stack(
@@ -115,7 +110,6 @@ class OFAModel(BaseModel):
             alpha = 1
             temperature = 4
             loss = KDLoss(output, ensemble_output, alpha, temperature)
-            loss_similarity = F.cosine_similarity(output.softmax(1), ensemble_output.softmax(1)).mean()
         elif kd_method == 'mutual':
             pass
         return loss

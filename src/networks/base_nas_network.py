@@ -29,8 +29,10 @@ class BaseNASNetwork(nn.Module):
         '''return the current arch encoding'''
         raise NotImplementedError
 
-    def export_model_from_mask(self, mask):
-        self.mask = mask
+    def export_model_from_mask(self, mask: Optional[dict]=None):
+        # Todo
+        if mask is not None:
+            self.mask = mask
         # iteratate all mutables
 
     def load_state_dict(self, state_dict, **kwargs):
