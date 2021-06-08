@@ -8,7 +8,7 @@ from torch.nn.parameter import Parameter
 
 from mutables.mutables import ValueChoice
 from utils.average_meter import AverageMeter
-from utils.utils import kwargs_wrapper
+from utils.utils import hparams_wrapper
 
 from .masker import __MASKERS__
 from .utils import build_activation, sub_filter_start_end
@@ -27,7 +27,7 @@ __all__ = [
 ]
 
 
-@kwargs_wrapper
+@hparams_wrapper
 class FinegrainedModule(nn.Module):
     def __init__(self):
         super(FinegrainedModule, self).__init__()
@@ -51,7 +51,7 @@ class FinegrainedModule(nn.Module):
 
     def __deepcopy__(self, memo):
         try:
-            new_instance = self.__class__(**self.kwargs)
+            new_instance = self.__class__(**self.hparams)
             device = next(self.parameters()).device
             new_instance.load_state_dict(self.state_dict())
             return new_instance.to(device)
@@ -79,7 +79,7 @@ class FinegrainedConv2d(FinegrainedModule):
             >>>     print(y.shape)
         '''
         super(FinegrainedConv2d, self).__init__()
-        self.valueChoices = self.getValueChoices(self.kwargs)
+        self.valueChoices = self.getValueChoices(self.hparams)
         self.init_ops()
         self.searchConv = self.toSearchConv()
         self.conv_dim = self.__class__.__name__[-2:]
@@ -219,7 +219,7 @@ class FinegrainedConv3d(FinegrainedConv2d):
 class FinegrainedLinear(FinegrainedModule):
     def __init__(self, in_features: int, out_features: int, bias: bool = False):
         super(FinegrainedLinear, self).__init__()
-        self.valueChoices = self.getValueChoices(self.kwargs)
+        self.valueChoices = self.getValueChoices(self.hparams)
         self.init_ops()
         self.searchLinear = self.toSearchLinear()
 
@@ -314,7 +314,7 @@ class FinegrainedLinear(FinegrainedModule):
 class FinegrainedBN2d(FinegrainedModule):
     def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True, track_running_stats=True):
         super(FinegrainedBN2d, self).__init__()
-        self.valueChoices = self.getValueChoices(self.kwargs)
+        self.valueChoices = self.getValueChoices(self.hparams)
         self.bn = self.init_ops()
         self.searchBN = isinstance(num_features, ValueChoice)
 

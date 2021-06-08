@@ -40,7 +40,7 @@ class StackedLSTMCell(nn.Module):
 
 class EnasMutator(Mutator):
 
-    def __init__(self, model, =None):
+    def __init__(self, model=None):
         """
         Initialize a EnasMutator.
             Parameters

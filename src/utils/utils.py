@@ -14,6 +14,18 @@ from pytorch_lightning.utilities import rank_zero_only
 
 from .logger import get_logger
 
+
+class TorchTensorEncoder(json.JSONEncoder):
+    def default(self, o):  # pylint: disable=method-hidden
+        if isinstance(o, torch.Tensor):
+            olist = o.tolist()
+            if "bool" not in o.type().lower() and all(map(lambda d: d == 0 or d == 1, olist)):
+                print("Every element in %s is either 0 or 1. "
+                                "You might consider convert it into bool.", olist)
+            return olist
+        return super().default(o)
+
+
 def load_json(filename):
     if filename is None:
         data = None
@@ -181,14 +193,14 @@ def finish(
             wandb.finish()
 
 
-def kwargs_wrapper(cls):
+def hparams_wrapper(cls):
     '''Obtain the input arguments and values of __init__ func of a class
     
         Example:
-        >>> @kwargs_wrapper
+        >>> @hparams_wrapper
         >>> class A:
         >>>     def __init__(self, a, b, c=2, d=4):
-        >>>         print(self._kwargs)
+        >>>         print(self.hparams)
         >>> a = A(2,4,5,8)
         >>> output: {'c': 5, 'd': 8, 'a': 2, 'b': 4}
     '''
@@ -196,17 +208,17 @@ def kwargs_wrapper(cls):
 
     def __new__(cls, *args, **kwargs):
         signature = inspect.signature(cls.__init__)
-        _kwargs = {
+        _hparams = {
             k:v.default for k,v in signature.parameters.items() \
             if v.default is not inspect.Parameter.empty
         }
         _args_name = inspect.getfullargspec(cls.__init__).args[1:]
         for i, arg in enumerate(args):
-            _kwargs[_args_name[i]] = arg
-        _kwargs.update(kwargs)
+            _hparams[_args_name[i]] = arg
+        _hparams.update(kwargs)
         self = origin__new__(cls)
-        self._kwargs = _kwargs
-        cls.kwargs = property(lambda self: self._kwargs) # generate a `kwargs` property function
+        self._hparams = _hparams
+        cls.hparams = property(lambda self: self._hparams) # generate a `hparams` property function
         return self
 
     cls.__new__ = __new__

@@ -6,7 +6,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from utils import flops_size_counter, TorchTensorEncoder
+from utils.calc_model_size import flops_size_counter
+from utils.utils import TorchTensorEncoder
 from mutables import InputChoice, LayerChoice
 
 from .random_mutator import RandomMutator

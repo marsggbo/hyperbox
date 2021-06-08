@@ -6,7 +6,7 @@ from typing import Any, List, Optional, Union, List
 import torch
 import torch.nn as nn
 
-from utils.utils import kwargs_wrapper
+from utils.utils import hparams_wrapper
 
 
 __all__ = [
@@ -28,7 +28,7 @@ class global_mutable_counting:
         return cls._counter
 
 
-@kwargs_wrapper
+@hparams_wrapper
 class Mutable(nn.Module):
     """
     Mutable is designed to function as a normal layer, with all necessary operators' weights.

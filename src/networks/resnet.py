@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from mutables.finegrained_ops import (FinegrainedModule, FinegrainedConv2d,
         FinegrainedLinear, FinegrainedBN2d, ValueChoice)
-from utils.utils import load_json, kwargs_wrapper
+from utils.utils import load_json, hparams_wrapper
 
 
 __all__ = [
@@ -114,7 +114,7 @@ class Bottleneck(nn.Module):
         return out
 
 
-@kwargs_wrapper
+@hparams_wrapper
 class ResNet(nn.Module):
     counter_subnet = 1
     def __init__(
@@ -271,7 +271,7 @@ class ResNet(nn.Module):
         super(ResNet, self).load_state_dict(model_dict, **kwargs)
 
     def build_subnet(self, mask):
-        kwargs = self.kwargs.copy()
+        hparams = self.hparams.copy()
         new_mask = {}
         len_mask = len(mask)
         for key in mask:
@@ -279,8 +279,8 @@ class ResNet(nn.Module):
             new_id = int(_id) + len_mask * self.counter_subnet
             new_key = f"ValueChoice{new_id}"
             new_mask[new_key] = mask[key].clone().detach()
-        kwargs['mask'] = new_mask
-        subnet = ResNet(**kwargs)
+        hparams['mask'] = new_mask
+        subnet = ResNet(**hparams)
         self.counter_subnet += 1
         return subnet
 
