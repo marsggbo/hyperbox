@@ -105,13 +105,13 @@ class OFAModel(BaseModel):
         self.log("train/loss", loss, on_step=True, on_epoch=True, sync_dist=sync_dist, prog_bar=False)
         self.log("train/acc", acc, on_step=True, on_epoch=True, sync_dist=sync_dist, prog_bar=False)
         if batch_idx % 50 ==0:
-            self.print(f"Train epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
+            logger.info(f"Train epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
     def training_epoch_end(self, outputs: List[Any]):
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
-        self.print(f"Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        logger.info(f"Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
 
     def calc_loss_kd_subnets(self, output, outputs_list, kd_method='ensemble'):
         loss = 0
@@ -143,13 +143,13 @@ class OFAModel(BaseModel):
         self.log(f"val/loss", loss, on_step=False, on_epoch=True, sync_dist=False, prog_bar=True)
         self.log(f"val/acc", acc, on_step=False, on_epoch=True, sync_dist=False, prog_bar=True)
         # if batch_idx % 10 == 0:
-        #     self.print(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
+        #     logger.info(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
     def validation_epoch_end(self, outputs: List[Any]):
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
-        self.print(f"Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        logger.info(f"Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
     
     # def validation_epoch_end(self, outputs: List[Any]):
     def test_step(self, batch: Any, batch_idx: int):
@@ -168,19 +168,19 @@ class OFAModel(BaseModel):
             acc_avg += acc
             # self.log(f"test/{self.arch}_loss", loss, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True)
             # self.log(f"test/{self.arch}_acc", acc, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True)
-            # self.print(f"Valid: arch={self.arch} loss={loss}, acc={acc}")
+            # logger.info(f"Valid: arch={self.arch} loss={loss}, acc={acc}")
         loss_avg = self.all_gather(loss_avg).mean()
         acc_avg = self.all_gather(acc_avg).mean()
         self.log("test/loss", loss_avg, on_step=False, on_epoch=True, prog_bar=True)
         self.log("test/acc", acc_avg, on_step=False, on_epoch=True, prog_bar=True)
         if batch_idx % 10 == 0:
-            self.print(f"Test batch{batch_idx}: loss={loss}, acc={acc}")
+            logger.info(f"Test batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def test_epoch_end(self, outputs: List[Any]):
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
-        self.print(f"Test epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        logger.info(f"Test epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
 
     def configure_optimizers(self):
         """Choose what optimizers and learning-rate schedulers to use in your optimization.

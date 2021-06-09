@@ -59,7 +59,7 @@ class DARTSModel(BaseModel):
         self.log("train/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
         self.log("train/acc", acc, on_step=False, on_epoch=True, prog_bar=False)
         if batch_idx % 50 ==0:
-            self.print(f"Train epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
+            logger.info(f"Train epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": trn_y}
 
     def _logits_and_loss(self, X, y):
@@ -172,7 +172,7 @@ class DARTSModel(BaseModel):
         self.log("val/acc", acc, on_step=False, on_epoch=True, prog_bar=False)
         if batch_idx % 10 == 0:
         # if True:
-            self.print(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
+            logger.info(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def validation_epoch_end(self, outputs: List[Any]):
@@ -188,7 +188,7 @@ class DARTSModel(BaseModel):
         self.log("test/loss", loss, on_step=False, on_epoch=True)
         self.log("test/acc", acc, on_step=False, on_epoch=True)
         if batch_idx % 10 == 0:
-            self.print(f"Test batch{batch_idx}: loss={loss}, acc={acc}")
+            logger.info(f"Test batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def test_epoch_end(self, outputs: List[Any]):
