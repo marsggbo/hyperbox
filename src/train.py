@@ -73,13 +73,14 @@ def train(config: DictConfig) -> Optional[float]:
     )
 
     # Train the model
+    
     log.info("Starting training!")
     trainer.fit(model=model, datamodule=datamodule)
 
     # Evaluate model on test set after training
-    if not config.trainer.get("fast_dev_run"):
-        log.info("Starting testing!")
-        trainer.test()
+    # if not config.trainer.get("fast_dev_run"):
+    #     log.info("Starting testing!")
+    #     trainer.test()
 
     # Make sure everything closed properly
     log.info("Finalizing!")

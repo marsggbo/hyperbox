@@ -1,4 +1,4 @@
-_target_: src.networks.darts.darts_network.DARTSNetwork
+_target_: networks.darts.darts_network.DartsNetwork
 in_channels: 3
 channels: 32
 n_layers: 4

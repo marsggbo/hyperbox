@@ -83,7 +83,7 @@ class OFAModel(BaseModel):
 
         loss = self.criterion(output, targets)
         loss = loss + self.aux_weight * aux_loss
-        if self.kd_subnets_method:
+        if self.kd_subnets_method and self.trainer.world_size > 1:
             outputs_list = self.all_gather(output)
             if isinstance(output, list):
                 # horovod
@@ -138,8 +138,8 @@ class OFAModel(BaseModel):
         # acc_avg = self.all_gather(acc_avg).mean()
         # self.log("val/loss", loss_avg, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True)
         # self.log("val/acc", acc_avg, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True)
-        # if batch_idx % 10 == 0:
-        if True:
+        if batch_idx % 10 == 0:
+        # if True:
             self.print(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": targets}
 
@@ -163,8 +163,8 @@ class OFAModel(BaseModel):
             # self.print(f"Valid: arch={self.arch} loss={loss}, acc={acc}")
         loss_avg = self.all_gather(loss_avg).mean()
         acc_avg = self.all_gather(acc_avg).mean()
-        self.log("test/loss", loss_avg, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True)
-        self.log("test/acc", acc_avg, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True)
+        self.log("test/loss", loss_avg, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("test/acc", acc_avg, on_step=False, on_epoch=True, prog_bar=True)
         if batch_idx % 10 == 0:
             self.print(f"Test batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": targets}

@@ -28,6 +28,8 @@ class CIFAR10DataModule(bolt_cifar10):
     dataset_cls = CIFAR10
     dims = (3, 32, 32)
     EXTRA_ARGS = {}
+    MEAN = [0.5070751592371323, 0.48654887331495095, 0.4409178433670343]
+    STD = [0.2673342858792401, 0.2564384629170883, 0.27615047132568404]
 
     def __init__(
         self,
@@ -56,22 +58,33 @@ class CIFAR10DataModule(bolt_cifar10):
     def num_classes(self) -> int:
         return self._num_classes
 
+    def default_train_transforms(self):
+        return transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(0.5),
+            transforms.ToTensor(),
+            transforms.Normalize(self.MEAN, self.STD)
+        ])
+
     def default_transforms(self) -> Callable:
         """ Default transform for the dataset """
         return transforms.Compose(
-            [transforms.ToTensor()]
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(self.MEAN, self.STD)
+            ]
         )
 
     def setup(self, stage: Optional[str] = None):
         if stage == "fit" or stage is None:
-            train_transforms = self.default_transforms() if self.train_transforms is None else self.train_transforms
+            train_transforms = self.default_train_transforms() if self.train_transforms is None else self.train_transforms
             val_transforms = self.default_transforms() if self.val_transforms is None else self.val_transforms
 
-            dataset_train = self.dataset_cls(self.data_dir, train=True, transform=train_transforms, **self.EXTRA_ARGS)
+            self.dataset_train = self.dataset_cls(self.data_dir, train=True, transform=train_transforms, **self.EXTRA_ARGS)
             dataset_val = self.dataset_cls(self.data_dir, train=True, transform=val_transforms, **self.EXTRA_ARGS)
 
             # Split
-            self.dataset_train = self._split_dataset(dataset_train)
+            # self.dataset_train = self._split_dataset(dataset_train)
             self.dataset_val = self._split_dataset(dataset_val, train=False)
             test_transforms = self.default_transforms() if self.test_transforms is None else self.test_transforms
             self.dataset_test = self.dataset_cls(

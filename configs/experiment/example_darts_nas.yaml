@@ -4,9 +4,9 @@
 # python run.py experiment=example_simple.yaml
 
 defaults:
-  - override /trainer: debug.yaml # choose trainer from 'configs/trainer/'
+  - override /trainer: default.yaml # choose trainer from 'configs/trainer/'
   - override /model: darts_model.yaml
-  - override /datamodule: fakedata_datamodule.yaml
+  - override /datamodule: cifar10_datamodule.yaml
   - override /callbacks: default.yaml
   - override /logger: wandb.yaml
 
@@ -17,8 +17,22 @@ seed: 12345
 
 trainer:
   min_epochs: 1
-  max_epochs: 2
+  max_epochs: 200
   gradient_clip_val: 0.5
 
 datamodule:
   is_customized: True
+
+model:
+  mutator_cfg:
+    _target_: mutator.OnehotMutator
+  network_cfg:
+    _target_: networks.darts.DartsNetwork
+    in_channels: 3
+    channels: 32
+    n_classes: 10
+    n_layers: 4
+
+logger:
+  wandb:
+    offline: True
