@@ -3,6 +3,7 @@ from typing import Any, List, Optional, Union
 import copy
 import random
 import hydra
+import numpy as np
 import torch
 import torch.nn as nn
 from omegaconf import DictConfig
@@ -60,7 +61,7 @@ class DARTSModel(BaseModel):
         self.log("train/acc", acc, on_step=False, on_epoch=True, prog_bar=False)
         if batch_idx % 50 ==0:
             logger.info(f"Train epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
-        return {"loss": loss, "preds": preds, "targets": trn_y}
+        return {"loss": loss, "preds": preds, "targets": trn_y, 'acc': acc}
 
     def _logits_and_loss(self, X, y):
         self.mutator.reset()
@@ -157,9 +158,10 @@ class DARTSModel(BaseModel):
         hessian = [(p - n) / 2. * eps for p, n in zip(dalpha_pos, dalpha_neg)]
         return hessian
 
-    def training_epoch_end(self, outputs: List[Any]):
-        # `outputs` is a list of dicts returned from `training_step()`
-        pass
+    def training_epoch_end(self, outputs: List[Any]):        
+        acc = np.mean([output['acc'].item() for output in outputs])
+        loss = np.mean([output['loss'].item() for output in outputs])
+        self.print(f"Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
 
     def validation_step(self, batch: Any, batch_idx: int):
         (X, targets) = batch
@@ -170,13 +172,16 @@ class DARTSModel(BaseModel):
         acc = self.val_metric(preds, targets)
         self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/acc", acc, on_step=False, on_epoch=True, prog_bar=False)
-        if batch_idx % 10 == 0:
+        # if batch_idx % 10 == 0:
         # if True:
-            logger.info(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
-        return {"loss": loss, "preds": preds, "targets": targets}
+            # logger.info(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
+        return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
     def validation_epoch_end(self, outputs: List[Any]):
-        pass
+        acc = np.mean([output['acc'].item() for output in outputs])
+        loss = np.mean([output['loss'].item() for output in outputs])
+        self.print(f"Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+    
 
     def test_step(self, batch: Any, batch_idx: int):
         (X, targets) = batch
@@ -189,10 +194,13 @@ class DARTSModel(BaseModel):
         self.log("test/acc", acc, on_step=False, on_epoch=True)
         if batch_idx % 10 == 0:
             logger.info(f"Test batch{batch_idx}: loss={loss}, acc={acc}")
-        return {"loss": loss, "preds": preds, "targets": targets}
+        return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
     def test_epoch_end(self, outputs: List[Any]):
-        pass
+        acc = np.mean([output['acc'].item() for output in outputs])
+        loss = np.mean([output['loss'].item() for output in outputs])
+        self.print(f"Test epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+
 
     def configure_optimizers(self):
         """Choose what optimizers and learning-rate schedulers to use in your optimization.

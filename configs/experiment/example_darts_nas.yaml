@@ -26,12 +26,6 @@ datamodule:
 model:
   mutator_cfg:
     _target_: mutator.OnehotMutator
-  network_cfg:
-    _target_: networks.darts.DartsNetwork
-    in_channels: 3
-    channels: 32
-    n_classes: 10
-    n_layers: 4
 
 logger:
   wandb:
