@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
@@ -26,10 +26,12 @@ class FakeDataModule(LightningDataModule):
 
     def __init__(
         self,
-        image_size = (3, 64, 64),
+        train_size: int = 320,
+        test_size: int = 160,
+        image_size: Tuple[int, int, int] = (3, 64, 64),
         num_classes: int = 10,
         data_dir: str = "data/",
-        train_val_test_split: Tuple[int, int, int] = (55_000, 5_000, 10_000),
+        train_val_test_split: List = [160, 160, 160],
         batch_size: int = 64,
         num_workers: int = 0,
         pin_memory: bool = False,
@@ -38,9 +40,14 @@ class FakeDataModule(LightningDataModule):
     ):
         super().__init__()
 
+        self.train_size = train_size
+        self.test_size = test_size
         self.image_size = image_size
         self._num_classes = num_classes
         self.data_dir = data_dir
+        if isinstance(train_val_test_split[0], float):
+            total_num = train_size + test_size
+            train_val_test_split = [int(total_num * ratio) for ratio in train_val_test_split]
         self.train_val_test_split = train_val_test_split
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -62,16 +69,10 @@ class FakeDataModule(LightningDataModule):
     def num_classes(self) -> int:
         return self._num_classes
 
-    def prepare_data(self):
-        """Download data if needed. This method is called only from a single GPU.
-        Do not use it to assign state (self.x = y)."""
-        # MNIST(self.data_dir, train=True, download=True)
-        # MNIST(self.data_dir, train=False, download=True)
-
     def setup(self, stage: Optional[str] = None):
         """Load data. Set variables: self.data_train, self.data_val, self.data_test."""
-        trainset = FakeData(size=320, image_size=self.image_size, transform=self.transforms)
-        testset = FakeData(size=160, image_size=self.image_size, transform=self.transforms)
+        trainset = FakeData(size=self.train_size, image_size=self.image_size, transform=self.transforms)
+        testset = FakeData(size=self.test_size, image_size=self.image_size, transform=self.transforms)
         dataset = ConcatDataset(datasets=[trainset, testset])
         self.data_train, self.data_val, self.data_test = random_split(
             dataset, self.train_val_test_split

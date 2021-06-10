@@ -1,9 +1,11 @@
 _target_: src.datamodules.fakedata_datamodule.FakeDataModule
 
+train_size: 2000
+test_size: 500
 image_size: [3, 64, 64]
 num_classes: 10
 data_dir: ${data_dir} # data_dir is specified in config.yaml
 batch_size: 8
-train_val_test_split: [160, 160, 160]
+train_val_test_split: [0.6, 0.2, 0.2]
 num_workers: 0
 pin_memory: False
