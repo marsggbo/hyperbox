@@ -367,3 +367,11 @@ def resnet50(pretrained=False, progress=True, device="cpu", **kwargs):
     return _resnet(
         "resnet50", Bottleneck, [3, 4, 6, 3], pretrained, progress, device, **kwargs
     )
+
+
+if __name__ == '__main__':
+    size = lambda net: sum([p.numel() for name, p in net.named_parameters() if 'value' not in name])
+    net = resnet20()
+    params_num = size(net)
+    mb = params_num * 4 / 1024**2
+    print(f"#pamrams={size(net)} {mb}(MB)")
