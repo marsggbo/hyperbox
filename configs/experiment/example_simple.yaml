@@ -6,7 +6,7 @@
 defaults:
   - override /trainer: minimal.yaml # choose trainer from 'configs/trainer/'
   - override /model: mnist_model.yaml
-  - override /datamodule: mnist_datamodule.yaml
+  - override /datamodule: fakedata_datamodule.yaml
   - override /callbacks: default.yaml
   - override /logger: null
 
@@ -17,7 +17,7 @@ seed: 12345
 
 trainer:
   min_epochs: 1
-  max_epochs: 10
+  max_epochs: 1
   gradient_clip_val: 0.5
 
 model:
@@ -28,4 +28,4 @@ model:
 
 datamodule:
   batch_size: 64
-  train_val_test_split: [55_000, 5_000, 10_000]
+  image_size: [1,28,28]

@@ -297,7 +297,7 @@ class ENASMacroGeneralModel(nn.Module):
 
 
 if __name__ == '__main__':
-    from src.mutator.random_mutator import RandomMutator
+    from mutator.random_mutator import RandomMutator
     net = ENASMicroNetwork(
         num_layers=2,
         num_nodes=3,

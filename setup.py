@@ -14,4 +14,6 @@ setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.6',
+    install_requires=["pytorch-lightning>=1.2.0", "hydra-core>=1.0.6"],
+    packages=find_packages(),
 )

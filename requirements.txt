@@ -35,4 +35,5 @@ sh
 scikit-learn
 seaborn
 pudb
+colorlog
 # dvc

@@ -201,7 +201,7 @@ class DartsNetwork(nn.Module):
 
 
 if __name__ == '__main__':
-    from src.mutator.random_mutator import RandomMutator
+    from mutator.random_mutator import RandomMutator
     net = DartsNetwork(
         in_channels=3,
         channels=16,

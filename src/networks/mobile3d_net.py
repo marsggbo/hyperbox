@@ -146,7 +146,7 @@ if __name__ == '__main__':
     import os
     sys.path.append(os.path.join(os.getcwd(), '..'))
     sys.path.append(os.path.join(os.getcwd(), '../..'))
-    from src.mutator.random_mutator import RandomMutator
+    from mutator.random_mutator import RandomMutator
     net = Mobile3DNet()
     m = RandomMutator(net)
     m.reset()
