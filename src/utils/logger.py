@@ -42,7 +42,7 @@ def get_logger(name=__name__, level=logging.INFO, rank_zero=True) -> logging.Log
     logger.propagate = False
     if logger.hasHandlers():
         logger.handlers.clear()
-    formatter = '%(green)s[%(asctime)s%(reset)s] [%(red)s%(levelname)-4s%(reset)s] %(yellow)s%(message)s'
+    formatter = '%(cyan)s[%(asctime)s%(reset)s] [%(green)s%(levelname)-4s%(reset)s] %(message)s'
     sh = colorlog.StreamHandler()
     sh.setFormatter(
         colorlog.ColoredFormatter(formatter)
