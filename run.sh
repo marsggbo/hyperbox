@@ -4,7 +4,7 @@ num=$1
 remark=$2
 others=$3
 
-BS=128
+BS=64
 exp=example_ofa_nas
 
 

@@ -1,5 +1,7 @@
 from typing import Any, List, Optional, Union
 
+import time
+
 import copy
 import random
 import logging
@@ -58,29 +60,38 @@ class OFAModel(BaseModel):
 
     def sample_search(self):
         with torch.no_grad():
-            if self.trainer.world_size <= 1 or not self.is_net_parallel:
+            if self.trainer.world_size <= 1:
                 self.mutator.reset()
             else:
                 logger.debug(f"process {self.rank} model is on device: {self.device}")
                 mask_dict = dict()
+                is_reset = False
                 for idx in range(self.trainer.world_size):
-                    self.mutator.reset()
+                    if self.is_net_parallel or not is_reset:
+                        self.mutator.reset()
+                        is_reset = True
                     mask = self.mutator._cache
                     mask_dict[idx] = mask
                 mask_dict = self.trainer.accelerator.broadcast(mask_dict, src=0)
                 mask = mask_dict[self.rank]
-                logger.debug(f"{self.rank}: {mask['ValueChoice18']}")
+                logger.debug(f"[net_parallel={self.is_net_parallel}]{self.rank}: {mask['ValueChoice18']}")
                 for m in self.mutator.mutables:
                     m.mask.data = mask[m.key].data.to(self.device)
 
     def training_step(self, batch: Any, batch_idx: int):
         self.network.train()
         self.mutator.eval()
+        start = time.time()
         self.sample_search()
+        duration = time.time() - start
+        logger.info(f"[rank {self.trainer.global_rank}] batch idx={batch_idx} sample search {duration} seconds")
 
         logger.debug(f"rank{self.rank} model.fc={self.network.fc}")
         inputs, targets = batch
+        start = time.time()
         output = self.network(inputs)
+        duration = time.time() - start
+        logger.info(f"[rank {self.trainer.global_rank}] batch idx={batch_idx} forward {duration} seconds")
         if isinstance(output, tuple):
             output, aux_output = output
             aux_loss = self.loss(aux_output, targets)
@@ -104,7 +115,7 @@ class OFAModel(BaseModel):
         sync_dist = not self.is_net_parallel # sync the metrics if all processes train the same sub network
         self.log("train/loss", loss, on_step=True, on_epoch=True, sync_dist=sync_dist, prog_bar=False)
         self.log("train/acc", acc, on_step=True, on_epoch=True, sync_dist=sync_dist, prog_bar=False)
-        if batch_idx % 50 ==0:
+        if batch_idx % 10 ==0:
             logger.info(f"Train epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 

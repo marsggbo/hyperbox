@@ -6,7 +6,7 @@
 defaults:
     - override /trainer: default.yaml # choose trainer from 'configs/trainer/'
     - override /model: ofa_model.yaml
-    - override /datamodule: cifar100_datamodule.yaml
+    - override /datamodule: fakedata_datamodule.yaml
     - override /callbacks: default.yaml
     - override /logger: wandb.yaml
 
@@ -17,9 +17,8 @@ seed: 12345
 
 trainer:
     min_epochs: 1
-    max_epochs: 200
+    max_epochs: 1
     gradient_clip_val: 5
-    accelerator: ddp
     progress_bar_refresh_rate: 0
 logger:
     wandb:
@@ -29,7 +28,3 @@ callbacks:
     model_checkpoint:
         monitor: "val/acc" # name of the logged metric which determines when model is improving
         save_top_k: 2 # save k best models (determined by above metric)
-datamodule:
-    _target_: src.datamodules.cifar_datamodule.CIFAR100DataModule
-    is_customized: False
-    data_dir: ~/datasets/cifar100

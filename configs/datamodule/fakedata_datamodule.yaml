@@ -1,6 +1,6 @@
 _target_: src.datamodules.fakedata_datamodule.FakeDataModule
 
-train_size: 2000
+train_size: 4000
 test_size: 500
 image_size: [3, 64, 64]
 num_classes: 10
