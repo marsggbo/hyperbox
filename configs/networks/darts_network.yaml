@@ -1,4 +1,4 @@
-_target_: networks.darts.darts_network.DartsNetwork
+_target_: hyperbox.networks.darts.darts_network.DartsNetwork
 in_channels: 3
 channels: 16
 n_layers: 8

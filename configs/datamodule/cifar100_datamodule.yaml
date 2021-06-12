@@ -1,4 +1,4 @@
-_target_: src.datamodules.cifar_datamodule.CIFAR100DataModule
+_target_: hyperbox.datamodules.cifar_datamodule.CIFAR100DataModule
 
 data_dir: ~/datasets/cifar100
 val_split: 0.1

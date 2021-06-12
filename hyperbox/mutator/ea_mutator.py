@@ -6,9 +6,9 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from utils.calc_model_size import flops_size_counter
-from utils.utils import TorchTensorEncoder
-from mutables import InputChoice, LayerChoice
+from hyperbox.utils.calc_model_size import flops_size_counter
+from hyperbox.utils.utils import TorchTensorEncoder
+from hyperbox.mutables import InputChoice, LayerChoice
 
 from .random_mutator import RandomMutator
 from .utils import CARS_NSGA, encode_arch

@@ -6,9 +6,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 
-from mutables.mutables import ValueChoice
-from utils.average_meter import AverageMeter
-from utils.utils import hparams_wrapper
+from hyperbox.mutables.mutables import ValueChoice
+from hyperbox.utils.average_meter import AverageMeter
+from hyperbox.utils.utils import hparams_wrapper
 
 from .masker import __MASKERS__
 from .utils import build_activation, sub_filter_start_end

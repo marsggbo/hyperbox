@@ -1,9 +1,9 @@
-_target_: src.models.darts_model.DARTSModel
+_target_: hyperbox.models.darts_model.DARTSModel
 
 network_cfg:
-    _target_: src.networks.resnet.resnet20
+    _target_: hyperbox.networks.resnet.resnet20
 mutator_cfg:
-    _target_: mutator.darts_mutator.DartsMutator
+    _target_: hyperbox.mutator.darts_mutator.DartsMutator
 loss_cfg:
     _target_: torch.nn.CrossEntropyLoss
 optimizer_cfg:

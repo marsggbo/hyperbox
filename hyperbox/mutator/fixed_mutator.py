@@ -5,7 +5,7 @@ import json
 
 import torch
 
-from mutables import MutableScope
+from hyperbox.mutables import MutableScope
 
 from .default_mutator import Mutator
 

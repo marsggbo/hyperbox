@@ -392,7 +392,7 @@ Have a question? Found a bug? Missing a specific feature? Ran into a problem? Fe
 ### How it works
 By design, every run is initialized by [run.py](run.py) file. All PyTorch Lightning modules are dynamically instantiated from module paths specified in config. Example model config:
 ```yaml
-_target_: src.models.mnist_model.MNISTLitModel
+_target_: hyperbox.models.mnist_model.MNISTLitModel
 input_size: 784
 lin1_size: 256
 lin2_size: 256
@@ -525,7 +525,7 @@ trainer:
     gradient_clip_val: 0.5
 
 model:
-    _target_: src.models.mnist_model.MNISTLitModel
+    _target_: hyperbox.models.mnist_model.MNISTLitModel
     lr: 0.001
     weight_decay: 0.00005
     input_size: 784
@@ -535,7 +535,7 @@ model:
     output_size: 10
 
 datamodule:
-    _target_: src.datamodules.mnist_datamodule.MNISTDataModule
+    _target_: hyperbox.datamodules.mnist_datamodule.MNISTDataModule
     data_dir: ${data_dir}
     train_val_test_split: [55_000, 5_000, 10_000]
     batch_size: 64
@@ -694,7 +694,7 @@ The following is example of loading model from checkpoint and running prediction
 from PIL import Image
 from torchvision import transforms
 
-from src.models.mnist_model import MNISTLitModel
+from hyperbox.models.mnist_model import MNISTLitModel
 
 
 def predict():

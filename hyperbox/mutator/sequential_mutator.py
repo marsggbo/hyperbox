@@ -3,7 +3,7 @@ import json
 import torch
 import torch.nn.functional as F
 
-from mutables import InputChoice, LayerChoice, ValueChoice, FinegrainedModule
+from hyperbox.mutables import InputChoice, LayerChoice, ValueChoice, FinegrainedModule
 
 from .default_mutator import Mutator
 

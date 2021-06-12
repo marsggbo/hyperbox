@@ -7,7 +7,7 @@ import torch
 from torch import nn as nn
 from torch.nn import functional as F
 
-from mutables import LayerChoice
+from hyperbox.mutables import LayerChoice
 
 from .base_mutator import BaseMutator
 from .default_mutator import Mutator

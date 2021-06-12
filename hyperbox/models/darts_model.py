@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from omegaconf import DictConfig
 
-from utils.logger import get_logger
+from hyperbox.utils.logger import get_logger
 logger = get_logger(__name__)
 
 from .base_model import BaseModel

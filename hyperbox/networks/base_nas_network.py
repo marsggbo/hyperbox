@@ -1,7 +1,7 @@
 from typing import Optional, Union
 import torch.nn as nn
 
-from utils.utils import load_json
+from hyperbox.utils.utils import load_json
 
 
 class BaseNASNetwork(nn.Module):

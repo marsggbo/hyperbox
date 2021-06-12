@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from mutables import InputChoice, LayerChoice, ValueChoice
+from hyperbox.mutables import InputChoice, LayerChoice, ValueChoice
 
 from .default_mutator import Mutator
 

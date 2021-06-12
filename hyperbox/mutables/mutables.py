@@ -6,7 +6,7 @@ from typing import Any, List, Optional, Union, List
 import torch
 import torch.nn as nn
 
-from utils.utils import hparams_wrapper
+from hyperbox.utils.utils import hparams_wrapper
 
 
 __all__ = [

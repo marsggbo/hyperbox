@@ -1,6 +1,6 @@
-_target_: src.datamodules.cifar_datamodule.CIFAR10DataModule
+_target_: hyperbox.datamodules.cifar_datamodule.CIFAR10DataModule
 
-data_dir: /home/comp/18481086/datasets/cifar10
+data_dir: ~/datasets/cifar10
 val_split: 0.1
 num_workers: 4
 normalize: True

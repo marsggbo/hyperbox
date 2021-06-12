@@ -6,7 +6,7 @@ from omegaconf import DictConfig
 from pytorch_lightning import LightningModule
 from torchmetrics.classification.accuracy import Accuracy
 
-from utils.logger import get_logger
+from hyperbox.utils.logger import get_logger
 logger = get_logger(__name__)
 
 def instantiate(*args, **kwargs):

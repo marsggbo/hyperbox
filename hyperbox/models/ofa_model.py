@@ -13,8 +13,8 @@ import torch.nn.functional as F
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import Callback
 
-from losses.kd_loss import KDLoss
-from utils.logger import get_logger
+from hyperbox.losses.kd_loss import KDLoss
+from hyperbox.utils.logger import get_logger
 logger = get_logger(__name__, logging.INFO, rank_zero=True)
 
 from .base_model import BaseModel

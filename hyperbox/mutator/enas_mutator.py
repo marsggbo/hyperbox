@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from mutables import InputChoice, LayerChoice, MutableScope
+from hyperbox.mutables import InputChoice, LayerChoice, MutableScope
 
 from .default_mutator import Mutator
 

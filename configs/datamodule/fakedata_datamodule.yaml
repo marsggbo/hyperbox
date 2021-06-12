@@ -1,4 +1,4 @@
-_target_: src.datamodules.fakedata_datamodule.FakeDataModule
+_target_: hyperbox.datamodules.fakedata_datamodule.FakeDataModule
 
 train_size: 4000
 test_size: 500

@@ -3,9 +3,10 @@ import copy
 
 import torch
 import torch.nn as nn
-from mutables.finegrained_ops import (FinegrainedModule, FinegrainedConv2d,
+
+from hyperbox.mutables.finegrained_ops import (FinegrainedModule, FinegrainedConv2d,
         FinegrainedLinear, FinegrainedBN2d, ValueChoice)
-from utils.utils import load_json, hparams_wrapper
+from hyperbox.utils.utils import load_json, hparams_wrapper
 
 
 __all__ = [

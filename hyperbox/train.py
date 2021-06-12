@@ -11,7 +11,7 @@ from pytorch_lightning import (
 )
 from pytorch_lightning.loggers import LightningLoggerBase
 
-from utils import utils, logger
+from hyperbox.utils import utils, logger
 
 log = logger.get_logger(__name__)
 

@@ -1,9 +1,9 @@
-_target_: src.models.random_nas_model.RandomModel
+_target_: hyperbox.models.random_nas_model.RandomModel
 
 network_cfg:
-    _target_: src.networks.resnet.resnet20
+    _target_: hyperbox.networks.resnet.resnet20
 mutator_cfg:
-    _target_: mutator.random_mutator.RandomMutator
+    _target_: hyperbox.mutator.random_mutator.RandomMutator
 loss_cfg:
     _target_: torch.nn.CrossEntropyLoss
 optimizer_cfg:
