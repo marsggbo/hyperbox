@@ -1,7 +1,9 @@
 import os
 import traceback
 import logging
+import colorlog
 from functools import wraps
+
 
 def rank_zero_only(fn):
     
@@ -11,7 +13,7 @@ def rank_zero_only(fn):
             s =  traceback.extract_stack()
             filename, lineno, name, line = s[-2]
             args = list(args)
-            args[0] = f'{filename}:{lineno} {args[0]}'
+            args[0] = f'[{filename}:{lineno}] - {args[0]}'
             args = tuple(args)
             return fn(*args, **kwargs)
 
@@ -40,10 +42,11 @@ def get_logger(name=__name__, level=logging.INFO, rank_zero=True) -> logging.Log
     logger.propagate = False
     if logger.hasHandlers():
         logger.handlers.clear()
-    formatter = '[%(asctime)s] [%(levelname)s] %(message)s'
-    formatter = logging.Formatter(formatter)
-    sh = logging.StreamHandler()
-    sh.setFormatter(formatter)
+    formatter = '%(green)s[%(asctime)s%(reset)s] [%(red)s%(levelname)-4s%(reset)s] %(yellow)s%(message)s'
+    sh = colorlog.StreamHandler()
+    sh.setFormatter(
+        colorlog.ColoredFormatter(formatter)
+    )
 
     # this ensures all logging levels get marked with the rank zero decorator
     # otherwise logs would get multiplied for each GPU process in multi-GPU setup
@@ -55,3 +58,9 @@ def get_logger(name=__name__, level=logging.INFO, rank_zero=True) -> logging.Log
     logger.addHandler(sh)
     sh.close()
     return logger
+
+
+if __name__ == '__main__':
+    logger = get_logger(__name__)
+    logger.info("g dsa vgjasi")
+    logger.info("fsda吧是于死地不欺暗室")
