@@ -7,7 +7,7 @@ from hyperbox.utils.utils import load_json
 class BaseNASNetwork(nn.Module):
     def __init__(self, mask: Optional[Union[str, dict]]=None):
         super(BaseNASNetwork, self).__init__()
-        if mask is None:
+        if mask is None or mask == '':
             self.is_search=True
         elif isinstance(mask, str):
             mask = load_json(mask)

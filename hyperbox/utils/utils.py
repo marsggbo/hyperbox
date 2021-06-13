@@ -198,9 +198,9 @@ def hparams_wrapper(cls):
     
         Example:
         >>> @hparams_wrapper
-        >>> class A:
-        >>>     def __init__(self, a, b, c=2, d=4):
-        >>>         print(self.hparams)
+            class A:
+                def __init__(self, a, b, c=2, d=4):
+                    print(self.hparams)
         >>> a = A(2,4,5,8)
         >>> output: {'c': 5, 'd': 8, 'a': 2, 'b': 4}
     '''

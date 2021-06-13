@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from hyperbox.mutables import InputSpace, OperationSpace, ValueSpace, FinegrainedModule
+from hyperbox.mutables.mutables import InputSpace, OperationSpace, ValueSpace
 
 from .default_mutator import Mutator
 

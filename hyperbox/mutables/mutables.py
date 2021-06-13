@@ -111,13 +111,13 @@ class MutableScope(Mutable):
             self.mutator.exit_mutable_scope(self)
 
 
-class Categorical(Mutable):
+class CategoricalSpace(Mutable):
     def __init__(self,
                  candidates: List[Any],
                  mask: Optional[Union[dict, list]] = None,
                  index: int = None,
                  key: Optional[str] = None):
-        '''Categorical search space
+        '''CategoricalSpace search space
         Examples:
             candidates: [conv3x3, conv5x5, Identity]
             key: default value is empty string "". suppose key is 'key0'
@@ -212,7 +212,7 @@ class Categorical(Mutable):
         return new_instance
 
 
-class OperationSpace(Categorical):
+class OperationSpace(CategoricalSpace):
     def __init__(self,
                  candidates: Union[list],
                  mask: Optional[Union[dict, list]] = None,
@@ -251,7 +251,7 @@ class OperationSpace(Categorical):
             return self.choices[0].__repr__()
 
 
-class InputSpace(Categorical):
+class InputSpace(CategoricalSpace):
     """
     Description:
         Input choice selects `n_chosen` inputs from `choose_from` (contains `n_candidates` keys). For beginners,
@@ -364,7 +364,7 @@ class InputSpace(Categorical):
             return out
     
 
-class ValueSpace(Categorical):
+class ValueSpace(CategoricalSpace):
     def __init__(self,
                  candidates: List[Any],
                  mask: Optional[Union[dict, list]] = None,
@@ -385,7 +385,7 @@ class ValueSpace(Categorical):
     @property
     def lastBindModuleName(self):
         assert len(self.bindModuleNames)>0, \
-            "Please apply `bind_module_to_valueChoice` function to bind modules to ValueSpace.\
+            "Please apply `bind_module_to_ValueSpace` function to bind modules to ValueSpace.\
             There is currently no module name bound."            
         return self.bindModuleNames[-1]
 

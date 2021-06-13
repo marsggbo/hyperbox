@@ -7,7 +7,7 @@ import torch
 from torch import nn as nn
 from torch.nn import functional as F
 
-from hyperbox.mutables import OperationSpace
+from hyperbox.mutables.mutables import OperationSpace
 
 from .base_mutator import BaseMutator
 from .default_mutator import Mutator

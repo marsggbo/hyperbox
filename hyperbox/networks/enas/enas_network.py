@@ -5,8 +5,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import hyperbox.mutables as mutables
-from enas_ops import FactorizedReduce, StdConv, SepConvBN, Pool, ConvBranch, PoolBranch, Calibration
+import hyperbox.mutables.mutables as mutables
+from .enas_ops import FactorizedReduce, StdConv, SepConvBN, Pool, ConvBranch, PoolBranch, Calibration
+
+
+__all__ = [
+    'Cell',
+    'Node',
+    'ENASMicroLayer',
+    'ENASMicroNetwork',
+    'ENASMacroLayer',
+    'ENASMacroGeneralModel'
+]
 
 
 class Cell(nn.Module):
@@ -294,17 +304,3 @@ class ENASMacroGeneralModel(nn.Module):
         cur = self.dropout(cur)
         logits = self.dense(cur)
         return logits
-
-
-if __name__ == '__main__':
-    from mutator.random_mutator import RandomMutator
-    net = ENASMicroNetwork(
-        num_layers=2,
-        num_nodes=3,
-    ).cuda()
-    m = RandomMutator(net)
-    m.reset()
-    x = torch.rand(2,3,64,64).cuda()
-    output = net(x)
-    print(output.shape)
-    pass

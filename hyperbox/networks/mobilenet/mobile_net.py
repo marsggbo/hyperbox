@@ -2,21 +2,16 @@ import torch
 import torch.nn as nn
 import math
 
-from hyperbox.mutables import OperationSpace
+from hyperbox.mutables.mutables import OperationSpace
 from hyperbox.utils.utils import load_json
 
-from mobile3d_ops import *
-from mobile_utils import *
-from base_nas_network import BaseNASNetwork
+from ..base_nas_network import BaseNASNetwork
+from .mobile_ops import *
+from .mobile_utils import *
 
 
-__all__ = [
-    'Mobile3DNet',
-]
-
-
-class Mobile3DNet(BaseNASNetwork):
-    def __init__(self, c_in=3,
+class MobileNet(BaseNASNetwork):
+    def __init__(self,
                  width_stages=[24,40,80,96,192,320],
                  n_cell_stages=[4,4,4,4,4,1],
                  stride_stages=[2,2,2,1,2,1],
@@ -34,13 +29,13 @@ class Mobile3DNet(BaseNASNetwork):
             width_mult : int
                 the scale factor of width
         """
-        super(Mobile3DNet, self).__init__(mask)
+        super(MobileNet, self).__init__(mask)
         input_channel = make_divisible(32 * width_mult, 8)
         first_cell_width = make_divisible(16 * width_mult, 8)
         for i in range(len(width_stages)):
             width_stages[i] = make_divisible(width_stages[i] * width_mult, 8)
         # first conv
-        first_conv = ConvLayer(c_in, input_channel, kernel_size=3, stride=2, use_bn=True, act_func='relu6', ops_order='weight_bn_act')
+        first_conv = ConvLayer(3, input_channel, kernel_size=3, stride=2, use_bn=True, act_func='relu6', ops_order='weight_bn_act')
         # first block
         first_block_conv = OPS['3x3_MBConv1'](input_channel, first_cell_width, 1)
         first_block = first_block_conv
@@ -72,7 +67,7 @@ class Mobile3DNet(BaseNASNetwork):
                     # if it is not the first one
                     op_candidates += [OPS['Zero'](input_channel, width, stride)]
                 if self.mask: op_candidates = [op_candidates[self.mask[f"s{stage_cnt}_c{i}"].argmax()]]
-                conv_op = OperationSpace(op_candidates, return_mask=True, is_search=self.is_search, key="s{}_c{}".format(stage_cnt, i))
+                conv_op = OperationSpace(op_candidates, return_mask=True, key="s{}_c{}".format(stage_cnt, i))
                 # shortcut
                 if stride == 1 and input_channel == width:
                     # if not first cell
@@ -92,12 +87,11 @@ class Mobile3DNet(BaseNASNetwork):
         self.first_conv = first_conv
         self.blocks = nn.ModuleList(blocks)
         self.feature_mix_layer = feature_mix_layer
-        self.global_avg_pooling = nn.AdaptiveAvgPool3d(1)
+        self.global_avg_pooling = nn.AdaptiveAvgPool2d(1)
         self.classifier = classifier
 
         # set bn param
         self.set_bn_param(momentum=bn_param[0], eps=bn_param[1])
-        self.init_model()
 
     def forward(self, x):
         x = self.first_conv(x)
@@ -111,14 +105,14 @@ class Mobile3DNet(BaseNASNetwork):
 
     def set_bn_param(self, momentum, eps):
         for m in self.modules():
-            if isinstance(m, nn.BatchNorm3d) or isinstance(m, nn.BatchNorm1d):
+            if isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
                 m.momentum = momentum
                 m.eps = eps
         return
 
     def init_model(self, model_init='he_fout', init_div_groups=False):
         for m in self.modules():
-            if isinstance(m, nn.Conv3d):
+            if isinstance(m, nn.Conv2d):
                 if model_init == 'he_fout':
                     n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                     if init_div_groups:
@@ -131,7 +125,7 @@ class Mobile3DNet(BaseNASNetwork):
                     m.weight.data.normal_(0, math.sqrt(2. / n))
                 else:
                     raise NotImplementedError
-            elif isinstance(m, nn.BatchNorm3d) or isinstance(m, nn.BatchNorm1d):
+            elif isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
             elif isinstance(m, nn.Linear):
@@ -139,18 +133,3 @@ class Mobile3DNet(BaseNASNetwork):
                 m.weight.data.uniform_(-stdv, stdv)
                 if m.bias is not None:
                     m.bias.data.zero_()
-
-
-if __name__ == '__main__':
-    import sys
-    import os
-    sys.path.append(os.path.join(os.getcwd(), '..'))
-    sys.path.append(os.path.join(os.getcwd(), '../..'))
-    from mutator.random_mutator import RandomMutator
-    net = Mobile3DNet()
-    m = RandomMutator(net)
-    m.reset()
-    x = torch.rand(2,3,64,64,64)
-    output = net(x)
-    print(output.shape)
-    pass

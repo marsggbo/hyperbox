@@ -2,7 +2,7 @@ from collections import OrderedDict
 import torch
 import torch.nn as nn
 
-from mobile_utils import get_same_padding, build_activation
+from .mobile_utils import get_same_padding, build_activation
 
 
 OPS = {

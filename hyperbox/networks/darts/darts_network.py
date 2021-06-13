@@ -5,9 +5,17 @@ from collections import OrderedDict
 
 import torch
 import torch.nn as nn
-import mutables
+
+import hyperbox.mutables.mutables as mutables
 
 from .darts_ops import PoolBN, SepConv, DilConv, FactorizedReduce, DropPath, StdConv
+
+
+__all__ = [
+    'Node',
+    'DartsCell',
+    'DartsNetwork'
+]
 
 
 class Node(nn.Module):
@@ -198,20 +206,3 @@ class DartsNetwork(nn.Module):
         for module in self.modules():
             if isinstance(module, DropPath):
                 module.p = p
-
-
-if __name__ == '__main__':
-    from mutator.random_mutator import RandomMutator
-    net = DartsNetwork(
-        in_channels=3,
-        channels=16,
-        n_classes=10,
-        n_layers=3,
-        factory_func=DartsCell,
-    ).cuda()
-    m = RandomMutator(net)
-    m.reset()
-    x = torch.rand(2,3,64,64).cuda()
-    output = net(x)
-    print(output.shape)
-    pass

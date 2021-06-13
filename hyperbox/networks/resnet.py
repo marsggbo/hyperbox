@@ -4,8 +4,8 @@ import copy
 import torch
 import torch.nn as nn
 
-from hyperbox.mutables.finegrained_ops import (FinegrainedModule, FinegrainedConv2d,
-        FinegrainedLinear, FinegrainedBN2d, ValueSpace)
+from hyperbox.mutables.ops import Conv2d, Linear, BatchNorm2d
+from hyperbox.mutables.mutables import ValueSpace
 from hyperbox.utils.utils import load_json, hparams_wrapper
 
 
@@ -37,12 +37,12 @@ class BasicBlock(nn.Module):
             raise NotImplementedError("Dilation > 1 not supported in BasicBlock")
         # Both self.conv1 and self.downsample layers downsample the input when stride != 1
         self.conv1 = nn.Sequential(
-            FinegrainedConv2d(inplanes, midplanes, 3, stride, padding=1),
-            FinegrainedBN2d(midplanes),
+            Conv2d(inplanes, midplanes, 3, stride, padding=1),
+            BatchNorm2d(midplanes),
             nn.ReLU(inplace=True))
         self.conv2 = nn.Sequential(
-            FinegrainedConv2d(midplanes, outplanes, 3, 1, padding=1),
-            FinegrainedBN2d(outplanes),
+            Conv2d(midplanes, outplanes, 3, 1, padding=1),
+            BatchNorm2d(outplanes),
         )
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
@@ -146,8 +146,8 @@ class ResNet(nn.Module):
         # CIFAR10: kernel_size 7 -> 3, stride 2 -> 1, padding 3->1
         self.inplanes = ValueSpace([4, 8, 12, 16], mask=self.mask)
         self.conv0 = nn.Sequential(
-            FinegrainedConv2d(3, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False),
-            FinegrainedBN2d(self.inplanes),
+            Conv2d(3, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False),
+            BatchNorm2d(self.inplanes),
             nn.ReLU(inplace=True))
 
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -162,7 +162,7 @@ class ResNet(nn.Module):
         )
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Sequential(
-            FinegrainedLinear(self.inplanes, num_classes)
+            Linear(self.inplanes, num_classes)
         )
 
         for m in self.modules():
@@ -195,10 +195,10 @@ class ResNet(nn.Module):
         mid_planes = ValueSpace(planes, mask=self.mask)
         v_planes1 = ValueSpace(planes, mask=self.mask)
         # if stride != 1 or self.inplanes.value != v_planes1.value * block.expansion:
-            # downsample = FinegrainedConv2d(self.inplanes, v_planes1, 1, stride, act_func=None)
+            # downsample = Conv2d(self.inplanes, v_planes1, 1, stride, act_func=None)
         downsample = nn.Sequential(
-            FinegrainedConv2d(self.inplanes, v_planes1, 1, stride),
-            FinegrainedBN2d(v_planes1),
+            Conv2d(self.inplanes, v_planes1, 1, stride),
+            BatchNorm2d(v_planes1),
             # nn.ReLU()
             )
         layers = []
@@ -218,8 +218,8 @@ class ResNet(nn.Module):
             mid_planes = ValueSpace(planes, mask=self.mask)
             v_planes2 = ValueSpace(planes, mask=self.mask)
             downsample = nn.Sequential(
-                FinegrainedConv2d(inplanes, v_planes2, 1, 1),
-                FinegrainedBN2d(v_planes2),
+                Conv2d(inplanes, v_planes2, 1, 1),
+                BatchNorm2d(v_planes2),
                 # nn.ReLU()
                 )
             layers.append(
@@ -368,11 +368,3 @@ def resnet50(pretrained=False, progress=True, device="cpu", **kwargs):
     return _resnet(
         "resnet50", Bottleneck, [3, 4, 6, 3], pretrained, progress, device, **kwargs
     )
-
-
-if __name__ == '__main__':
-    size = lambda net: sum([p.numel() for name, p in net.named_parameters() if 'value' not in name])
-    net = resnet20()
-    params_num = size(net)
-    mb = params_num * 4 / 1024**2
-    print(f"#pamrams={size(net)} {mb}(MB)")

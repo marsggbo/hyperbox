@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from hyperbox.mutables import InputSpace, OperationSpace, MutableScope
+from hyperbox.mutables.mutables import InputSpace, OperationSpace, MutableScope
 
 from .default_mutator import Mutator
 
