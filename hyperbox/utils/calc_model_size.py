@@ -107,25 +107,3 @@ def flops_size_counter(_model, input_size):
         'size': total_params,
     })
     return result
-
-
-if __name__ == '__main__':
-    import sys
-    sys.path.append('..')
-
-    from mutator import RandomMutator
-    from networks.mobile_net import MobileNet
-
-    net = MobileNet()
-    mutator = RandomMutator(net)
-    mutator.reset()
-
-    x = torch.rand(1,3,128,128)
-    result = flops_size_counter(net, (x,))
-    ops, params = [result[k] for k in result]
-    print(f"{ops} MFLOPS, {params} MB")
-
-    x = torch.rand(1,3,64,64)
-    result = flops_size_counter(net, (x,))
-    ops, params = [result[k] for k in result]
-    print(f"{ops} MFLOPS, {params} MB")

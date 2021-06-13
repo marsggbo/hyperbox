@@ -139,18 +139,3 @@ class Mobile3DNet(BaseNASNetwork):
                 m.weight.data.uniform_(-stdv, stdv)
                 if m.bias is not None:
                     m.bias.data.zero_()
-
-
-if __name__ == '__main__':
-    import sys
-    import os
-    sys.path.append(os.path.join(os.getcwd(), '..'))
-    sys.path.append(os.path.join(os.getcwd(), '../..'))
-    from mutator.random_mutator import RandomMutator
-    net = Mobile3DNet()
-    m = RandomMutator(net)
-    m.reset()
-    x = torch.rand(2,3,64,64,64)
-    output = net(x)
-    print(output.shape)
-    pass

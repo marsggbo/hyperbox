@@ -103,14 +103,3 @@ class RandomModel(BaseModel):
 
     def test_epoch_end(self, outputs: List[Any]):
         pass
-
-
-if __name__ == '__main__':
-    import sys
-    import os
-    sys.path.append(os.path.join(os.getcwd(), '..'))
-    sys.path.append(os.path.join(os.getcwd(), '../..'))
-    from omegaconf import OmegaConf
-    cfg = OmegaConf.load('../../configs/model/random_nas_model.yaml')
-    nas_net = hydra.utils.instantiate(cfg, _recursive_=False)
-    pass

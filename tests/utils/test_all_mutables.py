@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 
-import mutables, mutator
+import hyperbox.mutables as mutables
+import hyperbox.mutator as mutator
 
 class Net(nn.Module):
     def __init__(self,):
@@ -12,14 +13,14 @@ class Net(nn.Module):
             nn.Conv2d(3,4,kernel_size=7,stride=1,padding=3),
             nn.Identity()
         ]
-        self.candidate_op1 = mutables.LayerChoice(ops, key='candidate1')
-        self.candidate_op2 = mutables.LayerChoice(ops, key='candidate2')
+        self.candidate_op1 = mutables.mutables.OperationSpace(ops, key='candidate1')
+        self.candidate_op2 = mutables.mutables.OperationSpace(ops, key='candidate2')
         
-        v1 = mutables.ValueChoice([4,8,16])
-        self.fop1 = mutables.FinegrainedConv2d(4, v1, kernel_size=3,stride=1,padding=1)
-        self.fop2 = mutables.FinegrainedConv2d(v1, 8, kernel_size=3,stride=1,padding=1)
+        v1 = mutables.mutables.ValueSpace([4,8,16])
+        self.fop1 = mutables.ops.Conv2d(4, v1, kernel_size=3,stride=1,padding=1)
+        self.fop2 = mutables.ops.Conv2d(v1, 8, kernel_size=3,stride=1,padding=1)
         
-        self.input_op = mutables.InputChoice(n_candidates=2, n_chosen=1, key='input1')
+        self.input_op = mutables.mutables.InputSpace(n_candidates=2, n_chosen=1, key='input1')
 
     def forward(self, x):
         out1 = self.candidate_op1(x)

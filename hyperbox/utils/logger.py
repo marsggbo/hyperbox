@@ -58,9 +58,3 @@ def get_logger(name=__name__, level=logging.INFO, rank_zero=True) -> logging.Log
     logger.addHandler(sh)
     sh.close()
     return logger
-
-
-if __name__ == '__main__':
-    logger = get_logger(__name__)
-    logger.info("g dsa vgjasi")
-    logger.info("fsda吧是于死地不欺暗室")
