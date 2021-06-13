@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from hyperbox.mutables.mutables import ValueSpace
+from hyperbox.mutables.spaces import ValueSpace
 
 from .base_module import FinegrainedModule
 

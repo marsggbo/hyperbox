@@ -3,7 +3,7 @@ import json
 import torch
 import torch.nn.functional as F
 
-from hyperbox.mutables.mutables import InputSpace, OperationSpace, ValueSpace
+from hyperbox.mutables.spaces import InputSpace, OperationSpace, ValueSpace
 
 from .default_mutator import Mutator
 

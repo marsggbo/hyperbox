@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 from hyperbox.utils.calc_model_size import flops_size_counter
 from hyperbox.utils.utils import TorchTensorEncoder
-from hyperbox.mutables.mutables import InputSpace, OperationSpace
+from hyperbox.mutables.spaces import InputSpace, OperationSpace
 
 from .random_mutator import RandomMutator
 from .utils import CARS_NSGA, encode_arch

@@ -14,9 +14,13 @@
     - 将原先的各种`Finegrained*`算子的名字与Pytorch保持一致，方便使用,例如
         - `FinegrainedConv2d` -> `Conv2d`
         - `FinegrainedBN2d` -> `BatchNorm2d`
-    - 统一`mutator`和`networks`模块中对`mutables`调用的方法，即`from hyperbox.mutables.mutables import InputSpace, *`
+    - 统一`mutator`和`networks`模块中对`mutables`调用的方法，即`from hyperbox.mutables.spaces import InputSpace, *`
     - 重构`mobilenet`各个模块
 
 ## 2021年6月13日21:41:52
 
 - refactor测试模块： 将原来写在代码下的测试模块抽离到`tests`目录下
+
+## 2021年6月13日21:56:30
+
+- rename `mutables.mutables` to `mutables.spaces`

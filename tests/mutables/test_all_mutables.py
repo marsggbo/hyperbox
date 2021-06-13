@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from hyperbox.mutator import RandomMutator
-from hyperbox.mutables.mutables import InputSpace, OperationSpace, ValueSpace
+from hyperbox.mutables.spaces import InputSpace, OperationSpace, ValueSpace
 from hyperbox.mutables.ops import Conv2d
 
 

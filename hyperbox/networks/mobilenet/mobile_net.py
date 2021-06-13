@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import math
 
-from hyperbox.mutables.mutables import OperationSpace
+from hyperbox.mutables.spaces import OperationSpace
 from hyperbox.utils.utils import load_json
 
 from ..base_nas_network import BaseNASNetwork

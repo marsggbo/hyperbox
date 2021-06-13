@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 
 from hyperbox.mutables.ops import Conv2d, Linear, BatchNorm2d
-from hyperbox.mutables.mutables import ValueSpace
+from hyperbox.mutables.spaces import ValueSpace
 from hyperbox.utils.utils import load_json, hparams_wrapper
 
 

@@ -3,7 +3,7 @@
 import torch
 import torch.nn as nn
 
-from hyperbox.mutables.mutables import ValueSpace
+from hyperbox.mutables.spaces import ValueSpace
 from hyperbox.utils.utils import hparams_wrapper
 
 

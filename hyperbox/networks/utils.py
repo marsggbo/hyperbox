@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from hyperbox.utils.average_meter import AverageMeter
 from hyperbox.mutables.ops import BaseConvNd, BaseBatchNorm, Linear, FinegrainedModule
 from hyperbox.mutables.masker import __MASKERS__
-from hyperbox.mutables.mutables import ValueSpace
+from hyperbox.mutables.spaces import ValueSpace
 
 
 def isValueSpace(module):
