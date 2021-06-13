@@ -13,14 +13,15 @@ class Net(nn.Module):
             nn.Conv2d(3,4,kernel_size=3,stride=1,padding=1),
             nn.Conv2d(3,4,kernel_size=5,stride=1,padding=2),
             nn.Conv2d(3,4,kernel_size=7,stride=1,padding=3),
-            nn.Identity()
         ]
         self.candidate_op1 = OperationSpace(ops, key='candidate1')
         self.candidate_op2 = OperationSpace(ops, key='candidate2')
         
         v1 = ValueSpace([4,8,16])
-        self.fop1 = Conv2d(4, v1, kernel_size=3,stride=1,padding=1)
-        self.fop2 = Conv2d(v1, 8, kernel_size=3,stride=1,padding=1)
+        v2 = ValueSpace([2])
+        v3 = ValueSpace([3,5,7])
+        self.fop1 = Conv2d(4, v1, kernel_size=v3,stride=v2,padding=1,auto_padding=True)
+        self.fop2 = Conv2d(v1, 8, kernel_size=v3,stride=v2,padding=1,auto_padding=True)
         
         self.input_op = InputSpace(n_candidates=2, n_chosen=1, key='input1')
 
@@ -29,6 +30,7 @@ class Net(nn.Module):
         out2 = self.candidate_op2(x)
         
         out = self.input_op([out1, out2])
+        print(out.shape)
         out = self.fop1(out)
         out = self.fop2(out)
         return out
@@ -37,7 +39,7 @@ if __name__ == '__main__':
     net = Net()
     random = RandomMutator(net)
     random.reset()
-    x = torch.rand(2,3,16,16)
+    x = torch.rand(2,3,64,64)
     y = net(x)
     print(y.shape)
 

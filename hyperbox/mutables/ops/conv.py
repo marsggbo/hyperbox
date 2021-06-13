@@ -30,10 +30,17 @@ class BaseConvNd(FinegrainedModule):
         groups: int = 1,
         bias: bool = True,
         padding_mode: str = 'zeros',
+        auto_padding: bool = False,
+        *args,
+        **kwargs
         ):
-        '''Base Conv Module'''
+        '''Base Conv Module
+        Args:
+            auto_padding: if set to true, will set a proper padding size to make output size same as the input size.
+                For example, if kernel size is 3, the padding size is 1;
+                if kernel_size is (3,7), the padding size is (1, 3)
+        '''
         super(BaseConvNd, self).__init__()
-        self.value_spaces = self.getValueSpaces(self.hparams)
         conv_kwargs = {key:getattr(self, key, None) for key in ['in_channels', 'out_channels', 'kernel_size',
             'stride', 'padding', 'dilation', 'groups', 'bias', 'padding_mode']}
         self.init_ops(conv_kwargs)
@@ -120,6 +127,11 @@ class BaseConvNd(FinegrainedModule):
         filters = filters[:out_channels, :in_channels, ...]
         if self.search_kernel_size:
             filters = self.transform_kernel_size(filters)
+        if self.auto_padding:
+            kernel_size = filters.shape[2:]
+            padding = []
+            for k in kernel_size:
+                padding.append(k//2)
 
         if isinstance(self.conv, nn.Conv1d):
             return F.conv1d(x, filters, bias, stride, padding, dilation, groups)
@@ -135,6 +147,7 @@ class BaseConvNd(FinegrainedModule):
         if isinstance(self.conv, nn.Conv1d): filters = filters[:, :, start:end]
         if isinstance(self.conv, nn.Conv2d): filters = filters[:, :, start:end, start:end]
         if isinstance(self.conv, nn.Conv3d): filters = filters[:, :, start:end, start:end, start:end]
+        return filters
 
     def sort_weight_bias(self, module):
         if self.search_in_channel:
@@ -193,6 +206,7 @@ class Conv1d(BaseConvNd):
         groups: int = 1,
         bias: bool = True,
         padding_mode: str = 'zeros',
+        auto_padding: bool = False
         ):
         super(Conv1d, self).__init__(
             in_channels, out_channels, kernel_size, stride,
@@ -215,6 +229,7 @@ class Conv2d(BaseConvNd):
         groups: int = 1,
         bias: bool = True,
         padding_mode: str = 'zeros',
+        auto_padding: bool = False
         ):
         super(Conv2d, self).__init__(
             in_channels, out_channels, kernel_size, stride,
@@ -237,6 +252,7 @@ class Conv3d(BaseConvNd):
         groups: int = 1,
         bias: bool = True,
         padding_mode: str = 'zeros',
+        auto_padding: bool = False
         ):
         super(Conv3d, self).__init__(
             in_channels, out_channels, kernel_size, stride,

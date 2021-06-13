@@ -24,3 +24,7 @@
 ## 2021年6月13日21:56:30
 
 - rename `mutables.mutables` to `mutables.spaces`
+
+## 2021年6月13日22:29:30
+
+- add `auto_padding` feature to `mutables.ops.Conv1/2/3d`
