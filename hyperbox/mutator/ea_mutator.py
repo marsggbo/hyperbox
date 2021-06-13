@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 from hyperbox.utils.calc_model_size import flops_size_counter
 from hyperbox.utils.utils import TorchTensorEncoder
-from hyperbox.mutables import InputChoice, LayerChoice
+from hyperbox.mutables import InputSpace, OperationSpace
 
 from .random_mutator import RandomMutator
 from .utils import CARS_NSGA, encode_arch
@@ -63,7 +63,7 @@ class EAMutator(RandomMutator):
     def reset(self):
         """
         Reset the mutator by call the `sample_search` to resample (for search). Stores the result in a local
-        variable so that `on_forward_layer_choice` and `on_forward_input_choice` can use the decision directly.
+        variable so that `on_forward_operation_space` and `on_forward_input_space` can use the decision directly.
         """
         if not self.start_evolve:
             self._cache = self.sample_search()

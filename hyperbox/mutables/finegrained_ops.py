@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 
-from hyperbox.mutables.mutables import ValueChoice
+from hyperbox.mutables.mutables import ValueSpace
 from hyperbox.utils.average_meter import AverageMeter
 from hyperbox.utils.utils import hparams_wrapper
 
@@ -35,7 +35,7 @@ class FinegrainedModule(nn.Module):
     def getValueChoices(self, kwargs):
         valueChoices = nn.ModuleDict()
         for key, value in kwargs.items():
-            if isinstance(value, ValueChoice):
+            if isinstance(value, ValueSpace):
                 valueChoices[key] = value
                 if value.index is not None:
                     _v = value.candidates[value.index]
@@ -67,8 +67,8 @@ class FinegrainedConv2d(FinegrainedModule):
         '''Initialize FinegrainedConv2d
             Example
             >>> import torch, mutables, mutator
-            >>> out_channels = mutables.ValueChoice([8,16,24])
-            >>> kernel_size = mutables.ValueChoice([3,5])
+            >>> out_channels = mutables.ValueSpace([8,16,24])
+            >>> kernel_size = mutables.ValueSpace([3,5])
             >>> x = torch.rand(2,3,16,16)
             >>> conv = FinegrainedConv2d(3, out_channels, kernel_size))
             >>> myMutator = mutator.RandomMutator(conv, None)
@@ -316,7 +316,7 @@ class FinegrainedBN2d(FinegrainedModule):
         super(FinegrainedBN2d, self).__init__()
         self.valueChoices = self.getValueChoices(self.hparams)
         self.bn = self.init_ops()
-        self.searchBN = isinstance(num_features, ValueChoice)
+        self.searchBN = isinstance(num_features, ValueSpace)
 
     def init_ops(self):
         bn_kwargs = {key:getattr(self, key, None) 
@@ -356,7 +356,7 @@ class FinegrainedBN2d(FinegrainedModule):
 
     def forward_bn(self, module, x):
         num_features = getattr(self.valueChoices, 'num_features', self.num_features)
-        if isinstance(num_features, ValueChoice):
+        if isinstance(num_features, ValueSpace):
             num_features = num_features.value
         exponential_average_factor = 0.0
 
@@ -395,7 +395,7 @@ class FinegrainedBN1d(FinegrainedBN2d):
 
 
 def isValueChoice(module):
-    return isinstance(module, ValueChoice)
+    return isinstance(module, ValueSpace)
 
 def bind_module_to_valueChoice(net):
     '''若输入通道是ValueChoice，则绑定该Module'''

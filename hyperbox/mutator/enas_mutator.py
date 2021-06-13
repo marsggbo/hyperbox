@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from hyperbox.mutables import InputChoice, LayerChoice, MutableScope
+from hyperbox.mutables import InputSpace, OperationSpace, MutableScope
 
 from .default_mutator import Mutator
 
@@ -90,7 +90,7 @@ class EnasMutator(Mutator):
 
         self.max_layer_choice = 0
         for mutable in self.mutables:
-            if isinstance(mutable, LayerChoice):
+            if isinstance(mutable, OperationSpace):
                 if self.max_layer_choice == 0:
                     self.max_layer_choice = mutable.length
                 assert self.max_layer_choice == mutable.length, \
@@ -116,9 +116,9 @@ class EnasMutator(Mutator):
 
     def _sample(self, tree):
         mutable = tree.mutable
-        if isinstance(mutable, LayerChoice) and mutable.key not in self._choices:
+        if isinstance(mutable, OperationSpace) and mutable.key not in self._choices:
             self._choices[mutable.key] = self._sample_layer_choice(mutable)
-        elif isinstance(mutable, InputChoice) and mutable.key not in self._choices:
+        elif isinstance(mutable, InputSpace) and mutable.key not in self._choices:
             self._choices[mutable.key] = self._sample_input_choice(mutable)
         for child in tree.children:
             self._sample(child)

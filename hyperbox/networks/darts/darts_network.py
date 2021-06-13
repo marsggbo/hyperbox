@@ -32,7 +32,7 @@ class Node(nn.Module):
             stride = 2 if i < num_downsample_connect else 1
             choice_keys.append("{}_p{}".format(node_id, i))
             self.ops.append(
-                mutables.LayerChoice(
+                mutables.OperationSpace(
                     [
                         PoolBN('max', channels, 3, stride, 1, affine=False),
                         PoolBN('avg', channels, 3, stride, 1, affine=False),
@@ -42,7 +42,7 @@ class Node(nn.Module):
                         DilConv(channels, channels, 3, stride, 2, 2, affine=False),
                         DilConv(channels, channels, 5, stride, 4, 2, affine=False)
                 ], key=choice_keys[-1]))
-                # mutables.LayerChoice(OrderedDict([
+                # mutables.OperationSpace(OrderedDict([
                 #     ("maxpool", PoolBN('max', channels, 3, stride, 1, affine=False)),
                 #     ("avgpool", PoolBN('avg', channels, 3, stride, 1, affine=False)),
                 #     ("skipconnect",
@@ -53,7 +53,7 @@ class Node(nn.Module):
                 #     ("dilconv5x5", DilConv(channels, channels, 5, stride, 4, 2, affine=False))
                 # ]), key=choice_keys[-1]))
         self.drop_path = DropPath()
-        self.input_switch = mutables.InputChoice(choose_from=choice_keys, n_chosen=2, key="{}_switch".format(node_id))
+        self.input_switch = mutables.InputSpace(choose_from=choice_keys, n_chosen=2, key="{}_switch".format(node_id))
 
     def forward(self, prev_nodes):
         assert len(self.ops) == len(prev_nodes)
@@ -124,7 +124,7 @@ class DartsCell(nn.Module):
 
 class DartsNetwork(nn.Module): 
     """
-    builtin Darts Search Space
+    builtin Darts Search Mutable
     Compared to Darts example, DartsSearchSpace removes Auxiliary Head, which
     is considered as a trick rather than part of model.
 

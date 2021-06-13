@@ -7,7 +7,7 @@ import torch
 from torch import nn as nn
 from torch.nn import functional as F
 
-from hyperbox.mutables import LayerChoice
+from hyperbox.mutables import OperationSpace
 
 from .base_mutator import BaseMutator
 from .default_mutator import Mutator
@@ -57,12 +57,12 @@ class ArchGradientFunction(torch.autograd.Function):
 
 class MixedOp(nn.Module):
     """
-    This class is to instantiate and manage info of one LayerChoice.
+    This class is to instantiate and manage info of one OperationSpace.
     It includes architecture weights, binary weights, and member functions
     operating the weights.
 
     forward_mode:
-        forward/backward mode for LayerChoice: None, two, full, and full_v2.
+        forward/backward mode for OperationSpace: None, two, full, and full_v2.
         For training architecture weights, we use full_v2 by default, and for training
         model weights, we use None.
     """
@@ -71,8 +71,8 @@ class MixedOp(nn.Module):
         """
         Parameters
         ----------
-        mutable : LayerChoice
-            A LayerChoice in user model
+        mutable : OperationSpace
+            A OperationSpace in user model
         """
         super(MixedOp, self).__init__()
         self.ap_path_alpha = nn.Parameter(torch.Tensor(mutable.length))
@@ -98,13 +98,13 @@ class MixedOp(nn.Module):
 
     def forward(self, mutable, x):
         """
-        Define forward of LayerChoice. For 'full_v2', backward is also defined.
+        Define forward of OperationSpace. For 'full_v2', backward is also defined.
         The 'two' mode is explained in section 3.2.1 in the paper.
         The 'full_v2' mode is explained in Appendix D in the paper.
 
         Parameters
         ----------
-            mutable : LayerChoice
+            mutable : OperationSpace
                 this layer's mutable
             x : tensor
                 inputs of this layer, only support one input
@@ -216,7 +216,7 @@ class MixedOp(nn.Module):
 
         Parameters
         ----------
-        mutable : LayerChoice
+        mutable : OperationSpace
             this layer's mutable
         """
         self.log_prob = None
@@ -262,7 +262,7 @@ class MixedOp(nn.Module):
 
     def set_arch_param_grad(self, mutable):
         """
-        Calculate alpha gradient for this LayerChoice.
+        Calculate alpha gradient for this OperationSpace.
         It is calculated using gradient of binary gate, probs of ops.
         """
         binary_grads = self.ap_path_wb.grad.data
@@ -320,9 +320,9 @@ class ProxylessMutator(Mutator):
     """
     def __init__(self, model, cfg=None):
         """
-        Init a MixedOp instance for each mutable i.e., LayerChoice.
-        And register the instantiated MixedOp in corresponding LayerChoice.
-        If does not register it in LayerChoice, DataParallel does not work then,
+        Init a MixedOp instance for each mutable i.e., OperationSpace.
+        And register the instantiated MixedOp in corresponding OperationSpace.
+        If does not register it in OperationSpace, DataParallel does not work then,
         because architecture weights are not included in the DataParallel model.
         When MixedOPs are registered, we use ```requires_grad``` to control
         whether calculate gradients of architecture weights.
@@ -340,7 +340,7 @@ class ProxylessMutator(Mutator):
             self.mutable_list.append(mutable)
             mutable.registered_module = MixedOp(mutable)
 
-    def on_forward_layer_choice(self, mutable, *args, **kwargs):
+    def on_forward_operation_space(self, mutable, *args, **kwargs):
         """
         Callback of layer choice forward. This function defines the forward
         logic of the input mutable. So mutable is only interface, its real
@@ -348,7 +348,7 @@ class ProxylessMutator(Mutator):
 
         Parameters
         ----------
-        mutable: LayerChoice
+        mutable: OperationSpace
             forward logic of this input mutable
         args: list of torch.Tensor
             inputs of this mutable
@@ -358,7 +358,7 @@ class ProxylessMutator(Mutator):
         Returns
         -------
         torch.Tensor
-            output of this mutable, i.e., LayerChoice
+            output of this mutable, i.e., OperationSpace
         int
             index of the chosen op
         """
@@ -368,7 +368,7 @@ class ProxylessMutator(Mutator):
 
     def reset_binary_gates(self):
         """
-        For each LayerChoice, binarize binary weights
+        For each OperationSpace, binarize binary weights
         based on alpha to only activate one op.
         It traverses all the mutables in the model to do this.
         """
@@ -377,7 +377,7 @@ class ProxylessMutator(Mutator):
 
     def set_chosen_op_active(self):
         """
-        For each LayerChoice, set the op with highest alpha as the chosen op.
+        For each OperationSpace, set the op with highest alpha as the chosen op.
         Usually used for validation.
         """
         for mutable in self.undedup_mutables:
@@ -385,18 +385,18 @@ class ProxylessMutator(Mutator):
 
     def num_arch_params(self):
         """
-        The number of mutables, i.e., LayerChoice
+        The number of mutables, i.e., OperationSpace
 
         Returns
         -------
         int
-            the number of LayerChoice in user model
+            the number of OperationSpace in user model
         """
         return len(self.mutable_list)
 
     def set_arch_param_grad(self):
         """
-        For each LayerChoice, calculate gradients for architecture weights, i.e., alpha
+        For each OperationSpace, calculate gradients for architecture weights, i.e., alpha
         """
         for mutable in self.undedup_mutables:
             mutable.registered_module.set_arch_param_grad(mutable)
@@ -490,11 +490,11 @@ class ProxylessMutator(Mutator):
         Returns
         -------
         dict
-            the choice of each mutable, i.e., LayerChoice
+            the choice of each mutable, i.e., OperationSpace
         """
         result = dict()
         for mutable in self.undedup_mutables:
-            assert isinstance(mutable, LayerChoice)
+            assert isinstance(mutable, OperationSpace)
             index, _ = mutable.registered_module.chosen_index
             # pylint: disable=not-callable
             result[mutable.key] = F.one_hot(torch.tensor(index), num_classes=mutable.length).view(-1).bool()

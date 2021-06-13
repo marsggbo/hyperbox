@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 
 from hyperbox.mutables.finegrained_ops import (FinegrainedModule, FinegrainedConv2d,
-        FinegrainedLinear, FinegrainedBN2d, ValueChoice)
+        FinegrainedLinear, FinegrainedBN2d, ValueSpace)
 from hyperbox.utils.utils import load_json, hparams_wrapper
 
 
@@ -126,7 +126,7 @@ class ResNet(nn.Module):
         zero_init_residual=False,
         groups=1,
         replace_stride_with_dilation=None,
-        mask=None, # bool mask for ValueChoice
+        mask=None, # bool mask for ValueSpace
     ):
         super(ResNet, self).__init__()
         self.mask = load_json(mask)
@@ -144,7 +144,7 @@ class ResNet(nn.Module):
         self.groups = groups
 
         # CIFAR10: kernel_size 7 -> 3, stride 2 -> 1, padding 3->1
-        self.inplanes = ValueChoice([4, 8, 12, 16], mask=self.mask)
+        self.inplanes = ValueSpace([4, 8, 12, 16], mask=self.mask)
         self.conv0 = nn.Sequential(
             FinegrainedConv2d(3, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False),
             FinegrainedBN2d(self.inplanes),
@@ -192,8 +192,8 @@ class ResNet(nn.Module):
             self.dilation *= stride
             stride = 1
 
-        mid_planes = ValueChoice(planes, mask=self.mask)
-        v_planes1 = ValueChoice(planes, mask=self.mask)
+        mid_planes = ValueSpace(planes, mask=self.mask)
+        v_planes1 = ValueSpace(planes, mask=self.mask)
         # if stride != 1 or self.inplanes.value != v_planes1.value * block.expansion:
             # downsample = FinegrainedConv2d(self.inplanes, v_planes1, 1, stride, act_func=None)
         downsample = nn.Sequential(
@@ -215,8 +215,8 @@ class ResNet(nn.Module):
         )
         inplanes = v_planes1
         for _ in range(1, blocks):
-            mid_planes = ValueChoice(planes, mask=self.mask)
-            v_planes2 = ValueChoice(planes, mask=self.mask)
+            mid_planes = ValueSpace(planes, mask=self.mask)
+            v_planes2 = ValueSpace(planes, mask=self.mask)
             downsample = nn.Sequential(
                 FinegrainedConv2d(inplanes, v_planes2, 1, 1),
                 FinegrainedBN2d(v_planes2),
@@ -240,9 +240,9 @@ class ResNet(nn.Module):
     @property
     def arch(self):
         # _mutables = self.inplanes.mutator.mutables
-        # vc = sorted(list(iter(_mutables)), key=lambda x:int(x.key.split('ValueChoice')[1]))
-        vc = [m for m in self.modules() if isinstance(m, ValueChoice)]
-        vc = sorted(vc, key=lambda x:int(x.key.split('ValueChoice')[1]))
+        # vc = sorted(list(iter(_mutables)), key=lambda x:int(x.key.split('ValueSpace')[1]))
+        vc = [m for m in self.modules() if isinstance(m, ValueSpace)]
+        vc = sorted(vc, key=lambda x:int(x.key.split('ValueSpace')[1]))
         self._arch = '-'.join([str(x.value) for x in vc])
         return self._arch
 
@@ -276,9 +276,9 @@ class ResNet(nn.Module):
         new_mask = {}
         len_mask = len(mask)
         for key in mask:
-            _id = key.split('ValueChoice')[-1]
+            _id = key.split('ValueSpace')[-1]
             new_id = int(_id) + len_mask * self.counter_subnet
-            new_key = f"ValueChoice{new_id}"
+            new_key = f"ValueSpace{new_id}"
             new_mask[new_key] = mask[key].clone().detach()
         hparams['mask'] = new_mask
         subnet = ResNet(**hparams)

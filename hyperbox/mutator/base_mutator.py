@@ -5,7 +5,7 @@ import logging
 
 import torch.nn as nn
 
-from hyperbox.mutables import Mutable, MutableScope, InputChoice
+from hyperbox.mutables import Mutable, MutableScope, InputSpace
 
 
 class StructuredMutableTreeNode:
@@ -93,11 +93,11 @@ class BaseMutator(nn.Module):
                 root = root.add_child(module)
                 if not isinstance(module, MutableScope):
                     nested_detection = module
-                if isinstance(module, InputChoice):
-                    for k in module.choose_from:
-                        if k != InputChoice.NO_KEY and k not in [m.key for m in memo if isinstance(m, Mutable)]:
-                            raise RuntimeError("'{}' required by '{}' not found in keys that appeared before, and is not NO_KEY."
-                                               .format(k, module.key))
+                # if isinstance(module, InputSpace):
+                #     for k in module.choose_from:
+                #         if k != InputSpace.NO_KEY and k not in [m.key for m in memo if isinstance(m, Mutable)]:
+                #             raise RuntimeError("'{}' required by '{}' not found in keys that appeared before, and is not NO_KEY."
+                #                                .format(k, module.key))
             for name, submodule in module._modules.items():
                 if submodule is None:
                     continue
@@ -139,13 +139,13 @@ class BaseMutator(nn.Module):
         """
         pass
 
-    def on_forward_layer_choice(self, mutable, *inputs):
+    def on_forward_operation_space(self, mutable, *inputs):
         """
-        Callbacks of forward in LayerChoice.
+        Callbacks of forward in OperationSpace.
 
         Parameters
         ----------
-        mutable : LayerChoice
+        mutable : OperationSpace
         inputs : list of torch.Tensor
 
         Returns
@@ -155,13 +155,13 @@ class BaseMutator(nn.Module):
         """
         raise NotImplementedError
 
-    def on_forward_input_choice(self, mutable, tensor_list):
+    def on_forward_input_space(self, mutable, tensor_list):
         """
-        Callbacks of forward in InputChoice.
+        Callbacks of forward in InputSpace.
 
         Parameters
         ----------
-        mutable : InputChoice
+        mutable : InputSpace
         tensor_list : list of torch.Tensor
 
         Returns

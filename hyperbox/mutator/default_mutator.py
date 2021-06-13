@@ -42,7 +42,7 @@ class Mutator(BaseMutator):
     def reset(self, *args, **kwargs):
         """
         Reset the mutator by call the `sample_search` to resample (for search). Stores the result in a local
-        variable so that `on_forward_layer_choice` and `on_forward_input_choice` can use the decision directly.
+        variable so that `on_forward_operation_space` and `on_forward_input_space` can use the decision directly.
 
         Returns
         -------
@@ -64,7 +64,7 @@ class Mutator(BaseMutator):
         """
         return self.sample_final()
 
-    def on_forward_layer_choice(self, mutable, *inputs):
+    def on_forward_operation_space(self, mutable, *inputs):
         """
         On default, this method calls :meth:`on_calc_layer_choice_mask` to get a mask on how to choose between layers
         (either by switch or by weights), then it will reduce the list of all tensor outputs with the policy specified
@@ -72,7 +72,7 @@ class Mutator(BaseMutator):
 
         Parameters
         ----------
-        mutable : LayerChoice
+        mutable : OperationSpace
         inputs : list of torch.Tensor
 
         Returns
@@ -89,7 +89,7 @@ class Mutator(BaseMutator):
         out = self._select_with_mask(_map_fn, [(choice, *inputs) for choice in mutable.choices], mask)
         return self._tensor_reduction(mutable.reduction, out), mask
 
-    def on_forward_input_choice(self, mutable, tensor_list):
+    def on_forward_input_space(self, mutable, tensor_list):
         """
         On default, this method calls :meth:`on_calc_input_choice_mask` with `tags`
         to get a mask on how to choose between inputs (either by switch or by weights), then it will reduce
@@ -98,7 +98,7 @@ class Mutator(BaseMutator):
 
         Parameters
         ----------
-        mutable : InputChoice
+        mutable : InputSpace
         tensor_list : list of torch.Tensor
         tags : list of string
 

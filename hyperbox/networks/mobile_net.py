@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import math
 
-from hyperbox.mutables import LayerChoice
+from hyperbox.mutables import OperationSpace
 from hyperbox.utils.utils import load_json
 
 from mobile_ops import *
@@ -67,7 +67,7 @@ class MobileNet(BaseNASNetwork):
                     # if it is not the first one
                     op_candidates += [OPS['Zero'](input_channel, width, stride)]
                 if self.mask: op_candidates = [op_candidates[self.mask[f"s{stage_cnt}_c{i}"].argmax()]]
-                conv_op = LayerChoice(op_candidates, return_mask=True, key="s{}_c{}".format(stage_cnt, i))
+                conv_op = OperationSpace(op_candidates, return_mask=True, key="s{}_c{}".format(stage_cnt, i))
                 # shortcut
                 if stride == 1 and input_channel == width:
                     # if not first cell

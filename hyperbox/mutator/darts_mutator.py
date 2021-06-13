@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from hyperbox.mutables import InputChoice, LayerChoice, ValueChoice
+from hyperbox.mutables import InputSpace, OperationSpace, ValueSpace
 
 from .default_mutator import Mutator
 
@@ -20,12 +20,12 @@ class DartsMutator(Mutator):
     Doc:
         Connects the model in a DARTS (differentiable) way.
 
-        An extra connection is automatically inserted for each LayerChoice, when this connection is selected, there is no
-        op on this LayerChoice (namely a ``ZeroOp``), in which case, every element in the exported choice list is ``false``
+        An extra connection is automatically inserted for each OperationSpace, when this connection is selected, there is no
+        op on this OperationSpace (namely a ``ZeroOp``), in which case, every element in the exported choice list is ``false``
         (not chosen).
 
         All input choice will be fully connected in the search phase. On exporting, the input choice will choose inputs based
-        on keys in ``choose_from``. If the keys were to be keys of LayerChoices, the top logit of the corresponding LayerChoice
+        on keys in ``choose_from``. If the keys were to be keys of LayerChoices, the top logit of the corresponding OperationSpace
         will join the competition of input choice to compete against other logits. Otherwise, the logit will be assumed 0.
 
         It's possible to cut branches by setting parameter ``choices`` in a particular position to ``-inf``. After softmax, the
@@ -41,12 +41,12 @@ class DartsMutator(Mutator):
         super().__init__(model)
         self.choices = nn.ParameterDict()
         for mutable in self.mutables:
-            if isinstance(mutable, LayerChoice):
+            if isinstance(mutable, OperationSpace):
                 self.choices[mutable.key] = nn.Parameter(1.0E-3 * torch.randn(mutable.length + 1)) # extending a zero operation
-            if isinstance(mutable, ValueChoice):
+            if isinstance(mutable, ValueSpace):
                 self.choices[mutable.key] = nn.Parameter(1.0E-3 * torch.randn(mutable.length))
                 mutable.mask = self.choices[mutable.key].data
-            elif isinstance(mutable, InputChoice):
+            elif isinstance(mutable, InputSpace):
                 self.choices[mutable.key] = nn.Parameter(1.0E-3 * torch.randn(mutable.n_candidates))
 
     def device(self):
@@ -56,13 +56,13 @@ class DartsMutator(Mutator):
     def sample_search(self):
         result = dict()
         for mutable in self.mutables:
-            if isinstance(mutable, LayerChoice):
+            if isinstance(mutable, OperationSpace):
                 # slicing zero operation. if zero operation is chosen, then a list of all 'False' will be returned
                 result[mutable.key] = F.softmax(self.choices[mutable.key], dim=-1)[:-1]
-            elif isinstance(mutable, ValueChoice):
+            elif isinstance(mutable, ValueSpace):
                 result[mutable.key] = F.softmax(self.choices[mutable.key], dim=-1)[:-1]
                 mutable.mask.data = F.gumbel_softmax(self.choices[mutable.key], hard=True, dim=-1).data
-            elif isinstance(mutable, InputChoice):
+            elif isinstance(mutable, InputSpace):
                 result[mutable.key] = torch.ones(mutable.n_candidates, dtype=torch.bool, device=self.device())
         return result
 
@@ -70,18 +70,18 @@ class DartsMutator(Mutator):
         result = dict()
         edges_max = dict()
         for mutable in self.mutables:
-            if isinstance(mutable, (LayerChoice, ValueChoice)):
+            if isinstance(mutable, (OperationSpace, ValueSpace)):
                 max_val, index = torch.max(F.softmax(self.choices[mutable.key], dim=-1)[:-1], 0)
                 edges_max[mutable.key] = max_val
                 result[mutable.key] = F.one_hot(index, num_classes=mutable.length).view(-1).bool()
         for mutable in self.mutables:
-            if isinstance(mutable, InputChoice):
+            if isinstance(mutable, InputSpace):
                 if mutable.n_chosen is not None:
                     weights = []
                     for src_key in mutable.choose_from:
                         # todo: figure out this issue
                         # if src_key not in edges_max:
-                        #     print("InputChoice.NO_KEY in '%s' is weighted 0 when selecting inputs.", mutable.key)
+                        #     print("InputSpace.NO_KEY in '%s' is weighted 0 when selecting inputs.", mutable.key)
                         weights.append(edges_max.get(src_key, 0.))
                     weights = torch.tensor(weights)  # pylint: disable=not-callable
                     _, topk_edge_indices = torch.topk(weights, mutable.n_chosen)

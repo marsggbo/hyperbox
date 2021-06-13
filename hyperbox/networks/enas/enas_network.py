@@ -12,9 +12,9 @@ from enas_ops import FactorizedReduce, StdConv, SepConvBN, Pool, ConvBranch, Poo
 class Cell(nn.Module):
     def __init__(self, cell_name, prev_labels, channels):
         super().__init__()
-        self.input_choice = mutables.InputChoice(choose_from=prev_labels, n_chosen=1, return_mask=True,
+        self.input_choice = mutables.InputSpace(choose_from=prev_labels, n_chosen=1, return_mask=True,
                                                  key=cell_name + "_input")
-        self.op_choice = mutables.LayerChoice([
+        self.op_choice = mutables.OperationSpace([
             SepConvBN(channels, channels, 3, 1),
             SepConvBN(channels, channels, 5, 2),
             Pool("avg", 3, 1, 1),
@@ -77,7 +77,7 @@ class ENASMicroLayer(nn.Module):
         self.num_nodes = num_nodes
         name_prefix = "reduce" if reduction else "normal"
         self.nodes = nn.ModuleList()
-        node_labels = [mutables.InputChoice.NO_KEY, mutables.InputChoice.NO_KEY]
+        node_labels = [mutables.InputSpace.NO_KEY, mutables.InputSpace.NO_KEY]
         for i in range(num_nodes):
             node_labels.append("{}_node_{}".format(name_prefix, i))
             self.nodes.append(Node(node_labels[-1], node_labels[:-1], out_channels))
@@ -192,7 +192,7 @@ class ENASMacroLayer(mutables.MutableScope):
         super().__init__(key)
         self.in_filters = in_filters
         self.out_filters = out_filters
-        self.mutable = mutables.LayerChoice([
+        self.mutable = mutables.OperationSpace([
             ConvBranch(in_filters, out_filters, 3, 1, 1, separable=False),
             ConvBranch(in_filters, out_filters, 3, 1, 1, separable=True),
             ConvBranch(in_filters, out_filters, 5, 1, 2, separable=False),
@@ -201,7 +201,7 @@ class ENASMacroLayer(mutables.MutableScope):
             PoolBranch('max', in_filters, out_filters, 3, 1, 1)
         ])
         if prev_labels:
-            self.skipconnect = mutables.InputChoice(choose_from=prev_labels, n_chosen=None)
+            self.skipconnect = mutables.InputSpace(choose_from=prev_labels, n_chosen=None)
         else:
             self.skipconnect = None
         self.batch_norm = nn.BatchNorm2d(out_filters, affine=False)

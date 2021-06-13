@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
-from typing import Any, List, Optional, Union, List
+from typing import Any, List, Optional, Union, List, Tuple
 
 import torch
 import torch.nn as nn
@@ -11,10 +11,10 @@ from hyperbox.utils.utils import hparams_wrapper
 
 __all__ = [
     'Mutable',
-    'LayerChoice',
-    'InputChoice',
+    'OperationSpace',
+    'InputSpace',
     'MutableScope',
-    'ValueChoice',
+    'ValueSpace',
     'global_mutable_counting'
 ]
 
@@ -111,28 +111,131 @@ class MutableScope(Mutable):
             self.mutator.exit_mutable_scope(self)
 
 
-class LayerChoice(Mutable):
+class Categorical(Mutable):
     def __init__(self,
-                 op_candidates: Union[list],
+                 candidates: List[Any],
+                 mask: Optional[Union[dict, list]] = None,
+                 index: int = None,
+                 key: Optional[str] = None):
+        '''Categorical search space
+        Examples:
+            candidates: [conv3x3, conv5x5, Identity]
+            key: default value is empty string "". suppose key is 'key0'
+            mask: (sopports many types of masks)
+                - [True, False, False]
+                - [0, 1, 0]
+                - {'key0': [0,1,0], 'key2': [1,0,0,0]} will automatically match 'key0'
+        '''
+        super().__init__(key)
+        self.is_search = True
+        self.candidates = candidates
+        self.length = len(candidates)
+        self.dtype = type(candidates[0])
+        self.index = index
+        
+        if index is not None:
+            if mask is not None and len(mask)!=0:
+                print('You only need to specify the valye of mask or index. Index is used by default.')
+            self.mask = torch.zeros(self.length)
+            self.mask[index] = 1
+            self.is_search = False
+        elif mask is not None:
+            self.is_search = False
+            if isinstance(mask, dict):
+                if isinstance(mask[self.key], torch.Tensor):
+                    self.mask = mask[self.key].cpu().clone().detach()
+                else:
+                    self.mask = torch.tensor(mask[self.key])
+            elif isinstance(mask, list):
+                assert len(mask) == len(candidates), \
+                    f"The length of the mask ({len(mask)}) should be equal to #candidates ({len(candidates)})"
+                self.mask = torch.tensor(mask)
+            self.index = self.mask.int().argmax()
+        else:
+            if isinstance(candidates[0], (int, float)):
+                # random a mask based on biggest value
+                index = torch.tensor(candidates).argmax()
+            else:
+                index = -1
+            self.mask = torch.zeros(self.length)
+            self.mask[index] = 1
+        self.device = 'cpu'
+
+    @property
+    def value(self):
+        if self.index is not None:
+            index = self.index
+        else:
+            index = self.mask.float().argmax()
+        return self.candidates[index]
+
+    @property
+    def max_value(self):
+        try:
+            value = max(self.candidates)
+            return max(self.candidates)
+        except Expection as e:
+            print(str(e))
+            print("The candidates cannot be compared to get max value.")
+            return self.candidates[0]
+
+    def forward(self):
+        warnings.warn(f'You should not run forward of {self.__class__.__name__} directly.')
+        return self.value
+
+    def __getitem__(self, index):
+        return self.candidates[index]
+
+    def __setitem__(self, index, data):
+        self.candidates[index] = data
+
+    def __len__(self):
+        return len(self.candidates)
+
+    def __iter__(self):
+        for elem in self.candidates:
+            yield elem
+
+    def __repr__(self):
+        name = self.__class__.__name__
+        _repr = f'{name}({self.candidates}, key={repr(self.key)}, value={self.value})'
+        return _repr
+
+    def __copy__(self):
+        return self
+
+    def __deepcopy__(self, memo):
+        global_mutable_counting._counter -= 1
+        new_instance = self.__class__(self.candidates)
+        new_instance._key = self.key
+        new_instance.mask = self.mask
+        return new_instance
+
+
+class OperationSpace(Categorical):
+    def __init__(self,
+                 candidates: Union[list],
+                 mask: Optional[Union[dict, list]] = None,
+                 index: int = None,
                  reduction: str = "sum",
-                 is_search: bool = True,
                  return_mask: bool = False,
                  key: Optional[str] = None):
-        super().__init__(key)
-        self.length = len(op_candidates)
-        self.choices = nn.ModuleList(op_candidates)
+        super().__init__(candidates, mask, index, key)
         self.reduction = reduction
         self.return_mask = return_mask
-        if not is_search:
-            assert len(op_candidates) == 1, 'If is_search=False, the length of op_candidates should be only 1'
-        self.is_search = is_search
+        if self.is_search:
+            self.choices = nn.ModuleList(candidates)
+        else:
+            self.choices = nn.ModuleList([candidates[self.index]])
 
     def __call__(self, *args, **kwargs):
         return super(Mutable, self).__call__(*args, **kwargs)
 
     def forward(self, *inputs):
         if self.is_search:
-            out, mask = self.mutator.on_forward_layer_choice(self, *inputs)
+            if hasattr(self, "mutator"):
+                out, mask = self.mutator.on_forward_operation_space(self, *inputs)
+            
         else:
             out = self.choices[0](*inputs)
             mask = torch.tensor([True])
@@ -141,9 +244,6 @@ class LayerChoice(Mutable):
         else:
             return out
 
-    def __len__(self):
-        return self.length
-
     def __repr__(self):
         if self.is_search:
             return super(Mutable, self).__repr__()
@@ -151,7 +251,7 @@ class LayerChoice(Mutable):
             return self.choices[0].__repr__()
 
 
-class InputChoice(Mutable):
+class InputSpace(Categorical):
     """
     Description:
         Input choice selects `n_chosen` inputs from `choose_from` (contains `n_candidates` keys). For beginners,
@@ -162,7 +262,7 @@ class InputChoice(Mutable):
         The keys are designed to be the keys of the sources. To help mutators make better decisions,
         mutators might be interested in how the tensors to choose from come into place. For example, the tensor is the
         output of some operator, some node, some cell, or some module. If this operator happens to be a mutable (e.g.,
-        ``LayerChoice`` or ``InputChoice``), it has a key naturally that can be used as a source key. If it's a
+        ``OperationSpace`` or ``InputSpace``), it has a key naturally that can be used as a source key. If it's a
         module/submodule, it needs to be annotated with a key: that's where a ``MutableScope`` is needed.
     """
 
@@ -172,7 +272,8 @@ class InputChoice(Mutable):
                  n_candidates: Optional[int] = None,
                  choose_from: Optional[List[str]] = None,
                  n_chosen: Optional[int] = None,
-                 is_search: bool = True,
+                 mask: Optional[Union[dict, list]] = None,
+                 index: Optional[int] = None,
                  reduction: str = "sum",
                  return_mask: bool = False,
                  key: Optional[str] = None):
@@ -195,8 +296,19 @@ class InputChoice(Mutable):
                 If `return_mask`, return output tensor and a mask. Otherwise return tensor only.
             key : str
                 Key of the input choice.
+
+            Examples
+            ----------
+                >>>    # first example
+                >>>    inputs = [out1, out2, out3]
+                >>>    input_choice = InputSpace(n_candidates=3, n_chosen=1)
+                >>>    out, mask = InputSpace(inputs, return_mask=True)
+                >>>    #
+                >>>    # second example
+                >>>    inputs = {'key1':out1, 'key2':out2, 'key3':out3}
+                >>>    input_choice = InputSpace(choose_from=['key1', 'key2', 'key3'], n_chosen=1)
+                >>>    out, mask = InputSpace(inputs, return_mask=True)
         """
-        super().__init__(key)
         # precondition check
         assert n_candidates is not None or choose_from is not None, "At least one of `n_candidates` and `choose_from`" \
                                                                     "must be not None."
@@ -209,16 +321,17 @@ class InputChoice(Mutable):
         assert n_chosen is None or 0 <= n_chosen <= n_candidates, "Expected selected number must be None or no more " \
                                                                   "than number of candidates."
 
+        super().__init__(candidates=choose_from, mask=mask, index=index, key=key)
+
         self.n_candidates = n_candidates
         self.choose_from = choose_from
         self.n_chosen = n_chosen
         self.reduction = reduction
         self.return_mask = return_mask
-        self.is_search = is_search
 
-    def forward(self, optional_inputs: Union[list, dict]):
+    def forward(self, optional_inputs: Union[list, dict]) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """
-        Forward method of LayerChoice.
+        Forward method of OperationSpace.
 
         Parameters
         ----------
@@ -226,7 +339,6 @@ class InputChoice(Mutable):
             Recommended to be a dict. As a dict, inputs will be converted to a list that follows the order of
             `choose_from` in initialization. As a list, inputs must follow the semantic order that is the same as
             `choose_from`.
-
         Returns
         -------
         tuple of torch.Tensor and torch.Tensor or torch.Tensor
@@ -239,86 +351,41 @@ class InputChoice(Mutable):
                 "Optional input list must be a list, not a {}.".format(type(optional_input_list))
             assert len(optional_inputs) == self.n_candidates, \
                 "Length of the input list must be equal to number of candidates."
-            out, mask = self.mutator.on_forward_input_choice(self, optional_input_list)
+            out, mask = self.mutator.on_forward_input_space(self, optional_input_list)
         else:
-            assert len(optional_inputs)== 1, 'If is_search=False, the number of of inputs should be only 1'
-            mask = torch.tensor([True])
-            out = optional_inputs[0]
+            if isinstance(optional_inputs, list):
+                index = self.index
+            elif isinstance(optional_inputs, dict):
+                index = self.choose_from[self.index]
+            out = optional_inputs[index]
         if self.return_mask:
             return out, mask
         else:
             return out
+    
 
-
-class ValueChoice(Mutable):
+class ValueSpace(Categorical):
     def __init__(self,
                  candidates: List[Any],
                  mask: Optional[Union[dict, list]] = None,
                  index: int = None,
                  key: Optional[str] = None):
         '''
-        >>> ValueChoice([8,16,24], index=1)
-        ValueChoice([8, 16, 24], key='ValueChoice1', value=16)
-        >>> ValueChoice([3,5,7], index=0)
-        ValueChoice([3, 5, 7], key='ValueChoice2', value=3)
-        >>> ValueChoice([3,5,7], mask={'key0': [1,0,0], 'key1':[0,1]}, key='key0')
-        ValueChoice([3, 5, 7], key='key0', value=3)
+        >>> ValueSpace([8,16,24], index=1)
+        ValueSpace([8, 16, 24], key='ValueChoice1', value=16)
+        >>> ValueSpace([3,5,7], index=0)
+        ValueSpace([3, 5, 7], key='ValueChoice2', value=3)
+        >>> ValueSpace([3,5,7], mask={'key0': [1,0,0], 'key1':[0,1]}, key='key0')
+        ValueSpace([3, 5, 7], key='key0', value=3)
         '''
-        super().__init__(key)
-        self.candidates = candidates
-        self.length = len(candidates)
-        self.dtype = type(candidates[0])
-        self.index = index
-        if index is not None:
-            if mask is not None and len(mask)!=0:
-                print('You only need to specify the valye of mask or index. Index is used by default.')
-            self.mask = torch.zeros(self.length)
-            self.mask[index] = 1
-        elif mask is not None:
-            if isinstance(mask, dict):
-                if isinstance(mask[self.key], torch.Tensor):
-                    self.mask = mask[self.key].cpu().clone().detach()
-                else:
-                    self.mask = torch.tensor(mask[self.key])
-            elif isinstance(mask, list):
-                assert len(mask) == len(candidates), \
-                    f"The length of the mask ({len(mask)}) should be equal to #candidates ({len(candidates)})"
-                self.mask = torch.tensor(mask)
-            self.index = self.mask.int().argmax()
-        else:
-            if isinstance(candidates[0], (int, float)):
-                # random a mask based on biggest value
-                index = torch.tensor(candidates).argmax()
-            else:
-                index = -1
-            self.mask = torch.zeros(self.length)
-            self.mask[index] = 1
+        super().__init__(candidates, mask, index, key)
         self._sortIdx = None # sorted indices for module weights when pruning
         self.bindModuleNames = []
-        self.device = 'cpu'
-
-    @property
-    def value(self):
-        if self.index is not None:
-            index = self.index
-        else:
-            index = self.mask.float().argmax()
-        return self.candidates[index]
-
-    @property
-    def max_value(self):
-        try:
-            value = max(self.candidates)
-            return max(self.candidates)
-        except Expection as e:
-            print(str(e))
-            print("The candidates cannot be compared to get max value.")
-            return self.candidates[0]
 
     @property
     def lastBindModuleName(self):
         assert len(self.bindModuleNames)>0, \
-            "Please apply `bind_module_to_valueChoice` function to bind modules to ValueChoice.\
+            "Please apply `bind_module_to_valueChoice` function to bind modules to ValueSpace.\
             There is currently no module name bound."            
         return self.bindModuleNames[-1]
 
@@ -336,27 +403,57 @@ class ValueChoice(Mutable):
             indices = torch.tensor(indices)
         self._sortIdx = indices
 
-    def forward(self):
-        warnings.warn('You should not run forward of this module directly.')
-        return self.value
 
-    def __repr__(self):
-        # _repr = f'ValueChoice({self.candidates}, key={repr(self.key)},
-        # mask={self.mask}, value={self.value})'
-        _repr = f'ValueChoice({self.candidates}, key={repr(self.key)}, value={self.value})'
-        return _repr
+if __name__=='__main__':
+    import torch
+    import torch.nn as nn
+    from hyperbox.mutator import RandomMutator
+    from hyperbox.mutables.mutables import InputSpace, OperationSpace, ValueSpace
+    
+    # test OperationSpace
+    x = torch.rand(2,10)
+    ops = [
+        nn.Linear(10,10,bias=False),
+        nn.Linear(10,100,bias=False),
+        nn.Linear(10,100,bias=False),
+        nn.Identity()
+    ]
+    mixop = OperationSpace(
+        ops,
+        mask=[0,1,0,0]
+    )
+    y = mixop(x)
+    print(y.shape)
 
-    def __copy__(self):
-        return self
+    mixop = OperationSpace(
+        ops, return_mask=True
+    )
+    m = RandomMutator(mixop)
+    m.reset()
+    y, mask = mixop(x)
+    print(y.shape, mask)
+    
+    # test InputSpace
+    input1 = torch.rand(1,3)
+    input2 = torch.rand(1,2)
+    input3 = torch.rand(2,1)
+    inputs = [input1, input2, input3]
+    ic1 = InputSpace(n_candidates=3, n_chosen=1, return_mask=True)
+    m = RandomMutator(ic1)
+    m.reset()
+    out, mask = ic1(inputs)
+    print(out.shape, mask)
 
-    def __deepcopy__(self, memo):
-        global_mutable_counting._counter -= 1
-        new_instance = self.__class__(self.candidates)
-        new_instance._key = self.key
-        new_instance.mask = self.mask
-        return new_instance
-
-
-# if __name__=='__main__':
-#     import doctest
-#     doctest.testmod()
+    inputs = {'key1':input1, 'key2':input2, 'key3':input3}
+    ic2 = InputSpace(choose_from=['key1', 'key2', 'key3'], n_chosen=1, return_mask=True)
+    m = RandomMutator(ic2)
+    m.reset()
+    out, mask = ic2(inputs)    
+    print(out.shape, mask)
+    
+    vc1 = ValueSpace([8,16,24], index=1)
+    vc2 = ValueSpace([1,2,3,4,5,6,7,8,9])
+    vc = nn.ModuleList([vc1,vc2])
+    m = RandomMutator(vc)
+    m.reset()
+    print(vc1, vc2)
