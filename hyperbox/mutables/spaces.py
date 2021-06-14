@@ -362,7 +362,7 @@ class InputSpace(CategoricalSpace):
             return out, mask
         else:
             return out
-    
+
 
 class ValueSpace(CategoricalSpace):
     def __init__(self,
@@ -371,12 +371,13 @@ class ValueSpace(CategoricalSpace):
                  index: int = None,
                  key: Optional[str] = None):
         '''
-        >>> ValueSpace([8,16,24], index=1)
-        ValueSpace([8, 16, 24], key='ValueChoice1', value=16)
-        >>> ValueSpace([3,5,7], index=0)
-        ValueSpace([3, 5, 7], key='ValueChoice2', value=3)
-        >>> ValueSpace([3,5,7], mask={'key0': [1,0,0], 'key1':[0,1]}, key='key0')
-        ValueSpace([3, 5, 7], key='key0', value=3)
+        Examples:
+            >>> ValueSpace([8,16,24], index=1)
+            ValueSpace([8, 16, 24], key='ValueChoice1', value=16)
+            >>> ValueSpace([3,5,7], index=0)
+            ValueSpace([3, 5, 7], key='ValueChoice2', value=3)
+            >>> ValueSpace([3,5,7], mask={'key0': [1,0,0], 'key1':[0,1]}, key='key0')
+            ValueSpace([3, 5, 7], key='key0', value=3)
         '''
         super().__init__(candidates, mask, index, key)
         self._sortIdx = None # sorted indices for module weights when pruning

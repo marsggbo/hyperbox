@@ -7,7 +7,9 @@ from pytorch_lightning import LightningModule
 from torchmetrics.classification.accuracy import Accuracy
 
 from hyperbox.utils.logger import get_logger
+from hyperbox.utils.utils import TorchTensorEncoder
 logger = get_logger(__name__)
+
 
 def instantiate(*args, **kwargs):
     return hydra.utils.instantiate(*args, **kwargs)
@@ -123,3 +125,13 @@ class BaseModel(LightningModule):
     @property
     def rank(self):
         return self.global_rank
+
+    def export(self, file: str):
+        """Call ``mutator.export()`` and dump the architecture to ``file``.
+        Args:
+            file : str
+                A file path. Expected to be a JSON.
+        """
+        mutator_export = self.mutator.export()
+        with open(file, "w") as f:
+            json.dump(mutator_export, f, indent=4, sort_keys=True, cls=TorchTensorEncoder)
