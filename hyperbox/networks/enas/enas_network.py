@@ -38,7 +38,7 @@ class Cell(nn.Module):
         return cell_out, chosen_mask
 
 
-class Node(mutables.MutableScope):
+class Node(spaces.MutableScope):
     def __init__(self, node_name, prev_node_names, channels):
         super().__init__(node_name)
         self.cell_x = Cell(node_name + "_x", prev_node_names, channels)
@@ -181,7 +181,7 @@ class ENASMicroNetwork(nn.Module):
         return logits
 
 
-class ENASMacroLayer(mutables.MutableScope):
+class ENASMacroLayer(spaces.MutableScope):
     """
     Builtin ENAS Marco Layer. With search space changing to layer level, the controller decides
     what operation is employed and the previous layer to connect to for skip connections. The model
