@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from hyperbox.mutables.spaces import ValueSpace
 
 from .base_module import FinegrainedModule
+from .utils import is_searchable
 
 
 __all__ = [
@@ -22,7 +23,7 @@ class BaseBatchNorm(FinegrainedModule):
         bn_kwargs = {key:getattr(self, key, None) 
             for key in ['num_features', 'eps', 'momentum', 'affine', 'track_running_stats']}
         self.init_ops(bn_kwargs)
-        self.searchBN = isinstance(num_features, ValueSpace)
+        self.searchBN = is_searchable(getattr(self.value_spaces, 'num_features', None))
 
     def init_ops(self, bn_kwargs: dict):
         raise NotImplementedError

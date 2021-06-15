@@ -28,3 +28,23 @@
 ## 2021年6月13日22:29:30
 
 - add `auto_padding` feature to `mutables.ops.Conv1/2/3d`
+
+## 2021年6月15日12:00:44
+
+- 给`Mutable`增加`is_search`属性，传入`mask`后可以不通过`Mutator`直接运行`forward`函数
+- 更新`Mutables`的`__repr__`
+- 增加`is_searchable`函数用于判断`Mutable`的属性`is_search`是否为`True`
+
+
+# TODO
+
+- [ ] 可视化模型结构
+- [ ] 尝试，是的，尝试复现Once-for-all
+- [ ] 实现`set_running_statistics`
+- [ ] 目前的`spaces`编号方式是`global_counting`，这样不方便直接根据传入的`mask`得到指定模型结构，需要改进这种编码方式
+- [ ] NAS model能够自动导出其当前
+  - [ ] 结构编码信息: `self.arch`
+  - [ ] 当前模型大小: `self.model_size`
+- [ ] 实现新的Callbacks
+    - [ ] `ArchitectureCheckpoint`: 以`json`文件的格式导出搜索到的模型结构，
+    - [ ] `ArchitectureHistory`： 记录搜索过程中模型结构以及对应的性能

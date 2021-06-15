@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 
 from .base_module import FinegrainedModule
-from .utils import build_activation, sub_filter_start_end
+from .utils import build_activation, sub_filter_start_end, is_searchable
 
 
 __all__ = [
@@ -68,28 +68,28 @@ class BaseConvNd(FinegrainedModule):
         self.search_dilation = False
         self.search_groups = False
         # self.search_bias = False
-        if len(self.value_spaces)==0:
+
+        if all([not vs.is_search for vs in self.value_spaces.values()]):
             return False
 
-        if 'in_channels' in self.value_spaces:
+        if  is_searchable(getattr(self.value_spaces, 'in_channels', None)):
             self.search_in_channel = True
-        if 'out_channels' in self.value_spaces:
+        if  is_searchable(getattr(self.value_spaces, 'out_channels', None)):
             self.search_out_channel = True
-        if 'kernel_size' in self.value_spaces:
+        if  is_searchable(getattr(self.value_spaces, 'kernel_size', None)):
             kernel_candidates = self.value_spaces['kernel_size'].candidates
-            assert self.kernel_size==max(kernel_candidates)
             max_k = self.kernel_size
             # Todo: 与`transform_kernel_size`搭配使用，目前未使用
-            for i, k in enumerate(sorted(kernel_candidates)[:-1]):
-                self.register_parameter(f'{max_k}to{k}_kernelMatrix', Parameter(torch.rand(max_k**2, k**2)))
+            # for i, k in enumerate(sorted(kernel_candidates)[:-1]):
+            #     self.register_parameter(f'{max_k}to{k}_kernelMatrix', Parameter(torch.rand(max_k**2, k**2)))
             self.search_kernel_size = True
-        if 'stride' in self.value_spaces:
+        if  is_searchable(getattr(self.value_spaces, 'stride', None)):
             self.search_stride = True
-        if 'dilation' in self.value_spaces:
+        if  is_searchable(getattr(self.value_spaces, 'dilation', None)):
             self.search_dilation = True
-        if 'groups' in self.value_spaces:
+        if  is_searchable(getattr(self.value_spaces, 'groups', None)):
             self.search_groups = True
-        # if 'bias' in self.value_spaces:
+        # if  is_searchable(getattr(self.value_spaces, 'bias', None)):
         #     self.search_bias = True
 
         return True

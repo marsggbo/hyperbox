@@ -1,6 +1,17 @@
+from typing import Optional, Union
+
 import torch
 import torch.nn as nn
 
+from ..spaces import Mutable
+
+def is_searchable(
+    obj: Optional[Union[None, Mutable]]
+    ):
+    '''Check whether the Space obj is searchable'''
+    if (obj is None) or (not obj.is_search):
+        return False
+    return True
 
 def sub_filter_start_end(kernel_size, sub_kernel_size):
 	center = kernel_size // 2

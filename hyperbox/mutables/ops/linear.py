@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .base_module import FinegrainedModule
-
+from .utils import is_searchable
 
 __all__ = [
     'Linear'
@@ -30,12 +30,12 @@ class Linear(FinegrainedModule):
         '''
         self.search_in_features = False
         self.search_out_features = False
-        if len(self.value_spaces)==0:
+        if all([not vs.is_search for vs in self.value_spaces.values()]):
             return False
         cout, cin = self.linear.weight.shape
-        if 'in_features' in self.value_spaces:
+        if  is_searchable(getattr(self.value_spaces, 'in_features', None)):
             self.search_in_features = True
-        if 'out_features' in self.value_spaces:
+        if  is_searchable(getattr(self.value_spaces, 'out_features', None)):
             self.search_out_features = True
         return True
 

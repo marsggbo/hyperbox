@@ -43,6 +43,7 @@ class Mutable(nn.Module):
 
     def __init__(self, key=None):
         super().__init__()
+        self.is_search =True
         if key is not None:
             if not isinstance(key, str):
                 key = str(key)
@@ -56,7 +57,8 @@ class Mutable(nn.Module):
         raise NotImplementedError("Deep copy doesn't work for mutables.")
 
     def __call__(self, *args, **kwargs):
-        self._check_built()
+        if self.is_search:
+            self._check_built()
         return super().__call__(*args, **kwargs)
 
     def set_mutator(self, mutator):
@@ -235,7 +237,6 @@ class OperationSpace(CategoricalSpace):
         if self.is_search:
             if hasattr(self, "mutator"):
                 out, mask = self.mutator.on_forward_operation_space(self, *inputs)
-            
         else:
             out = self.choices[0](*inputs)
             mask = torch.tensor([True])
@@ -363,6 +364,13 @@ class InputSpace(CategoricalSpace):
         else:
             return out
 
+    def __repr__(self):
+        if self.is_search:
+            return super(Mutable, self).__repr__()
+        else:
+            name = self.__class__.__name__
+            _repr = f'{name}({self.choose_from}, key={repr(self.key)}, value={self.value})'
+            return _repr
 
 class ValueSpace(CategoricalSpace):
     def __init__(self,
