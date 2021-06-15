@@ -64,8 +64,8 @@ def flops_size_counter(_model, input_size):
     def remove_buffer(m_):
         if len(list(m_.children())) > 0:
             return
-
-        del m_.total_ops, m_.total_params, m_.module_used
+        if hasattr(m_, 'total_ops'):
+            del m_.total_ops, m_.total_params, m_.module_used
 
     original_device = next(model.parameters()).device
     training = model.training

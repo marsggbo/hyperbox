@@ -35,6 +35,9 @@
 - 更新`Mutables`的`__repr__`
 - 增加`is_searchable`函数用于判断`Mutable`的属性`is_search`是否为`True`
 
+## 2021年6月15日14:03:01
+
+- 修复计算模型大小和FLOPs时的bug
 
 # TODO
 
