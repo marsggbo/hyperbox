@@ -1,0 +1,12 @@
+_target_: hyperbox.models.classify_model.ClassifyModel
+
+network_cfg:
+    _target_: torchvision.models.resnet18
+loss_cfg:
+    _target_: torch.nn.CrossEntropyLoss
+optimizer_cfg:
+    _target_: torch.optim.Adam
+    lr: 0.001
+    weight_decay: 0.0005
+metric_cfg:
+    _target_: torchmetrics.classification.accuracy.Accuracy
