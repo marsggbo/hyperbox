@@ -43,6 +43,14 @@
 
 - 支持传统的图像分类模型`ClassifyModel`
 
+## 2021年6月16日21:59:25
+
+- fix `flops_size_counter` to support calcutate `FinegrainedModule` flops and size
+- add `arch_size` function for `BaseModel
+- refactor `ops.Conv / BatchNorm / Linear`
+- add test modules for `ops.Conv / BatchNorm / Linear`
+
+
 # TODO
 
 - [ ] 可视化模型结构
@@ -51,7 +59,7 @@
 - [ ] 目前的`spaces`编号方式是`global_counting`，这样不方便直接根据传入的`mask`得到指定模型结构，需要改进这种编码方式
 - [ ] NAS model能够自动导出其当前
   - [ ] 结构编码信息: `self.arch`
-  - [ ] 当前模型大小: `self.model_size`
+  - [x] 当前模型大小: `self.model_size`
 - [ ] 实现新的Callbacks
     - [ ] `ArchitectureCheckpoint`: 以`json`文件的格式导出搜索到的模型结构，
     - [ ] `ArchitectureHistory`： 记录搜索过程中模型结构以及对应的性能

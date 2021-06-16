@@ -87,6 +87,8 @@ class OFAModel(BaseModel):
         logger.info(f"[rank {self.trainer.global_rank}] batch idx={batch_idx} sample search {duration} seconds")
 
         logger.debug(f"rank{self.rank} model.fc={self.network.fc}")
+        mflops, size = self.arch_size((1,3,32,32), convert=True)
+        logger.info(f"current model info: {mflops:.4f} MFLOPs, {size:.4f} MB.")
         inputs, targets = batch
         start = time.time()
         output = self.network(inputs)

@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional, Union, Tuple
 
 import hydra
 import torch
@@ -8,6 +8,7 @@ from torchmetrics.classification.accuracy import Accuracy
 
 from hyperbox.utils.logger import get_logger
 from hyperbox.utils.utils import TorchTensorEncoder
+from hyperbox.utils.calc_model_size import flops_size_counter
 logger = get_logger(__name__)
 
 
@@ -73,7 +74,7 @@ class BaseModel(LightningModule):
             self.mutator = instantiate(cfg, model=self.network)
             logger.info(f'Building {cfg._target_} ...')
         elif cfg is None:
-            from mutator.random_mutator import RandomMutator
+            from hyperbox.mutator.random_mutator import RandomMutator
             logger.info('Mutator cfg is not specified, so use RandomMutator as the default.')
             self.mutator = RandomMutator(self.network)
         self.mutator.reset()
@@ -125,6 +126,25 @@ class BaseModel(LightningModule):
     @property
     def rank(self):
         return self.global_rank
+
+    @property
+    def arch(self):
+        raise NotImplementedError
+
+    def arch_size(self, datasize: Tuple=None, convert=True, verbose=False):
+        size = None
+        for candidate_size in [
+            datasize,
+            self.example_input_array,
+            self.train_dataloader().dataset[0][0].shape]:
+            if candidate_size is not None:
+                size = candidate_size
+                break
+        assert size is not None, \
+            "Please specify valid data size, e.g., size=self.arch_size(datasize=(1,3,32,32))"
+        result = flops_size_counter(self.network, size, convert, verbose)
+        mflops, mb_size = list(result.values())
+        return mflops, mb_size   
 
     def export(self, file: str):
         """Call ``mutator.export()`` and dump the architecture to ``file``.

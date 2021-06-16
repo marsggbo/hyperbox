@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.modules.batchnorm import _BatchNorm
 
 from hyperbox.mutables.spaces import ValueSpace
 
@@ -17,16 +18,12 @@ __all__ = [
 ]
 
 
-class BaseBatchNorm(FinegrainedModule):
+class BaseBatchNorm(_BatchNorm, FinegrainedModule):
     def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True, track_running_stats=True):
-        super(BaseBatchNorm, self).__init__()
-        bn_kwargs = {key:getattr(self, key, None) 
-            for key in ['num_features', 'eps', 'momentum', 'affine', 'track_running_stats']}
-        self.init_ops(bn_kwargs)
-        self.searchBN = is_searchable(getattr(self.value_spaces, 'num_features', None))
-
-    def init_ops(self, bn_kwargs: dict):
-        raise NotImplementedError
+        FinegrainedModule.__init__(self)
+        _BatchNorm.__init__(
+            self, self.num_features, self.eps, self.momentum, self.affine, self.track_running_stats)
+        self.is_search = is_searchable(getattr(self.value_spaces, 'num_features', None))
 
     ###########################################
     # property
@@ -36,8 +33,8 @@ class BaseBatchNorm(FinegrainedModule):
     def params(self):
         '''The number of the trainable parameters'''
         # bn
-        bn_weight = self.bn.weight
-        bn_bias = self.bn.bias
+        bn_weight = self.weight
+        bn_bias = self.bias
         if 'num_features' in self.value_spaces:
             num_features = self.value_spaces['num_features'].value
             bn_weight = bn_weight[:num_features]
@@ -45,38 +42,32 @@ class BaseBatchNorm(FinegrainedModule):
         size = sum([p.numel() for p in [bn_weight, bn_bias] if p is not None])
         return size
 
-    ###########################################
-    # forward implementation
-    # - forward_bn
-    ###########################################
-
     def forward(self, x):
         out = None
-        if len(self.value_spaces)==0 or self.value_spaces['num_features'].index is not None:
-            out = self.bn(x)
+        if not self.is_search:
+            out = _BatchNorm.forward(self, x)
         else:
-            out = self.forward_bn(self.bn, x)
+            out = self.forward_bn(x)
         return out
 
-    def forward_bn(self, module, x):
+    def forward_bn(self, x):
         num_features = getattr(self.value_spaces, 'num_features', self.num_features)
         if isinstance(num_features, ValueSpace):
             num_features = num_features.value
         exponential_average_factor = 0.0
 
-        if module.training and module.track_running_stats:
-            if module.num_batches_tracked is not None:
-                module.num_batches_tracked += 1
-                if module.momentum is None:  # use cumulative moving average
-                    exponential_average_factor = 1.0 / float(module.num_batches_tracked)
+        if self.training and self.track_running_stats:
+            if self.num_batches_tracked is not None:
+                self.num_batches_tracked += 1
+                if self.momentum is None:  # use cumulative moving average
+                    exponential_average_factor = 1.0 / float(self.num_batches_tracked)
                 else:  # use exponential moving average
-                    exponential_average_factor = module.momentum
+                    exponential_average_factor = self.momentum
         return F.batch_norm(
-            x, module.running_mean[:num_features], module.running_var[:num_features], module.weight[:num_features],
-            module.bias[:num_features], module.training or not module.track_running_stats,
-            exponential_average_factor, module.eps,
+            x, self.running_mean[:num_features], self.running_var[:num_features], self.weight[:num_features],
+            self.bias[:num_features], self.training or not self.track_running_stats,
+            exponential_average_factor, self.eps,
         )
-
 
     def sort_weight_bias(self, module):
         vc = self.value_spaces['num_features']
@@ -92,23 +83,26 @@ class BatchNorm1d(BaseBatchNorm):
         super(BatchNorm1d, self).__init__(
             num_features, eps, momentum, affine, track_running_stats)
 
-    def init_ops(self, bn_kwargs: dict):
-        self.bn = nn.BatchNorm1d(**bn_kwargs)
-
+    def _check_input_dim(self, input):
+        if input.dim() != 2 and input.dim() != 3:
+            raise ValueError(
+                "expected 2D or 3D input (got {}D input)".format(input.dim())
+            )
 
 class BatchNorm2d(BaseBatchNorm):
     def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True, track_running_stats=True):
         super(BatchNorm2d, self).__init__(
             num_features, eps, momentum, affine, track_running_stats)
 
-    def init_ops(self, bn_kwargs: dict):
-        self.bn = nn.BatchNorm2d(**bn_kwargs)
-
+    def _check_input_dim(self, input):
+        if input.dim() != 4:
+            raise ValueError("expected 4D input (got {}D input)".format(input.dim()))
 
 class BatchNorm3d(BaseBatchNorm):
     def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True, track_running_stats=True):
         super(BatchNorm3d, self).__init__(
             num_features, eps, momentum, affine, track_running_stats)
 
-    def init_ops(self, bn_kwargs: dict):
-        self.bn = nn.BatchNorm3d(**bn_kwargs)
+    def _check_input_dim(self, input):
+        if input.dim() != 5:
+            raise ValueError("expected 5D input (got {}D input)".format(input.dim()))
