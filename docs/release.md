@@ -46,10 +46,13 @@
 ## 2021年6月16日21:59:25
 
 - fix `flops_size_counter` to support calcutate `FinegrainedModule` flops and size
-- add `arch_size` function for `BaseModel
+- add `arch_size` function for `BaseModel`
 - refactor `ops.Conv / BatchNorm / Linear`
 - add test modules for `ops.Conv / BatchNorm / Linear`
 
+## 2021年6月17日11:31:20
+
+- add `arch_size` function for `BaseNASNetwork`
 
 # TODO
 

@@ -129,9 +129,13 @@ class BaseModel(LightningModule):
 
     @property
     def arch(self):
+        if hasattr(self.network, 'arch'):
+            return self.network.arch
         raise NotImplementedError
 
     def arch_size(self, datasize: Tuple=None, convert=True, verbose=False):
+        if hasattr(self.network, 'arch_size'):
+            return self.network.arch_size(datasize, convert, verbose)
         size = None
         for candidate_size in [
             datasize,
