@@ -73,6 +73,10 @@ defaults:
     - loss_cfg: cross_entropy
 ```
 
+## 2021年6月19日17:27:12
+
+- add `transforms` to `DataModule`
+
 # TODO
 
 - [ ] 可视化模型结构

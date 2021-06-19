@@ -1,10 +1,13 @@
 from typing import Optional, Tuple, Union, Any, List, Callable
 
+from omegaconf import DictConfig
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
 from pl_bolts.datamodules import CIFAR10DataModule as bolt_cifar10
 from torchvision.datasets import CIFAR10, CIFAR100
 from torchvision.transforms import transforms
+
+from .transforms import get_transforms
 
 
 class CIFAR10DataModule(bolt_cifar10):
@@ -33,6 +36,7 @@ class CIFAR10DataModule(bolt_cifar10):
 
     def __init__(
         self,
+        transforms: Union[dict, DictConfig],
         data_dir: Optional[str] = None,
         val_split: Union[int, float] = 0.5,
         num_workers: int = 4,
@@ -50,7 +54,7 @@ class CIFAR10DataModule(bolt_cifar10):
         super().__init__(
             data_dir, val_split, num_workers, normalize, batch_size, seed,
             shuffle, pin_memory, drop_last, *args, **kwargs)
-
+        self._transforms = get_transforms('torch', dict(transforms))
         self._num_classes = num_classes
         self.is_customized = is_customized
 
@@ -59,21 +63,23 @@ class CIFAR10DataModule(bolt_cifar10):
         return self._num_classes
 
     def default_train_transforms(self):
-        return transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(0.5),
-            transforms.ToTensor(),
-            transforms.Normalize(self.MEAN, self.STD)
-        ])
+        return self._transforms._transform_train
+        # return transforms.Compose([
+        #     transforms.RandomCrop(32, padding=4),
+        #     transforms.RandomHorizontalFlip(0.5),
+        #     transforms.ToTensor(),
+        #     transforms.Normalize(self.MEAN, self.STD)
+        # ])
 
     def default_transforms(self) -> Callable:
         """ Default transform for the dataset """
-        return transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize(self.MEAN, self.STD)
-            ]
-        )
+        return self._transforms._transform_valid
+        # return transforms.Compose(
+        #     [
+        #         transforms.ToTensor(),
+        #         transforms.Normalize(self.MEAN, self.STD)
+        #     ]
+        # )
 
     def setup(self, stage: Optional[str] = None):
         if stage == "fit" or stage is None:
@@ -124,6 +130,7 @@ class CIFAR100DataModule(CIFAR10DataModule):
 
     def __init__(
         self,
+        transforms: Union[dict, DictConfig],
         data_dir: Optional[str] = None,
         val_split: Union[int, float] = 0.5,
         num_workers: int = 4,
@@ -138,6 +145,6 @@ class CIFAR100DataModule(CIFAR10DataModule):
         *args: Any,
         **kwargs: Any,
     ):
-        super().__init__(data_dir, val_split, num_workers, normalize, batch_size, seed,
+        super().__init__(transforms, data_dir, val_split, num_workers, normalize, batch_size, seed,
                          shuffle, pin_memory, drop_last, num_classes, is_customized, *args, **kwargs)
         
