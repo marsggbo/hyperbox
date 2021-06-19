@@ -17,7 +17,7 @@ A clean and scalable template to kickstart your AutoML project 🚀⚡🔥<br>
 
 </div>
 
-## Why name Hyperbox?
+## Why Hyperbox?
 
 ...
 
