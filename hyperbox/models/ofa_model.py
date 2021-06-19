@@ -74,7 +74,7 @@ class OFAModel(BaseModel):
                     mask_dict[idx] = mask
                 mask_dict = self.trainer.accelerator.broadcast(mask_dict, src=0)
                 mask = mask_dict[self.rank]
-                logger.debug(f"[net_parallel={self.is_net_parallel}]{self.rank}: {mask['ValueChoice18']}")
+                # logger.debug(f"[net_parallel={self.is_net_parallel}]{self.rank}: {mask['ValueChoice1']}")
                 for m in self.mutator.mutables:
                     m.mask.data = mask[m.key].data.to(self.device)
 
@@ -84,16 +84,14 @@ class OFAModel(BaseModel):
         start = time.time()
         self.sample_search()
         duration = time.time() - start
-        logger.info(f"[rank {self.trainer.global_rank}] batch idx={batch_idx} sample search {duration} seconds")
+        logger.debug(f"[rank {self.rank}] batch idx={batch_idx} sample search {duration} seconds")
 
         logger.debug(f"rank{self.rank} model.fc={self.network.fc}")
-        mflops, size = self.arch_size((1,3,32,32), convert=True)
-        logger.info(f"current model info: {mflops:.4f} MFLOPs, {size:.4f} MB.")
         inputs, targets = batch
         start = time.time()
         output = self.network(inputs)
         duration = time.time() - start
-        logger.info(f"[rank {self.trainer.global_rank}] batch idx={batch_idx} forward {duration} seconds")
+        logger.debug(f"[rank {self.rank}] batch idx={batch_idx} forward {duration} seconds")
         if isinstance(output, tuple):
             output, aux_output = output
             aux_loss = self.loss(aux_output, targets)
@@ -118,13 +116,15 @@ class OFAModel(BaseModel):
         self.log("train/loss", loss, on_step=True, on_epoch=True, sync_dist=sync_dist, prog_bar=False)
         self.log("train/acc", acc, on_step=True, on_epoch=True, sync_dist=sync_dist, prog_bar=False)
         if batch_idx % 10 ==0:
-            logger.info(f"Train epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
+            logger.info(f"[rank {self.rank}] Train epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
     def training_epoch_end(self, outputs: List[Any]):
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
-        logger.info(f"Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        mflops, size = self.arch_size((1,3,32,32), convert=True)
+        logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
+        logger.info(f"[rank {self.rank}] Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
 
     def calc_loss_kd_subnets(self, output, outputs_list, kd_method='ensemble'):
         loss = 0
@@ -162,7 +162,9 @@ class OFAModel(BaseModel):
     def validation_epoch_end(self, outputs: List[Any]):
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
-        logger.info(f"Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        mflops, size = self.arch_size((1,3,32,32), convert=True)
+        logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
+        logger.info(f"[rank {self.rank}] Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
     
     # def validation_epoch_end(self, outputs: List[Any]):
     def test_step(self, batch: Any, batch_idx: int):

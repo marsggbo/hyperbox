@@ -26,6 +26,8 @@ class SequentialMutator(Mutator):
             if isinstance(mutable, OperationSpace):
                 gen_index = torch.randint(high=mutable.length, size=(1, ))
                 result[mutable.key] = F.one_hot(gen_index, num_classes=mutable.length).view(-1).bool()
+                mutable.mask = torch.zeros_like(result[mutable.key])
+                mutable.mask[result[mutable.key].detach().numpy().argmax()] = 1
             elif isinstance(mutable, InputSpace):
                 if mutable.n_chosen is None:
                     result[mutable.key] = torch.randint(high=2, size=(mutable.n_candidates,)).view(-1).bool()
@@ -33,6 +35,8 @@ class SequentialMutator(Mutator):
                     perm = torch.randperm(mutable.n_candidates)
                     mask = [i in perm[:mutable.n_chosen] for i in range(mutable.n_candidates)]
                     result[mutable.key] = torch.tensor(mask, dtype=torch.bool)  # pylint: disable=not-callable
+                mutable.mask = torch.zeros_like(result[mutable.key])
+                mutable.mask[result[mutable.key].detach().numpy().argmax()] = 1
             elif isinstance(mutable, ValueSpace):
                 index_choice = int(mutable.key.split('ValueSpace')[-1]) - 1
                 value = self.masks[f'arch{self.crt_index}']['arch'].split('-')[index_choice]

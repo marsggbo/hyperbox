@@ -77,6 +77,12 @@ defaults:
 
 - add `transforms` to `DataModule`
 
+## 2021年6月19日22:06:06
+
+- `Model`: print model info (size, flops, arch encoding) during the search stage
+- `Mutator`: update both `self._choices` and `mutable.mask`
+- update `arch` attribute of `DartsNetwork`
+
 # TODO
 
 - [ ] 可视化模型结构

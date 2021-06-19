@@ -57,8 +57,8 @@ class DARTSModel(BaseModel):
         # log train metrics
         preds = torch.argmax(preds, dim=1)
         acc = self.train_metric(preds, trn_y)
-        self.log("train/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
-        self.log("train/acc", acc, on_step=False, on_epoch=True, prog_bar=False)
+        self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=False)
+        self.log("train/acc", acc, on_step=True, on_epoch=True, prog_bar=False)
         if batch_idx % 50 ==0:
             logger.info(f"Train epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": trn_y, 'acc': acc}
@@ -161,7 +161,9 @@ class DARTSModel(BaseModel):
     def training_epoch_end(self, outputs: List[Any]):        
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
-        self.print(f"Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        mflops, size = self.arch_size((1,3,32,32), convert=True)
+        logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
+        logger.info(f"[rank {self.rank}] Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
 
     def validation_step(self, batch: Any, batch_idx: int):
         (X, targets) = batch
@@ -180,9 +182,10 @@ class DARTSModel(BaseModel):
     def validation_epoch_end(self, outputs: List[Any]):
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
-        self.print(f"Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        mflops, size = self.arch_size((1,3,32,32), convert=True)
+        logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
+        logger.info(f"[rank {self.rank}] Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
     
-
     def test_step(self, batch: Any, batch_idx: int):
         (X, targets) = batch
         preds, loss = self._logits_and_loss(X, targets)
@@ -199,7 +202,7 @@ class DARTSModel(BaseModel):
     def test_epoch_end(self, outputs: List[Any]):
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
-        self.print(f"Test epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        logger.info(f"[rank {self.rank}] Test epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
 
 
     def configure_optimizers(self):

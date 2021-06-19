@@ -1,7 +1,5 @@
 import sys
 import os
-sys.path.append('.')
-sys.path.append('./src')
 
 import dotenv
 import hydra

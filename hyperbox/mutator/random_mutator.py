@@ -20,6 +20,7 @@ class RandomMutator(Mutator):
             if isinstance(mutable, OperationSpace):
                 gen_index = torch.randint(high=mutable.length, size=(1, ))
                 result[mutable.key] = F.one_hot(gen_index, num_classes=mutable.length).view(-1).bool()
+                mutable.mask = result[mutable.key].detach()
             elif isinstance(mutable, InputSpace):
                 if mutable.n_chosen is None:
                     result[mutable.key] = torch.randint(high=2, size=(mutable.n_candidates,)).view(-1).bool()
@@ -27,6 +28,7 @@ class RandomMutator(Mutator):
                     perm = torch.randperm(mutable.n_candidates)
                     mask = [i in perm[:mutable.n_chosen] for i in range(mutable.n_candidates)]
                     result[mutable.key] = torch.tensor(mask, dtype=torch.bool)  # pylint: disable=not-callable
+                mutable.mask = result[mutable.key].detach()
             elif isinstance(mutable, ValueSpace):
                 gen_index = torch.randint(high=mutable.length, size=(1, ))
                 result[mutable.key] = F.one_hot(gen_index, num_classes=mutable.length).view(-1).bool()

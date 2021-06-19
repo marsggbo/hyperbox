@@ -4,7 +4,7 @@ num=$1
 remark=$2
 others=$3
 
-BS=64
+BS=256
 exp=example_ofa_nas
 
 
@@ -12,7 +12,7 @@ if [ $num -le 1 ]
 then
 {  
     echo "python run.py experiment=$exp.yaml logger.wandb.name=g${num}_bs${BS}_${remark} trainer.gpus=${num} datamodule.batch_size=${BS} ${others}"
-    python run.py \
+    python -m ipdb run.py \
     experiment=$exp.yaml \
     logger.wandb.name=g${num}_bs${BS}_${remark} \
     trainer.gpus=${num} \

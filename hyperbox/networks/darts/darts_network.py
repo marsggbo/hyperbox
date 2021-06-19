@@ -10,6 +10,7 @@ import hyperbox.mutables.spaces as spaces
 
 from .darts_ops import PoolBN, SepConv, DilConv, FactorizedReduce, DropPath, StdConv
 
+from ..base_nas_network import BaseNASNetwork
 
 __all__ = [
     'Node',
@@ -19,7 +20,7 @@ __all__ = [
 
 
 class Node(nn.Module):
-    def __init__(self, node_id, num_prev_nodes, channels, num_downsample_connect):
+    def __init__(self, node_id, num_prev_nodes, channels, num_downsample_connect, mask=None):
         """
         builtin Darts Node structure
 
@@ -49,7 +50,8 @@ class Node(nn.Module):
                         SepConv(channels, channels, 5, stride, 2, affine=False),
                         DilConv(channels, channels, 3, stride, 2, 2, affine=False),
                         DilConv(channels, channels, 5, stride, 4, 2, affine=False)
-                ], key=choice_keys[-1]))
+                ], key=choice_keys[-1], mask=mask)
+            )
                 # spaces.OperationSpace(OrderedDict([
                 #     ("maxpool", PoolBN('max', channels, 3, stride, 1, affine=False)),
                 #     ("avgpool", PoolBN('avg', channels, 3, stride, 1, affine=False)),
@@ -61,7 +63,7 @@ class Node(nn.Module):
                 #     ("dilconv5x5", DilConv(channels, channels, 5, stride, 4, 2, affine=False))
                 # ]), key=choice_keys[-1]))
         self.drop_path = DropPath()
-        self.input_switch = spaces.InputSpace(choose_from=choice_keys, n_chosen=2, key="{}_switch".format(node_id))
+        self.input_switch = spaces.InputSpace(choose_from=choice_keys, n_chosen=2, key="{}_switch".format(node_id), mask=mask)
 
     def forward(self, prev_nodes):
         assert len(self.ops) == len(prev_nodes)
@@ -93,7 +95,7 @@ class DartsCell(nn.Module):
     reduction: bool
         is current cell a reduction cell
     """
-    def __init__(self, n_nodes, channels_pp, channels_p, channels, reduction_p, reduction):
+    def __init__(self, n_nodes, channels_pp, channels_p, channels, reduction_p, reduction, mask=None):
         super().__init__()
         self.reduction = reduction
         self.n_nodes = n_nodes
@@ -110,7 +112,7 @@ class DartsCell(nn.Module):
         self.mutable_ops = nn.ModuleList()
         for depth in range(2, self.n_nodes + 2):
             self.mutable_ops.append(Node("{}_n{}".format("reduce" if reduction else "normal", depth),
-                                         depth, channels, 2 if reduction else 0))
+                                         depth, channels, 2 if reduction else 0, mask=mask))
 
     def forward(self, pprev, prev):
         """
@@ -130,7 +132,7 @@ class DartsCell(nn.Module):
         return output
 
 
-class DartsNetwork(nn.Module): 
+class DartsNetwork(BaseNASNetwork): 
     """
     builtin Darts Search Mutable
     Compared to Darts example, DartsSearchSpace removes Auxiliary Head, which
@@ -156,8 +158,8 @@ class DartsNetwork(nn.Module):
     """
 
     def __init__(self, in_channels, channels, n_classes, n_layers, factory_func=DartsCell, n_nodes=4,
-                 stem_multiplier=3):
-        super().__init__()
+                 stem_multiplier=3, mask=None):
+        super(DartsNetwork, self).__init__(mask)
         self.in_channels = in_channels
         self.channels = channels
         self.n_classes = n_classes
@@ -182,7 +184,7 @@ class DartsNetwork(nn.Module):
                 c_cur *= 2
                 reduction = True
 
-            cell = factory_func(n_nodes, channels_pp, channels_p, c_cur, reduction_p, reduction)
+            cell = factory_func(n_nodes, channels_pp, channels_p, c_cur, reduction_p, reduction, mask=mask)
             self.cells.append(cell)
             c_cur_out = c_cur * n_nodes
             channels_pp, channels_p = channels_p, c_cur_out
@@ -206,3 +208,15 @@ class DartsNetwork(nn.Module):
         for module in self.modules():
             if isinstance(module, DropPath):
                 module.p = p
+
+    @property
+    def arch(self):
+        arch = ''
+        cell_ops = self.cells[0].mutable_ops
+        for node_ops in cell_ops:
+            sub_arch = ''
+            for op in node_ops.ops:
+                index = op.mask.numpy().argmax()
+                sub_arch += f'{index}'
+            arch += f'-{sub_arch}'
+        return arch

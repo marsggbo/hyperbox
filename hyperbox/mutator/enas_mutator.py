@@ -130,8 +130,12 @@ class EnasMutator(Mutator):
         mutable = tree.mutable
         if isinstance(mutable, OperationSpace) and mutable.key not in self._choices:
             self._choices[mutable.key] = self._sample_layer_choice(mutable)
+            mutable.mask = torch.zeros_like(self._choices[mutable.key])
+            mutable.mask[self._choices[mutable.key].detach().numpy().argmax()] = 1
         elif isinstance(mutable, InputSpace) and mutable.key not in self._choices:
             self._choices[mutable.key] = self._sample_input_choice(mutable)
+            mutable.mask = torch.zeros_like(self._choices[mutable.key])
+            mutable.mask[self._choices[mutable.key].detach().numpy().argmax()] = 1
         for child in tree.children:
             self._sample(child)
         if isinstance(mutable, MutableScope) and mutable.key not in self._anchors_hid:

@@ -13,8 +13,14 @@ if __name__ == '__main__':
         n_layers=3,
         factory_func=DartsCell,
     ).cuda()
+    print(net.arch)
     m = RandomMutator(net)
     m.reset()
+    print(net.arch)
+    m.reset()
+    print(net.arch)
+    m.reset()
+    print(net.arch)
     x = torch.rand(2,3,64,64).cuda()
     output = net(x)
     print(output.shape)
