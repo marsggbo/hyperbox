@@ -29,23 +29,33 @@ TARGET_KEY_MAP = {
 }
 
 class EAMutator(RandomMutator):
-    def __init__(self, model, cfg=None):
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        target_keys: list,
+        object_keys: list,
+        num_population: int,
+        warmup_epochs: int,
+        prob_crossover: float = 0.2,  # probability of crossover
+        prob_mutation: float = 0.1,   # probability of mutation
+        offspring_ratio: float = 0.2, # the ratio of new offsprings from population
+        init_population_mode: str = 'random', # or 'warmup'
+        algorithm: str = 'cars',
+        *args, **kwargs
+    ):
         '''
         Args:
-            cfg: Optional[DictConfig, dict]
         '''
-        super().__init__(model, cfg)
-        self.cfg = cfg
-        EACfg = self.cfg.mutator.EAMutator
-        self.algorithm = EACfg.algorithm
-        self.target_keys = [TARGET_KEY_MAP[k] for k in EACfg.target_keys]
-        self.object_keys = [OBJECT_KEY_MAP[k] for k in EACfg.object_keys]
-        self.num_population = EACfg.num_population # 初始population数量
-        self.warmup_epochs  = EACfg.warmup_epochs
-        self.init_population_mode  = EACfg.init_population_mode # 初始化population的方式
-        self.prob_crossover = EACfg.prob_crossover
-        self.prob_mutation  = EACfg.prob_mutation
-        self.offspring_ratio = EACfg.offspring_ratio
+        super().__init__(model)
+        self.algorithm = algorithm
+        self.target_keys = [TARGET_KEY_MAP[k] for k in target_keys]
+        self.object_keys = [OBJECT_KEY_MAP[k] for k in object_keys]
+        self.num_population = num_population # 初始population数量
+        self.warmup_epochs  = warmup_epochs
+        self.init_population_mode  = init_population_mode # 初始化population的方式
+        self.prob_crossover = prob_crossover
+        self.prob_mutation  = prob_mutation
+        self.offspring_ratio = offspring_ratio
 
         self.start_evolve = False
         self.is_initialized = False
@@ -77,14 +87,9 @@ class EAMutator(RandomMutator):
             self._cache = self.pools[self.idx]['arch']
             self.idx += 1
 
-    def add_new_arch(self, pools, idx, arch):
+    def add_new_arch(self, pools, idx, arch, input_size):
         if not self.is_pool_repeated(pools, arch):
             self._cache = arch
-            size = self.cfg.input.size
-            if self.cfg.dataset.is_3d:
-                input_size = (1,1,self.cfg.dataset.slice_num,*size)
-            else:
-                input_size = (1,3,*size)
             flops_size = flops_size_counter(self.model, input_size)
             flops, size = flops_size['flops'], flops_size['size']
             if idx not in pools:

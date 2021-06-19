@@ -40,7 +40,21 @@ class StackedLSTMCell(nn.Module):
 
 class EnasMutator(Mutator):
 
-    def __init__(self, model=None):
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        lstm_size: int = 61,
+        lstm_num_layers: int = 1,
+        tanh_constant: float = 1.5,
+        cell_exit_extra_step: bool = False,
+        skip_target: float = 0.4,
+        branch_bias: float = 0.25,
+        arch_loss_weight: float = 0.02, # 0.002:small 0.02:medium 0.2:big
+        reward_weight: int = 50,
+        temperature: int = 2,
+        entropy_reduction: str = 'sum', # 'sum', 'mean',
+        *args, **kwargs
+    ):
         """
         Initialize a EnasMutator.
             Parameters
@@ -66,16 +80,14 @@ class EnasMutator(Mutator):
                     receive a bias of ``-self.branch_bias``.
         """
         super().__init__(model)
-        MUTATOR_CONFIG = cfg.mutator.EnasMutator
-        self.lstm_size = MUTATOR_CONFIG.lstm_size
-        self.lstm_num_layers = MUTATOR_CONFIG.lstm_num_layers
-        self.tanh_constant = MUTATOR_CONFIG.tanh_constant
-        self.cell_exit_extra_step = MUTATOR_CONFIG.cell_exit_extra_step
-        self.skip_target = MUTATOR_CONFIG.skip_target
-        self.branch_bias = MUTATOR_CONFIG.branch_bias
-        temperature = MUTATOR_CONFIG.temperature
+        self.lstm_size = lstm_size
+        self.lstm_num_layers = lstm_num_layers
+        self.tanh_constant = tanh_constant
+        self.cell_exit_extra_step = cell_exit_extra_step
+        self.skip_target = skip_target
+        self.branch_bias = branch_bias
         self.temperature = temperature if temperature > 0 else 1
-        self.entropy_reduction = MUTATOR_CONFIG.entropy_reduction
+        self.entropy_reduction = entropy_reduction
 
         self.lstm = StackedLSTMCell(self.lstm_num_layers, self.lstm_size, False)
         self.attn_anchor = nn.Linear(self.lstm_size, self.lstm_size, bias=False) # 对多个Input Choice对应的LSTM预测输出值先编码

@@ -12,12 +12,11 @@ __all__ = [
 ]
 
 class SequentialMutator(Mutator):
-    def __init__(self, model, cfg=None):
+    def __init__(self, model, start_idx: int):
         super().__init__(model)
-        self.cfg = cfg
         with open('./mutator/Track1_final_archs.json', 'r') as f:
             self.masks = json.load(f)
-            self.crt_index = self.cfg.mutator.SequentialMutator.start_idx
+            self.crt_index = start_idx
             self.max_num = len(self.masks)
             assert self.crt_index > 0, 'Index should start at 1'
 

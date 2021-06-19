@@ -318,7 +318,7 @@ class ProxylessMutator(Mutator):
     It is for the corresponding trainer to control the training process of LayerChoices,
     coordinating with whole training process.
     """
-    def __init__(self, model, cfg=None):
+    def __init__(self, model):
         """
         Init a MixedOp instance for each mutable i.e., OperationSpace.
         And register the instantiated MixedOp in corresponding OperationSpace.
@@ -333,7 +333,6 @@ class ProxylessMutator(Mutator):
             The model that users want to tune, it includes search space defined with nas apis
         """
         super(ProxylessMutator, self).__init__(model)
-        self.cfg = cfg
         self._unused_modules = None
         self.mutable_list = []
         for mutable in self.undedup_mutables:

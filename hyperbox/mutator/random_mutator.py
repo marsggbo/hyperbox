@@ -11,7 +11,7 @@ __all__ = [
 ]
 
 class RandomMutator(Mutator):
-    def __init__(self, model, cfg=None):
+    def __init__(self, model, *args, **kwargs):
         super().__init__(model)
 
     def sample_search(self):

@@ -37,7 +37,7 @@ class DartsMutator(Mutator):
         choices: ParameterDict
             dict that maps keys of LayerChoices to weighted-connection float tensors.
     """
-    def __init__(self, model, cfg=None):
+    def __init__(self, model, *args, **kwargs):
         super().__init__(model)
         self.choices = nn.ParameterDict()
         for mutable in self.mutables:

@@ -54,6 +54,10 @@
 
 - add `arch_size` function for `BaseNASNetwork`
 
+## 2021年6月19日12:21:58
+
+- remove deprecated `cfg` attribute in `Mutator`s
+
 # TODO
 
 - [ ] 可视化模型结构
