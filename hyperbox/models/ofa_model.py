@@ -86,7 +86,7 @@ class OFAModel(BaseModel):
         duration = time.time() - start
         logger.debug(f"[rank {self.rank}] batch idx={batch_idx} sample search {duration} seconds")
 
-        logger.debug(f"rank{self.rank} model.fc={self.network.fc}")
+        # logger.debug(f"rank{self.rank} model.fc={self.network.fc}")
         inputs, targets = batch
         start = time.time()
         output = self.network(inputs)

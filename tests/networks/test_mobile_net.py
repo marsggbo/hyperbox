@@ -5,10 +5,6 @@ from hyperbox.networks.mobilenet.mobile_net import MobileNet
 from hyperbox.networks.mobilenet.mobile3d_net import Mobile3DNet
 
 if __name__ == '__main__':
-    import sys
-    import os
-    sys.path.append(os.path.join(os.getcwd(), '..'))
-    sys.path.append(os.path.join(os.getcwd(), '../..'))
     from hyperbox.mutator.random_mutator import RandomMutator
     net = MobileNet()
     m = RandomMutator(net)

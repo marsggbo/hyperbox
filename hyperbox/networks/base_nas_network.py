@@ -1,10 +1,11 @@
 from typing import Optional, Union, Tuple, List
 import torch.nn as nn
 
-from hyperbox.utils.utils import load_json
+from hyperbox.utils.utils import load_json, hparams_wrapper
 from hyperbox.utils.calc_model_size import flops_size_counter
 
 
+@hparams_wrapper
 class BaseNASNetwork(nn.Module):
     def __init__(self, mask: Optional[Union[str, dict]]=None):
         super(BaseNASNetwork, self).__init__()
@@ -16,6 +17,8 @@ class BaseNASNetwork(nn.Module):
         elif isinstance(mask, dict):
             self.is_search = False
         self._mask = mask
+        for key, value in self.hparams.items():
+            setattr(self, key, value)
 
     @property
     def mask(self):

@@ -139,3 +139,12 @@ class Mobile3DNet(BaseNASNetwork):
                 m.weight.data.uniform_(-stdv, stdv)
                 if m.bias is not None:
                     m.bias.data.zero_()
+
+    @property
+    def arch(self):
+        arch = ''
+        for module in self.blocks:
+            if isinstance(module, MobileInvertedResidualBlock):
+                index = module.mobile_inverted_conv.mask.numpy().argmax()
+                arch +=f'{index}-'
+        return arch

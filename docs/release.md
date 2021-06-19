@@ -83,14 +83,19 @@ defaults:
 - `Mutator`: update both `self._choices` and `mutable.mask`
 - update `arch` attribute of `DartsNetwork`
 
+## 2021年6月19日22:39:11
+
+- add `arch` attribute to MobileNet
+- add yaml files of `MobileNet` and `Mobile3DNet`
+
 # TODO
 
 - [ ] 可视化模型结构
 - [ ] 尝试，是的，尝试复现Once-for-all
 - [ ] 实现`set_running_statistics`
 - [ ] 目前的`spaces`编号方式是`global_counting`，这样不方便直接根据传入的`mask`得到指定模型结构，需要改进这种编码方式
-- [ ] NAS model能够自动导出其当前
-  - [ ] 结构编码信息: `self.arch`
+- [x] NAS model能够自动导出其当前
+  - [x] 结构编码信息: `self.arch`
   - [x] 当前模型大小: `self.model_size`
 - [ ] 实现新的Callbacks
     - [ ] `ArchitectureCheckpoint`: 以`json`文件的格式导出搜索到的模型结构，
