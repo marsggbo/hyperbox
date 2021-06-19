@@ -5,5 +5,3 @@ n_layers: 8
 stem_multiplier: 3
 n_nodes: 4
 n_classes: 10
-stem_multiplier: 3
-mask: ''

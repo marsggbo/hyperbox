@@ -58,6 +58,21 @@
 
 - remove deprecated `cfg` attribute in `Mutator`s
 
+## 2021年6月19日14:10:07
+
+- 重构 `model` config文件配置,示例如下。`network_cfg`、`mutator_cfg`等都设置单独的yaml文件，提高复用性
+
+```yaml
+_target_: hyperbox.models.ofa_model.OFAModel
+
+defaults:
+    - network_cfg: finegrained_resnet
+    - mutator_cfg: random_mutator
+    - optimizer_cfg: adam
+    - metric_cfg: accuracy
+    - loss_cfg: cross_entropy
+```
+
 # TODO
 
 - [ ] 可视化模型结构
