@@ -92,6 +92,11 @@ defaults:
 
 - update `sample_search`  func to `DartsModel`
 
+## 2021年6月20日14:16:51
+
+- update `arch` of `MobileNet` and `Mobile3DNet`
+
+
 # TODO
 
 - [ ] 可视化模型结构

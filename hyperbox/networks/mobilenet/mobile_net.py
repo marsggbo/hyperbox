@@ -139,6 +139,6 @@ class MobileNet(BaseNASNetwork):
         arch = ''
         for module in self.blocks:
             if isinstance(module, MobileInvertedResidualBlock):
-                index = module.mobile_inverted_conv.mask.numpy().argmax()
+                index = module.mobile_inverted_conv.mask.cpu().detach().numpy().argmax()
                 arch +=f'{index}-'
         return arch
