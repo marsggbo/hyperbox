@@ -54,12 +54,11 @@ class MobileNet(BaseNASNetwork):
                 calibrate_op = CalibrationLayer(input_channel, width, stride)
                 blocks.append(calibrate_op)
                 op_candidates = [OPS['3x3_MBConv3'](width, width, 1),
-                                 OPS['3x3_MBConv4'](width, width, 1),
                                  OPS['3x3_MBConv6'](width, width, 1),
                                  OPS['5x5_MBConv3'](width, width, 1),
-                                 OPS['5x5_MBConv4'](width, width, 1),
+                                 OPS['5x5_MBConv6'](width, width, 1),
                                  OPS['7x7_MBConv3'](width, width, 1),
-                                 OPS['7x7_MBConv4'](width, width, 1),
+                                 OPS['7x7_MBConv6'](width, width, 1),
                                  OPS['Identity'](width, width, 1),
                                  OPS['Zero'](width, width, 1),
                                  ]
