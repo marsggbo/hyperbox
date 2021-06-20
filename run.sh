@@ -5,7 +5,7 @@ remark=$2
 others=$3
 
 BS=256
-exp=example_ofa_nas
+exp=example_darts_nas
 
 
 if [ $num -le 1 ]
