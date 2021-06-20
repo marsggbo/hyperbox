@@ -9,7 +9,7 @@ import torch.nn as nn
 from omegaconf import DictConfig
 
 from hyperbox.utils.logger import get_logger
-logger = get_logger(__name__)
+logger = get_logger(__name__, rank_zero=True)
 
 from .base_model import BaseModel
 
@@ -24,6 +24,7 @@ class DARTSModel(BaseModel):
         arc_lr: float = 0.001,
         unrolled: bool = False,
         aux_weight: float = 0.4,
+        is_net_parallel: bool = False,
         **kwargs
     ):
         super().__init__(network_cfg, mutator_cfg, optimizer_cfg,
@@ -32,6 +33,28 @@ class DARTSModel(BaseModel):
         self.unrolled = unrolled
         self.aux_weight = aux_weight
         self.automatic_optimization = False
+        self.is_net_parallel = is_net_parallel
+
+    def sample_search(self):
+        with torch.no_grad():
+            if self.trainer.world_size <= 1:
+                self.mutator.reset()
+            else:
+                logger.debug(f"process {self.rank} model is on device: {self.device}")
+                mask_dict = dict()
+                is_reset = False
+                for idx in range(self.trainer.world_size):
+                    if self.is_net_parallel or not is_reset:
+                        self.mutator.reset()
+                        is_reset = True
+                    mask = self.mutator._cache
+                    mask_dict[idx] = mask
+                mask_dict = self.trainer.accelerator.broadcast(mask_dict, src=0)
+                mask = mask_dict[self.rank]
+                # logger.debug(f"[net_parallel={self.is_net_parallel}]{self.rank}: {mask['ValueChoice1']}")
+                for m in self.mutator.mutables:
+                    m.mask.data = mask[m.key].data.to(self.device)
+                logger.info(f"[rank {self.rank}] arch={self.network.arch}")
 
     def training_step(self, batch: Any, batch_idx: int, optimizer_idx: int):
         (trn_X, trn_y) = batch['train']
@@ -48,6 +71,7 @@ class DARTSModel(BaseModel):
 
         # phase 2: child network step
         self.weight_optim.zero_grad()
+        self.sample_search()
         preds, loss = self._logits_and_loss(trn_X, trn_y)
         # self.manual_backward(loss)
         loss.backward()
@@ -64,7 +88,6 @@ class DARTSModel(BaseModel):
         return {"loss": loss, "preds": preds, "targets": trn_y, 'acc': acc}
 
     def _logits_and_loss(self, X, y):
-        self.mutator.reset()
         output = self.network(X)
         if isinstance(output, tuple):
             output, aux_output = output
@@ -80,6 +103,7 @@ class DARTSModel(BaseModel):
         """
         Simple backward with gradient descent
         """
+        self.sample_search()
         _, loss = self._logits_and_loss(val_X, val_y)
         loss.backward()
         # self.manual_backward(loss)
@@ -98,6 +122,7 @@ class DARTSModel(BaseModel):
 
         # calculate unrolled loss on validation data
         # keep gradients for model here for compute hessian
+        self.sample_search()
         _, loss = self._logits_and_loss(val_X, val_y)
         w_model, w_ctrl = tuple(self.network.parameters()), tuple(self.mutator.parameters())
         w_grads = torch.autograd.grad(loss, w_model + w_ctrl)
@@ -118,6 +143,7 @@ class DARTSModel(BaseModel):
         Compute unrolled weights w`
         """
         # don't need zero_grad, using autograd to calculate gradients
+        self.sample_search()
         _, loss = self._logits_and_loss(X, y)
         gradients = torch.autograd.grad(loss, self.network.parameters())
         with torch.no_grad():
@@ -151,6 +177,7 @@ class DARTSModel(BaseModel):
                 for p, d in zip(self.network.parameters(), dw):
                     p += e * d
 
+            self.sample_search()
             _, loss = self._logits_and_loss(trn_X, trn_y)
             dalphas.append(torch.autograd.grad(loss, self.mutator.parameters()))
 

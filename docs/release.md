@@ -88,6 +88,10 @@ defaults:
 - add `arch` attribute to MobileNet
 - add yaml files of `MobileNet` and `Mobile3DNet`
 
+## 2021年6月20日14:15:15
+
+- update `sample_search`  func to `DartsModel`
+
 # TODO
 
 - [ ] 可视化模型结构
