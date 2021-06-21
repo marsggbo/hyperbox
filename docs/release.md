@@ -96,6 +96,10 @@ defaults:
 
 - update `arch` of `MobileNet` and `Mobile3DNet`
 
+## 2021年6月21日20:30:33
+
+- add `mask.json` of DartsNetwork found in the original paper
+- add `visualize_DARTS_cell.py` to visualize both `normal` and `reduce` darts cells
 
 # TODO
 
