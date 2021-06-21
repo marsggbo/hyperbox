@@ -40,14 +40,14 @@ class OnehotMutator(Mutator):
                 # result[mutable.key] = F.gumbel_softmax(self.choices[mutable.key], hard=True, dim=-1).bool()[:-1]
                 result[mutable.key] = F.gumbel_softmax(self.choices[mutable.key], hard=True, dim=-1).bool()
                 mutable.mask = torch.zeros_like(result[mutable.key])
-                mutable.mask[result[mutable.key].detach().numpy().argmax()] = 1
+                mutable.mask[result[mutable.key].cpu().detach().numpy().argmax()] = 1
             elif isinstance(mutable, ValueSpace):
                 result[mutable.key] = F.gumbel_softmax(self.choices[mutable.key], hard=True, dim=-1).bool()
                 mutable.mask.data = F.gumbel_softmax(self.choices[mutable.key], hard=True, dim=-1).data
             elif isinstance(mutable, InputSpace):
                 result[mutable.key] = F.gumbel_softmax(self.choices[mutable.key], hard=True, dim=-1).bool()
                 mutable.mask = torch.zeros_like(result[mutable.key])
-                mutable.mask[result[mutable.key].detach().numpy().argmax()] = 1
+                mutable.mask[result[mutable.key].cpu().detach().numpy().argmax()] = 1
         return result
 
     def sample_final(self):

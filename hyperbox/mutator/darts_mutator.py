@@ -60,14 +60,14 @@ class DartsMutator(Mutator):
                 # slicing zero operation. if zero operation is chosen, then a list of all 'False' will be returned
                 result[mutable.key] = F.softmax(self.choices[mutable.key], dim=-1)[:-1]
                 mutable.mask = torch.zeros_like(result[mutable.key])
-                mutable.mask[result[mutable.key].detach().numpy().argmax()] = 1
+                mutable.mask[result[mutable.key].cpu().detach().numpy().argmax()] = 1
             elif isinstance(mutable, ValueSpace):
                 result[mutable.key] = F.softmax(self.choices[mutable.key], dim=-1)[:-1]
                 mutable.mask.data = F.gumbel_softmax(self.choices[mutable.key], hard=True, dim=-1).data
             elif isinstance(mutable, InputSpace):
                 result[mutable.key] = torch.ones(mutable.n_candidates, dtype=torch.bool, device=self.device())
                 mutable.mask = torch.zeros_like(result[mutable.key])
-                mutable.mask[result[mutable.key].detach().numpy().argmax()] = 1
+                mutable.mask[result[mutable.key].cpu().detach().numpy().argmax()] = 1
         return result
 
     def sample_final(self):
