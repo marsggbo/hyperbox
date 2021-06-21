@@ -101,6 +101,10 @@ defaults:
 - add `mask.json` of DartsNetwork found in the original paper
 - add `visualize_DARTS_cell.py` to visualize both `normal` and `reduce` darts cells
 
+## 2021年6月21日22:41:55
+
+- fixbug: when `mask` is a str path of the mask file, failed to parse it to a `dict` object
+
 # TODO
 
 - [ ] 可视化模型结构

@@ -9,16 +9,18 @@ from hyperbox.utils.calc_model_size import flops_size_counter
 class BaseNASNetwork(nn.Module):
     def __init__(self, mask: Optional[Union[str, dict]]=None):
         super(BaseNASNetwork, self).__init__()
+        self._mask = None
         if mask is None or mask == '':
             self.is_search=True
         elif isinstance(mask, str):
-            mask = load_json(mask)
+            self._mask = load_json(mask)
             self.is_search = False
         elif isinstance(mask, dict):
+            self._mask = mask
             self.is_search = False
-        self._mask = mask
         for key, value in self.hparams.items():
-            setattr(self, key, value)
+            if key != 'mask':
+                setattr(self, key, value)
 
     @property
     def mask(self):

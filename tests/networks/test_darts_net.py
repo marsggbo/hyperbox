@@ -6,6 +6,9 @@ from hyperbox.mutator.random_mutator import RandomMutator
 
 
 if __name__ == '__main__':
+    net = DartsNetwork(3,16,10,4,mask='./hyperbox/networks/darts/darts_mask.json')
+    pass
+
     net = DartsNetwork(
         in_channels=3,
         channels=16,

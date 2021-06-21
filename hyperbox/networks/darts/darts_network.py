@@ -184,7 +184,7 @@ class DartsNetwork(BaseNASNetwork):
                 c_cur *= 2
                 reduction = True
 
-            cell = factory_func(n_nodes, channels_pp, channels_p, c_cur, reduction_p, reduction, mask=mask)
+            cell = factory_func(n_nodes, channels_pp, channels_p, c_cur, reduction_p, reduction, mask=self.mask)
             self.cells.append(cell)
             c_cur_out = c_cur * n_nodes
             channels_pp, channels_p = channels_p, c_cur_out

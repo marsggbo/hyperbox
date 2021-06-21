@@ -9,6 +9,7 @@ import rich.syntax
 import rich.tree
 import wandb
 import torch
+import numpy as np
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.loggers.wandb import WandbLogger
 from pytorch_lightning.utilities import rank_zero_only
