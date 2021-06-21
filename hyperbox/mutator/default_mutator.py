@@ -2,8 +2,11 @@
 # Licensed under the MIT license.
 
 import logging
+import json
 
 import torch
+
+from hyperbox.utils.utils import TorchTensorEncoder
 
 from .base_mutator import BaseMutator
 
@@ -63,6 +66,11 @@ class Mutator(BaseMutator):
         dict
         """
         return self.sample_final()
+
+    def save_arch(self, file_path):
+        mask = self._cache
+        with open(file_path, "w") as f:
+            json.dump(mask, f, indent=4, sort_keys=True, cls=TorchTensorEncoder)
 
     def on_forward_operation_space(self, mutable, *inputs):
         """
