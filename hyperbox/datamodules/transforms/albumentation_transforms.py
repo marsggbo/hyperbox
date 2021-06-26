@@ -1,3 +1,7 @@
+
+from typing import Union, Optional
+
+from omegaconf import DictConfig
 from albumentations import (CLAHE, Blur, ChannelDropout, ChannelShuffle,
                             Compose, Cutout, Flip, GaussNoise, GridDistortion,
                             HueSaturationValue, IAAAdditiveGaussianNoise,
@@ -6,7 +10,7 @@ from albumentations import (CLAHE, Blur, ChannelDropout, ChannelShuffle,
                             RandomGridShuffle, Resize, ShiftScaleRotate)
 from albumentations.pytorch.transforms import ToTensor
 
-from .transforms import BaseTransforms
+from .base_transforms import BaseTransforms
 
 __all__ = [
     'AlbumentationsTransforms'
@@ -62,7 +66,7 @@ class AlbumentationsTransforms(BaseTransforms):
         # channel_dropout
         if self.channel_dropout.enable:
             drop_range = self.channel_dropout.drop_range
-            fill_value = self.channel_dropout.
+            fill_value = self.channel_dropout.fill_value
             p = self.channel_dropout.p
             transforms_list.append(ChannelDropout(drop_range, fill_value, p=p))
 

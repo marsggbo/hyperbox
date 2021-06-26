@@ -4,7 +4,7 @@ from typing import Union, Optional
 from omegaconf import DictConfig
 from torchvision import transforms
 
-
+from .cutout import Cutout
 from .base_transforms import BaseTransforms
 
 
@@ -20,6 +20,7 @@ class TorchTransforms(BaseTransforms):
         random_horizontal_flip: Union[dict, DictConfig] = {'enable': 0, 'p': 0.5},
         random_vertical_flip: Union[dict, DictConfig] = {'enable': 0, 'p': 0.5},
         random_rotation: Union[dict, DictConfig] = {'enable': 0, 'degrees': 20},
+        cutout: Union[dict, DictConfig] = {'enable': 0, 'n_holes': 8, 'length':4},
         to_tensor: Union[dict, DictConfig] = {'enable': 1},
         normalize: Union[dict, DictConfig] = {
             'enable': 1, 'mean': [0.5,0.5,0.5], 'std': [0.5,0.5,0.5]},
@@ -77,8 +78,13 @@ class TorchTransforms(BaseTransforms):
             degrees = self.random_rotation.degrees
             transform_list.append(transforms.RandomRotation(degrees))
 
+        # cutout
         if self.to_tensor.enable:
             transform_list.append(transforms.ToTensor())
+        if self.cutout.enable:
+            n_holes = self.cutout.n_holes
+            length = self.cutout.length
+            transform_list.append(Cutout(n_holes, length))
         if self.normalize.enable:
             mean = self.normalize.mean
             std = self.normalize.std

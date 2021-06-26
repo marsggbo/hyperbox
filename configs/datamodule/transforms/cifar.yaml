@@ -6,3 +6,7 @@ random_crop:
 random_horizontal_flip:
     enable: 1
     p: 0.5
+cutout:
+    enable: 1
+    n_holes: 4
+    length: 4

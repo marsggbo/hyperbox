@@ -110,6 +110,11 @@ defaults:
 - update arch encoding of DartsNetwork
 - refactor `RandomMutator`,`OnehotMutator`,`DartsMutator`
 
+## 2021年6月26日11:32:29
+
+- add `cutout` transform
+- fix bug in `AlbumentationsTransforms`
+
 # TODO
 
 - [ ] 可视化模型结构
