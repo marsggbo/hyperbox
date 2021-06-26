@@ -67,7 +67,11 @@ class Node(nn.Module):
 
     def forward(self, prev_nodes):
         assert len(self.ops) == len(prev_nodes)
-        out = [op(node) for op, node in zip(self.ops, prev_nodes)]
+        out = []
+        for op, node in zip(self.ops, prev_nodes):
+            _out = op(node)
+            out.append(_out)
+        # out = [op(node) for op, node in zip(self.ops, prev_nodes)]
         out = [self.drop_path(o) if o is not None else None for o in out]
         return self.input_switch(out)
 
@@ -211,12 +215,24 @@ class DartsNetwork(BaseNASNetwork):
 
     @property
     def arch(self):
-        arch = ''
+        arch = 'normal'
+        # normal
         cell_ops = self.cells[0].mutable_ops
         for node_ops in cell_ops:
             sub_arch = ''
             for op in node_ops.ops:
-                index = op.mask.numpy().argmax()
+                index = op.mask.cpu().detach().numpy().argmax()
+                sub_arch += f'{index}'
+            arch += f'-{sub_arch}'
+        if len(self.cells._modules) < 3:
+            return arch
+        # reduce
+        arch += '-reduce-'
+        cell_ops = self.cells[2].mutable_ops
+        for node_ops in cell_ops:
+            sub_arch = ''
+            for op in node_ops.ops:
+                index = op.mask.cpu().detach().numpy().argmax()
                 sub_arch += f'{index}'
             arch += f'-{sub_arch}'
         return arch

@@ -10,6 +10,7 @@ __all__ = [
     'RandomMutator',
 ]
 
+
 class RandomMutator(Mutator):
     def __init__(self, model, *args, **kwargs):
         super().__init__(model)

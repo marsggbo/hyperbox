@@ -105,6 +105,11 @@ defaults:
 
 - fixbug: when `mask` is a str path of the mask file, failed to parse it to a `dict` object
 
+## 2021年6月26日11:31:28
+
+- update arch encoding of DartsNetwork
+- refactor `RandomMutator`,`OnehotMutator`,`DartsMutator`
+
 # TODO
 
 - [ ] 可视化模型结构
