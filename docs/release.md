@@ -122,6 +122,15 @@ defaults:
     - `patience=20` in `EarlyStopping` callback
 - add `OnehotMutator` yaml file
 
+
+## 2021年6月26日11:37:56
+
+- add features to `BaseModel` (`models/base_model.py`)
+    - `sample_search`: specify the way of sampling
+    - `reset_seed`: 在分布式搜索时可以通过在每个进程调用该函数来达到**异步搜索**的效果，而且每个进程的搜索结果是不同的。
+        反之，默认情况下所有进程采用相同的seed，所以采样的结果是一样的
+- refactor `ClassifyModel`
+
 # TODO
 
 - [ ] 可视化模型结构

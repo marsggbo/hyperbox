@@ -60,15 +60,12 @@ class ClassifyModel(BaseModel):
 
     def training_step(self, batch: Any, batch_idx: int):
         self.network.train()
-        if batch_idx % 5==0:
-            self.mutator.reset()
         loss, preds, targets = self.step(batch)
 
         # log train metrics
         acc = self.train_metric(preds, targets)
         self.log("train/loss", loss, on_step=True, on_epoch=True, sync_dist=True, prog_bar=False)
         self.log("train/acc", acc, on_step=True, on_epoch=True, sync_dist=True, prog_bar=False)
-
         # we can return here dict with any tensors
         # and then read it in some callback or in training_epoch_end() below
         # remember to always return loss from training_step, or else backpropagation will fail!
@@ -77,8 +74,6 @@ class ClassifyModel(BaseModel):
     def training_epoch_end(self, outputs: List[Any]):
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
-        mflops, size = self.arch_size((1,3,32,32), convert=True)
-        logger.info(f"[rank {self.rank}] Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
 
     def validation_step(self, batch: Any, batch_idx: int):
         loss, preds, targets = self.step(batch)
@@ -113,7 +108,7 @@ class ClassifyModel(BaseModel):
     def on_fit_start(self):
         mflops, size = self.arch_size((1,3,32,32), convert=True)
         logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
-        
+
     def on_fit_end(self):
         mflops, size = self.arch_size((1,3,32,32), convert=True)
         logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")

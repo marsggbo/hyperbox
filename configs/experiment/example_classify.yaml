@@ -18,9 +18,9 @@ seed: 12345
 trainer:
     min_epochs: 1
     max_epochs: 600
-    accelerator: ddp
     gradient_clip_val: 0.5
 
 logger:
     wandb:
         offline: True
+        project: Classification

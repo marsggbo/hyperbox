@@ -1,7 +1,9 @@
 from typing import Any, List, Optional, Union, Tuple
 
+import random
 import hydra
 import torch
+import numpy as np
 from omegaconf import DictConfig
 from pytorch_lightning import LightningModule
 from torchmetrics.classification.accuracy import Accuracy
@@ -159,3 +161,13 @@ class BaseModel(LightningModule):
         mutator_export = self.mutator.export()
         with open(file, "w") as f:
             json.dump(mutator_export, f, indent=4, sort_keys=True, cls=TorchTensorEncoder)
+
+    def reset_seed(self, seed=None):
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        print(f"[rank {self.rank}] reset seed to {seed}")
+
+    def sample_search(self):
+        raise NotImplementedError
