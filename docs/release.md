@@ -115,6 +115,13 @@ defaults:
 - add `cutout` transform
 - fix bug in `AlbumentationsTransforms`
 
+## 2021年6月26日11:34:13
+
+- reset default value in yaml files
+    - disable `mask` path in `darts_network` yaml file
+    - `patience=20` in `EarlyStopping` callback
+- add `OnehotMutator` yaml file
+
 # TODO
 
 - [ ] 可视化模型结构
