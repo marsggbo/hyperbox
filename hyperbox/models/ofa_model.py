@@ -35,6 +35,7 @@ class OFAModel(BaseModel):
         loss_cfg: Optional[Union[DictConfig, dict]] = None,
         metric_cfg: Optional[Union[DictConfig, dict]] = None,
         is_net_parallel: bool = True,
+        is_sync: bool = False,
         num_valid_archs: int = 5,
         kd_subnets_method: str = '',
         aux_weight: float = 0.4,
@@ -56,33 +57,69 @@ class OFAModel(BaseModel):
         self.aux_weight = aux_weight
         self.num_valid_archs = num_valid_archs
         self.is_net_parallel = is_net_parallel
+        self.is_sync = is_sync
         self.arch_perf_history = {}
+        self.reset_seed_flag = 1 # initial value should >= 1
 
     def sample_search(self):
-        with torch.no_grad():
+        '''
+        Args:
+                      |  same arch  |  different arch |
+            sync mode |    broadcast from rank 0      |
+           async mode |  same seed  |  different seed |
+        '''
+        if not self.is_sync:
+            # async mode
+            # sample same archs by default
+            # print(f"[rank {self.rank}] async parallel={self.is_net_parallel} flag={self.reset_seed_flag}")
+            if self.is_net_parallel and self.trainer.world_size>1 and self.reset_seed_flag > 0:
+                # sample different archs by set different seed. once is enough
+                self.reset_seed(self.rank+666)
+                if self.training: self.reset_seed_flag -= 1
+            self.mutator.reset()
+        else:
+            # sync mode
+            # print(f"[rank {self.rank}] sync parallel={self.is_net_parallel}")
             if self.trainer.world_size <= 1:
                 self.mutator.reset()
             else:
-                logger.debug(f"process {self.rank} model is on device: {self.device}")
-                mask_dict = dict()
-                is_reset = False
-                for idx in range(self.trainer.world_size):
-                    if self.is_net_parallel or not is_reset:
-                        self.mutator.reset()
-                        is_reset = True
+                # broadcast mask from rank 0
+                mask = None
+                if not self.is_net_parallel:
+                    # broadcast the same arch
+                    self.mutator.reset()
                     mask = self.mutator._cache
-                    mask_dict[idx] = mask
-                mask_dict = self.trainer.accelerator.broadcast(mask_dict, src=0)
-                mask = mask_dict[self.rank]
-                # logger.debug(f"[net_parallel={self.is_net_parallel}]{self.rank}: {mask['ValueChoice1']}")
+                    mask = self.trainer.accelerator.broadcast(mask, src=0)
+                else:
+                    # broadcast different archs
+                    mask_dict = dict()
+                    if self.rank==0:
+                        for idx in range(self.trainer.world_size):
+                            self.mutator.reset()
+                            mask = self.mutator._cache
+                            mask_dict[idx] = mask
+                    mask_dict = self.trainer.accelerator.broadcast(mask_dict, src=0)
+                    mask = mask_dict[self.rank]
+
                 for m in self.mutator.mutables:
                     m.mask.data = mask[m.key].data.to(self.device)
+                    self.mutator._cache[m.key].data = mask[m.key].data.to(self.device)
+                # debug info
+                # print(f"[rank {self.rank}] mask={mask['normal_n3_p0']}")
+                # print(f"[rank {self.rank}] mutator:{self.mutator._cache['normal_n3_p0']}")
+                # print(f"[rank {self.rank}] arch={self.network.arch}")
 
     def training_step(self, batch: Any, batch_idx: int):
+        # debug info
+        # self.trainer.accelerator.barrier()
+        # print(f"[rank {self.rank}] seed={np.random.get_state()[1][0]}")
+        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} arch={self.network.arch}")
+        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} mutator:{self.mutator._cache['normal_n3_p0']}")
         self.network.train()
         self.mutator.eval()
         start = time.time()
-        self.sample_search()
+        with torch.no_grad():
+            self.sample_search()
         duration = time.time() - start
         logger.debug(f"[rank {self.rank}] batch idx={batch_idx} sample search {duration} seconds")
 

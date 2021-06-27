@@ -131,6 +131,31 @@ defaults:
         反之，默认情况下所有进程采用相同的seed，所以采样的结果是一样的
 - refactor `ClassifyModel`
 
+## 2021年6月27日16:09:39
+
+- 实现**同步**和**异步**的`sample_search`函数，并且支持搜索相同或者不同的网络结构
+    - `is_sync`
+        - 若为`True`就是同步，即只由rank 0进程进行采样，然后广播（broadcast）给其他进程
+        - 若为`False`就是异步，即每个进程彼此之间独立采样
+    - `is_net_parallel`
+        - `True`: 每个进程的训练的结构**不一样**
+        - `False`: 每个进程的训练的结构**一样**
+
+- 四种情况
+
+| `is_sync` | `is_net_parallel` | 效果 |
+| --- | --- | ---|
+| True | True | 只由rank0采样，并且采样N次，使得N个进程的模型各不相同 |
+| True | False | 只由rank0采样，并且采样1次，使得N个进程的模型相同 |
+| False | True | 进程之间彼此独立采样，且模型不同 （每个进程需要重新设置种子数） |
+| False | False | 进程之间彼此独立采样，且模型相同 （种子数都一样） |
+
+- `RandomMutator`在`OFAModel`里调试通过
+- `DartsMutator`无论是同步还是异步都只支持`is_net_parallel=False`，所以尽量使用异步，这样可以减少同步操作带来的broadcast消耗
+- `OnehotMutator`
+    - 同样也建议使用**异步搜索**。异步的情况下支持搜索相同或者不同的模型结构。
+    - **如果是同步操作，只支持搜索相同的模型结构**，因为rank0的计算图无法同步到其他进程
+
 # TODO
 
 - [ ] 可视化模型结构
@@ -143,3 +168,7 @@ defaults:
 - [ ] 实现新的Callbacks
     - [ ] `ArchitectureCheckpoint`: 以`json`文件的格式导出搜索到的模型结构，
     - [ ] `ArchitectureHistory`： 记录搜索过程中模型结构以及对应的性能
+- [ ] 改进`sample_search`接口，支持以下功能
+  - [ ] **异步/同步**搜索
+  - [ ] 多个进程同时搜索 **相同/不同** 模型结构
+  - [ ] 可扩展性强，能够轻松实现不同搜索

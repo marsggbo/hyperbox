@@ -13,6 +13,7 @@ logger = get_logger(__name__, rank_zero=True)
 
 from .base_model import BaseModel
 
+
 class DARTSModel(BaseModel):
     def __init__(
         self,
@@ -24,6 +25,7 @@ class DARTSModel(BaseModel):
         arc_lr: float = 0.001,
         unrolled: bool = False,
         aux_weight: float = 0.4,
+        is_sync: bool = True,
         is_net_parallel: bool = False,
         **kwargs
     ):
@@ -34,49 +36,98 @@ class DARTSModel(BaseModel):
         self.aux_weight = aux_weight
         self.automatic_optimization = False
         self.is_net_parallel = is_net_parallel
+        self.is_sync = is_sync
+        self.reset_seed_flag = 2 # initial value should >= 1
 
     def sample_search(self):
-        with torch.no_grad():
+        '''
+        Args:
+                      |  same arch  |  different arch |
+            sync mode |    broadcast from rank 0      |
+           async mode |  same seed  |  different seed |
+        '''
+        if not self.is_sync:
+            # async mode
+            # sample same archs by default
+            print(f"[rank {self.rank}] async parallel={self.is_net_parallel}")
+            if self.is_net_parallel and self.trainer.world_size > 1 and self.reset_seed_flag > 0:
+                # sample different archs by set different seed. once is enough
+                self.reset_seed(self.rank+666)
+                if self.training: self.reset_seed_flag -= 1
+            self.mutator.reset()
+        else:
+            # sync mode
+            print(f"[rank {self.rank}] sync parallel={self.is_net_parallel}")
             if self.trainer.world_size <= 1:
                 self.mutator.reset()
             else:
-                logger.debug(f"process {self.rank} model is on device: {self.device}")
-                mask_dict = dict()
-                is_reset = False
-                for idx in range(self.trainer.world_size):
-                    if self.is_net_parallel or not is_reset:
-                        self.mutator.reset()
-                        is_reset = True
+                # broadcast mask from rank 0
+                mask = None
+                if not self.is_net_parallel:
+                    # broadcast the same arch
+                    self.mutator.reset()
                     mask = self.mutator._cache
-                    mask_dict[idx] = mask
-                mask_dict = self.trainer.accelerator.broadcast(mask_dict, src=0)
-                mask = mask_dict[self.rank]
-                # logger.debug(f"[net_parallel={self.is_net_parallel}]{self.rank}: {mask['ValueChoice1']}")
+                    mask = self.trainer.accelerator.broadcast(mask, src=0)
+                else:
+                    # broadcast different archs
+                    mask_dict = dict()
+                    if self.rank == 0:
+                        for idx in range(self.trainer.world_size):
+                            self.mutator.reset()
+                            mask = self.mutator._cache
+                            mask_dict[idx] = mask
+                    mask_dict = self.trainer.accelerator.broadcast(mask_dict, src=0)
+                    mask = mask_dict[self.rank]
+
                 for m in self.mutator.mutables:
-                    m.mask.data = mask[m.key].data.to(self.device)
-                logger.info(f"[rank {self.rank}] arch={self.network.arch}")
+                    m.mask.data = mask[m.key].detach().to(self.device)
+                    self.mutator._cache[m.key].data = mask[m.key].detach().to(self.device)
+
+                # debug info
+                # print(f"[rank {self.rank}] mask={mask['normal_n3_p0']}")
+                # print(f"[rank {self.rank}] mutator:{self.mutator._cache['normal_n3_p0']}")
+                # print(f"[rank {self.rank}] arch={self.network.arch}")
 
     def training_step(self, batch: Any, batch_idx: int, optimizer_idx: int):
+        # debug info
+        # self.trainer.accelerator.barrier()
+        # print(f"[rank {self.rank}] seed={np.random.get_state()[1][0]}")
+        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} arch={self.network.arch}")
         (trn_X, trn_y) = batch['train']
         (val_X, val_y) = batch['val']
         self.weight_optim, self.ctrl_optim = self.optimizers()
 
         # phase 1. architecture step
+        self.network.eval()
+        self.mutator.train()
         self.ctrl_optim.zero_grad()
         if self.unrolled:
             self._unrolled_backward(trn_X, trn_y, val_X, val_y)
         else:
             self._backward(val_X, val_y)
         self.ctrl_optim.step()
+        # debug info
+        # self.trainer.accelerator.barrier()
+        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} Updating archs")
+        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} mutator:{self.mutator._cache['normal_n2_p0']}")
+        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} mutator:{self.mutator.choices['normal_n2_p0']}")
 
         # phase 2: child network step
+        self.network.train()
+        self.mutator.eval()
         self.weight_optim.zero_grad()
-        self.sample_search()
+        with torch.no_grad():
+            self.sample_search()
         preds, loss = self._logits_and_loss(trn_X, trn_y)
-        # self.manual_backward(loss)
-        loss.backward()
+        self.manual_backward(loss)
         nn.utils.clip_grad_norm_(self.network.parameters(), 5.)  # gradient clipping
         self.weight_optim.step()
+        # debug info
+        # self.trainer.accelerator.barrier()
+        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} Updating weights")
+        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} mutator:{self.mutator._cache['normal_n2_p0']}")
+        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} mutator:{self.mutator.choices['normal_n2_p0']}")
+        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} bias={self.network.linear.weight[0][:10]}")
 
         # log train metrics
         preds = torch.argmax(preds, dim=1)
@@ -105,8 +156,7 @@ class DARTSModel(BaseModel):
         """
         self.sample_search()
         _, loss = self._logits_and_loss(val_X, val_y)
-        loss.backward()
-        # self.manual_backward(loss)
+        self.manual_backward(loss)
 
     def _unrolled_backward(self, trn_X, trn_y, val_X, val_y):
         """
@@ -230,7 +280,6 @@ class DARTSModel(BaseModel):
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
         logger.info(f"[rank {self.rank}] Test epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
-
 
     def configure_optimizers(self):
         """Choose what optimizers and learning-rate schedulers to use in your optimization.
