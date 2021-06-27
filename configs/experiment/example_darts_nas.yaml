@@ -18,14 +18,13 @@ seed: 12345
 trainer:
   min_epochs: 1
   max_epochs: 200
-  gradient_clip_val: 0.5
 
 datamodule:
   is_customized: True
 
-model:
-  mutator_cfg:
-    _target_: hyperbox.mutator.OnehotMutator
+# model:
+#   mutator_cfg:
+#     _target_: hyperbox.mutator.OnehotMutator
 
 logger:
   wandb:
