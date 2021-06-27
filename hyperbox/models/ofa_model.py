@@ -62,52 +62,7 @@ class OFAModel(BaseModel):
         self.reset_seed_flag = 1 # initial value should >= 1
 
     def sample_search(self):
-        '''
-        Args:
-                      |  same arch  |  different arch |
-            sync mode |    broadcast from rank 0      |
-           async mode |  same seed  |  different seed |
-        '''
-        if not self.is_sync:
-            # async mode
-            # sample same archs by default
-            # print(f"[rank {self.rank}] async parallel={self.is_net_parallel} flag={self.reset_seed_flag}")
-            if self.is_net_parallel and self.trainer.world_size>1 and self.reset_seed_flag > 0:
-                # sample different archs by set different seed. once is enough
-                self.reset_seed(self.rank+666)
-                if self.training: self.reset_seed_flag -= 1
-            self.mutator.reset()
-        else:
-            # sync mode
-            # print(f"[rank {self.rank}] sync parallel={self.is_net_parallel}")
-            if self.trainer.world_size <= 1:
-                self.mutator.reset()
-            else:
-                # broadcast mask from rank 0
-                mask = None
-                if not self.is_net_parallel:
-                    # broadcast the same arch
-                    self.mutator.reset()
-                    mask = self.mutator._cache
-                    mask = self.trainer.accelerator.broadcast(mask, src=0)
-                else:
-                    # broadcast different archs
-                    mask_dict = dict()
-                    if self.rank==0:
-                        for idx in range(self.trainer.world_size):
-                            self.mutator.reset()
-                            mask = self.mutator._cache
-                            mask_dict[idx] = mask
-                    mask_dict = self.trainer.accelerator.broadcast(mask_dict, src=0)
-                    mask = mask_dict[self.rank]
-
-                for m in self.mutator.mutables:
-                    m.mask.data = mask[m.key].data.to(self.device)
-                    self.mutator._cache[m.key].data = mask[m.key].data.to(self.device)
-                # debug info
-                # print(f"[rank {self.rank}] mask={mask['normal_n3_p0']}")
-                # print(f"[rank {self.rank}] mutator:{self.mutator._cache['normal_n3_p0']}")
-                # print(f"[rank {self.rank}] arch={self.network.arch}")
+        super().sample_search(self.is_sync, self.is_net_parallel)
 
     def training_step(self, batch: Any, batch_idx: int):
         # debug info

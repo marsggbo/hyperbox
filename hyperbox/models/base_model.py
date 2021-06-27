@@ -60,6 +60,7 @@ class BaseModel(LightningModule):
         self.build_mutator(self.hparams.mutator_cfg)
         self.build_loss(self.hparams.loss_cfg)
         self.build_metric(self.hparams.metric_cfg)
+        self.reset_seed_flag = 2
 
     def build_network(self, cfg):
         # build network
@@ -169,5 +170,51 @@ class BaseModel(LightningModule):
         torch.cuda.manual_seed(seed)
         print(f"[rank {self.rank}] reset seed to {seed}")
 
-    def sample_search(self):
-        raise NotImplementedError
+    def sample_search(self, is_sync: bool = False, is_net_parallel: bool = False):
+        '''
+        Args:
+            is_sync: bool
+                - True: sync mode
+                - False: async mode
+            is_net_parallel: bool
+                - True: sample different models
+                - False: sample the same model
+
+                      |  same arch  |  different arch |
+            sync mode |    broadcast from rank 0      |
+           async mode |  same seed  |  different seed |
+        '''
+        if not is_sync:
+            # async mode
+            # sample same archs by default
+            if is_net_parallel and self.trainer.world_size>1 and self.reset_seed_flag > 0:
+                # sample different archs by set different seed. once is enough
+                self.reset_seed(self.rank+666)
+                if self.training: self.reset_seed_flag -= 1
+            self.mutator.reset()
+        else:
+            # sync mode
+            if self.trainer.world_size <= 1:
+                self.mutator.reset()
+            else:
+                # broadcast mask from rank 0
+                mask = None
+                if not is_net_parallel:
+                    # broadcast the same arch
+                    self.mutator.reset()
+                    mask = self.mutator._cache
+                    mask = self.trainer.accelerator.broadcast(mask, src=0)
+                else:
+                    # broadcast different archs
+                    mask_dict = dict()
+                    if self.rank==0:
+                        for idx in range(self.trainer.world_size):
+                            self.mutator.reset()
+                            mask = self.mutator._cache
+                            mask_dict[idx] = mask
+                    mask_dict = self.trainer.accelerator.broadcast(mask_dict, src=0)
+                    mask = mask_dict[self.rank]
+
+                for m in self.mutator.mutables:
+                    m.mask.data = mask[m.key].data.to(self.device)
+                    self.mutator._cache[m.key].data = mask[m.key].data.to(self.device)

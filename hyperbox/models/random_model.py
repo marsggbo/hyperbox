@@ -34,6 +34,8 @@ class RandomModel(BaseModel):
         optimizer_cfg: Optional[Union[DictConfig, dict]] = None,
         loss_cfg: Optional[Union[DictConfig, dict]] = None,
         metric_cfg: Optional[Union[DictConfig, dict]] = None,
+        is_sync: bool = True,
+        is_net_parallel: bool = True,
         **kwargs
     ):
         r'''Random NAS model
@@ -46,6 +48,9 @@ class RandomModel(BaseModel):
         '''
         super().__init__(network_cfg, mutator_cfg, optimizer_cfg,
                          loss_cfg, metric_cfg, **kwargs)
+
+    def sample_search(self):
+        super().sample_search(self.is_sync, self.is_net_parallel)
 
     def forward(self, x: torch.Tensor):
         return self.network(x)
@@ -61,7 +66,7 @@ class RandomModel(BaseModel):
         self.network.train()
         self.mutator.eval()
         if batch_idx % 5==0:
-            self.mutator.reset()
+            self.sample_search()
         loss, preds, targets = self.step(batch)
 
         # log train metrics

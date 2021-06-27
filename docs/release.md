@@ -160,6 +160,10 @@ defaults:
 
 - 将`gradient_clip_val`的默认值设置为0，因为当该值大于0时，无法调用`LightningModule.manual_backward`方法
 
+## 2021年6月27日16:40:17
+
+- 统一Model类下的`sample_search`接口
+- rename `random_nas_model.py` to `random_model.py`
 
 # TODO
 
@@ -173,7 +177,7 @@ defaults:
 - [ ] 实现新的Callbacks
     - [ ] `ArchitectureCheckpoint`: 以`json`文件的格式导出搜索到的模型结构，
     - [ ] `ArchitectureHistory`： 记录搜索过程中模型结构以及对应的性能
-- [ ] 改进`sample_search`接口，支持以下功能
-  - [ ] **异步/同步**搜索
-  - [ ] 多个进程同时搜索 **相同/不同** 模型结构
+- [x] 改进`sample_search`接口，支持以下功能
+  - [x] **异步/同步**搜索
+  - [x] 多个进程同时搜索 **相同/不同** 模型结构
   - [ ] 可扩展性强，能够轻松实现不同搜索
