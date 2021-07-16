@@ -11,7 +11,7 @@ from torch.nn.parameter import Parameter
 
 from ..spaces import ValueSpace
 from .base_module import FinegrainedModule
-from .utils import build_activation, sub_filter_start_end, is_searchable
+from .utils import sub_filter_start_end, is_searchable
 
 
 __all__ = [
@@ -119,8 +119,14 @@ class BaseConvNd(_ConvNd, FinegrainedModule):
     def forward(self, x):
         out = None
         if not self.is_search:
+            padding = self.padding
+            if self.auto_padding:
+                kernel_size = self.weight.shape[2:]
+                padding = []
+                for k in kernel_size:
+                    padding.append(k//2)
             out = self.conv(x, self.weight, self.bias, self.stride,
-                self.padding, self.dilation, self.groups)
+                padding, self.dilation, self.groups)
         else:
             out = self.forward_conv(x)
         return out
@@ -128,8 +134,8 @@ class BaseConvNd(_ConvNd, FinegrainedModule):
     def forward_conv(self, x):
         filters = self.weight.contiguous()
         bias = self.bias
-        in_channels = None
-        out_channels = None
+        in_channels = self.in_channels
+        out_channels = self.out_channels
         stride = self.value_spaces['stride'].value if self.search_stride else self.stride
         groups = self.value_spaces['groups'].value if self.search_groups else self.groups
         dilation = self.value_spaces['dilation'].value if self.search_dilation else self.dilation
@@ -137,19 +143,36 @@ class BaseConvNd(_ConvNd, FinegrainedModule):
 
         if self.search_in_channel:
             in_channels = self.value_spaces['in_channels'].value
+            filters = filers[:, :in_channels, ...]
         if self.search_out_channel:
             out_channels = self.value_spaces['out_channels'].value
             if self.bias is not None:
                 bias = bias[:out_channels]
-        filters = filters[:out_channels, :in_channels, ...]
+            filters = filters[:out_channels, ...]
         if self.search_kernel_size:
             filters = self.transform_kernel_size(filters)
+        if self.search_groups:
+            filters = self.get_filters_by_groups(filters, in_channels, groups).contiguous()
         if self.auto_padding:
             kernel_size = filters.shape[2:]
             padding = []
             for k in kernel_size:
                 padding.append(k//2)
         return self.conv(x, filters, bias, stride, padding, dilation, groups)
+
+    def get_filters_by_groups(self, filters, in_channels, groups):
+        '''Get filters when searching for #of groups'''
+        sub_filters = torch.chunk(filters, groups, dim=0)
+        sub_in_channels = in_channels // groups
+        sub_ratio = filters.size(1) // sub_in_channels
+
+        filter_crops = []
+        for i, sub_filter in enumerate(sub_filters):
+            part_id = i % sub_ratio
+            start = part_id * sub_in_channels
+            filter_crops.append(sub_filter[:, start:start + sub_in_channels, :, :])
+        filters = torch.cat(filter_crops, dim=0)
+        return filters
 
     def transform_kernel_size(self, filters):
         # Todo: support different types of kernel size transformation methods by `transform_kernel_size` function
@@ -204,6 +227,7 @@ class BaseConvNd(_ConvNd, FinegrainedModule):
         parameters = [weight, bias]
         params = sum([p.numel() for p in parameters if p is not None])
         return params
+
 
 class Conv1d(BaseConvNd):
     def __init__(

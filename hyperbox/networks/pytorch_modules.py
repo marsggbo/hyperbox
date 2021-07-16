@@ -4,6 +4,7 @@
 import torch
 import numpy as np
 import torch.nn as nn
+import torch.nn.functional as F
 
 __all__ = [
     'SharpSepConv',
@@ -18,7 +19,85 @@ __all__ = [
     'SeparableConv',
     'Calibration',
     'ZeroLayer',
+    'Hswish',
+    'Hsigmoid',
+    'SEModule',
+    'ShuffleLayer',
+    'ResidualBlock',
 ]
+
+
+class ShuffleLayer(nn.Module):
+
+    def __init__(self, groups):
+        super(ShuffleLayer, self).__init__()
+        self.groups = groups
+
+    def forward(self, x):
+        batch_size, num_channels, height, width = x.size()
+        channels_per_group = num_channels // self.groups
+        # reshape
+        x = x.view(batch_size, self.groups, channels_per_group, height, width)
+        x = torch.transpose(x, 1, 2).contiguous()
+        # flatten
+        x = x.view(batch_size, -1, height, width)
+        return x
+
+    def __repr__(self):
+        return 'ShuffleLayer(groups=%d)' % self.groups
+
+
+class Hswish(nn.Module):
+
+    def __init__(self, inplace=True):
+        super(Hswish, self).__init__()
+        self.inplace = inplace
+
+    def forward(self, x):
+        return x * F.relu6(x + 3., inplace=self.inplace) / 6.
+
+    def __repr__(self):
+        return 'Hswish()'
+
+
+class Hsigmoid(nn.Module):
+
+    def __init__(self, inplace=True):
+        super(Hsigmoid, self).__init__()
+        self.inplace = inplace
+
+    def forward(self, x):
+        return F.relu6(x + 3., inplace=self.inplace) / 6.
+
+    def __repr__(self):
+        return 'Hsigmoid()'
+
+
+class SEModule(nn.Module):
+    REDUCTION = 4
+
+    def __init__(self, channel, reduction=None):
+        super(SEModule, self).__init__()
+
+        self.channel = channel
+        self.reduction = SEModule.REDUCTION if reduction is None else reduction
+
+        num_mid = make_divisible(self.channel // self.reduction, divisor=MyNetwork.CHANNEL_DIVISIBLE)
+
+        self.fc = nn.Sequential(OrderedDict([
+            ('reduce', nn.Conv2d(self.channel, num_mid, 1, 1, 0, bias=True)),
+            ('relu', nn.ReLU(inplace=True)),
+            ('expand', nn.Conv2d(num_mid, self.channel, 1, 1, 0, bias=True)),
+            ('h_sigmoid', Hsigmoid(inplace=True)),
+        ]))
+
+    def forward(self, x):
+        y = x.mean(3, keepdim=True).mean(2, keepdim=True)
+        y = self.fc(y)
+        return x * y
+
+    def __repr__(self):
+        return 'SE(channel=%d, reduction=%d)' % (self.channel, self.reduction)
 
 
 class ZeroLayer(nn.Module):
@@ -68,6 +147,7 @@ def split_layer(total_channels, num_groups):
     split[num_groups - 1] += total_channels - sum(split)
     return split
 
+
 class MDConv(nn.Module):
     def __init__(self, C_in, n_chunks, stride=1, bias=False):
         super(MDConv, self).__init__()
@@ -88,6 +168,7 @@ class MDConv(nn.Module):
         out = torch.cat([layer(s) for layer, s in zip(self.layers, split)], dim=1)
         return out
 
+
 class MixSeparableConv(nn.Module):
     def __init__(self, C_in, C_out, n_chunks, stride=1, bias=False):
         super(MixSeparableConv, self).__init__()
@@ -101,6 +182,7 @@ class MixSeparableConv(nn.Module):
         out = self.bn(out)
         out = nn.ReLU()(out)
         return out
+
 
 # InvertedResidual
 class InvertedResidual(nn.Module):
@@ -149,6 +231,7 @@ class SELayer(nn.Module):
         y = self.avg_pool(x).view(b, c)
         y = self.fc(y).view(b, c, 1, 1)
         return x * y.expand_as(x)
+
 
 class InvertedResidualSE(nn.Module):
     '''The InvertedResidual with SELayer
@@ -240,7 +323,6 @@ class FactorizedUpsample(nn.Module):
         return out
 
 
-
 class DilConv(nn.Module):
     """
     (Dilated) depthwise separable conv.
@@ -295,3 +377,22 @@ class Calibration(nn.Module):
         if self.process is None:
             return x
         return self.process(x)
+
+
+class ResidualBlock(nn.Module):
+
+    def __init__(self, conv, shortcut):
+        super(ResidualBlock, self).__init__()
+
+        self.conv = conv
+        self.shortcut = shortcut
+
+    def forward(self, x):
+        if self.conv is None or isinstance(self.conv, ZeroLayer):
+            res = x
+        elif self.shortcut is None or isinstance(self.shortcut, ZeroLayer):
+            res = self.conv(x)
+        else:
+            res = self.conv(x) + self.shortcut(x)
+        return res
+

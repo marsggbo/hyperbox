@@ -169,6 +169,8 @@ defaults:
 
 - add searchable layers2D
 - 将torchmetrics计算Accuracy替换成自定义的模块，原来的比较耗时
+- add `OFAMobileNetV3`
+- update `ops.Conv`算子
 
 
 # TODO
