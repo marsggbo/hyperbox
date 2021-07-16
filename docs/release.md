@@ -165,6 +165,12 @@ defaults:
 - 统一Model类下的`sample_search`接口
 - rename `random_nas_model.py` to `random_model.py`
 
+## 2021年7月16日16:30:19
+
+- add searchable layers2D
+
+
+
 # TODO
 
 - [ ] 可视化模型结构
