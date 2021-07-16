@@ -168,7 +168,7 @@ defaults:
 ## 2021年7月16日16:30:19
 
 - add searchable layers2D
-
+- 将torchmetrics计算Accuracy替换成自定义的模块，原来的比较耗时
 
 
 # TODO

@@ -1,1 +1,2 @@
-_target_: torchmetrics.classification.accuracy.Accuracy
+# _target_: torchmetrics.classification.accuracy.Accuracy
+_target_: hyperbox.utils.metrics.Accuracy
