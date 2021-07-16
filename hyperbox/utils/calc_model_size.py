@@ -95,7 +95,11 @@ def flops_size_counter(_model, input_size, convert=True, verbose=False):
         m_.register_buffer('module_used', torch.zeros(1))
 
         if isinstance(m_, FinegrainedModule):
-            m_.total_params += m_.params
+            if hasattr(m_, 'params'):
+                params = m_.params
+            else:
+                params = sum([p.numel() for p in m_.parameters()])
+            m_.total_params += params
         else:
             for p in m_.parameters():
                 m_.total_params += torch.Tensor([p.numel()])
