@@ -15,6 +15,7 @@ from pytorch_lightning.callbacks import Callback
 
 from hyperbox.losses.kd_loss import KDLoss
 from hyperbox.utils.logger import get_logger
+from hyperbox.utils.average_meter import AverageMeter, AverageMeterGroup
 logger = get_logger(__name__, logging.INFO, rank_zero=True)
 
 from .base_model import BaseModel
@@ -22,8 +23,16 @@ from .base_model import BaseModel
 
 class SampleSearch(Callback):
 
-    def on_validation_epoch_start(self, trainer, pl_module):
-        pl_module.sample_search()
+    def on_train_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
+        start = time.time()
+        with torch.no_grad():
+            pl_module.sample_search()
+        duration = time.time() - start
+        pl_module.time_records.update({'sample_search': duration})
+        logger.debug(f"[rank {pl_module.rank}] batch idx={batch_idx} sample search {duration} seconds")
+
+    # def on_validation_epoch_start(self, trainer, pl_module):
+    #     pl_module.sample_search()
 
 
 class OFAModel(BaseModel):
@@ -53,6 +62,7 @@ class OFAModel(BaseModel):
         '''
         super().__init__(network_cfg, mutator_cfg, optimizer_cfg,
                          loss_cfg, metric_cfg, **kwargs)
+        self.automatic_optimization = False
         self.kd_subnets_method = kd_subnets_method
         self.aux_weight = aux_weight
         self.num_valid_archs = num_valid_archs
@@ -60,30 +70,23 @@ class OFAModel(BaseModel):
         self.is_sync = is_sync
         self.arch_perf_history = {}
         self.reset_seed_flag = 1 # initial value should >= 1
+        if not hasattr(self, 'time_records'):
+            self.time_records = AverageMeterGroup()
 
     def sample_search(self):
         super().sample_search(self.is_sync, self.is_net_parallel)
 
     def training_step(self, batch: Any, batch_idx: int):
-        # debug info
-        # self.trainer.accelerator.barrier()
-        # print(f"[rank {self.rank}] seed={np.random.get_state()[1][0]}")
-        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} arch={self.network.arch}")
-        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} mutator:{self.mutator._cache['normal_n3_p0']}")
+        self.optimizer = self.optimizers()
+        self.optimizer.zero_grad()
+
+        start_whole = time.time()
         self.network.train()
         self.mutator.eval()
-        start = time.time()
-        with torch.no_grad():
-            self.sample_search()
-        duration = time.time() - start
-        logger.debug(f"[rank {self.rank}] batch idx={batch_idx} sample search {duration} seconds")
 
-        # logger.debug(f"rank{self.rank} model.fc={self.network.fc}")
         inputs, targets = batch
         start = time.time()
         output = self.network(inputs)
-        duration = time.time() - start
-        logger.debug(f"[rank {self.rank}] batch idx={batch_idx} forward {duration} seconds")
         if isinstance(output, tuple):
             output, aux_output = output
             aux_loss = self.loss(aux_output, targets)
@@ -100,22 +103,53 @@ class OFAModel(BaseModel):
             loss_kd_subnets = self.calc_loss_kd_subnets(output, outputs_list, self.kd_subnets_method)
             loss = loss + 0.6 * loss_kd_subnets
 
+        # torch.cuda.synchronize()
+        duration = time.time() - start
+        self.time_records.update({'forward': duration})
+
+        start = time.time()
+        self.manual_backward(loss)
+        # torch.cuda.synchronize()
+        duration = time.time() - start
+        self.time_records.update({'backward': duration})
+
+        # optimizer.step
+        start = time.time()
+        self.optimizer.step()
+        # torch.cuda.synchronize()
+        duration = time.time() - start
+        self.time_records.update({'step': duration})
+
         # log train metrics
-        preds = torch.argmax(output, dim=1)
+        start = time.time()
+        # preds = torch.argmax(output, dim=1)
+        preds = torch.softmax(output, -1)
         acc = self.train_metric(preds, targets)
-        logger.debug(f"rank{self.rank} loss={loss} acc={acc}")
-        sync_dist = not self.is_net_parallel # sync the metrics if all processes train the same sub network
+        duration = time.time() - start
+        self.time_records.update({'acc': duration})
+        # logger.debug(f"rank{self.rank} loss={loss} acc={acc}")
+        start = time.time()
+        # sync_dist = not self.is_net_parallel # sync the metrics if all processes train the same sub network
+        sync_dist = False
         self.log("train/loss", loss, on_step=True, on_epoch=True, sync_dist=sync_dist, prog_bar=False)
         self.log("train/acc", acc, on_step=True, on_epoch=True, sync_dist=sync_dist, prog_bar=False)
-        if batch_idx % 10 ==0:
+        duration = time.time() - start
+        self.time_records.update({'log': duration})
+        if batch_idx % 50 ==0:
             logger.info(f"[rank {self.rank}] Train epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
+        duration_whole = time.time() - start_whole
+        self.time_records.update({'whole_forward': duration_whole})
+        # logger.debug(f"[rank {self.rank}] batch idx={batch_idx} whole forward {duration_whole} seconds")
+        logger.debug(f"[rank {self.rank}] batch idx={batch_idx} time records={self.time_records}")
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
     def training_epoch_end(self, outputs: List[Any]):
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
         mflops, size = self.arch_size((1,3,32,32), convert=True)
-        logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
+        self.log("train/loss", loss, on_step=False, on_epoch=True, sync_dist=False, prog_bar=False)
+        self.log("train/acc", acc, on_step=False, on_epoch=True, sync_dist=False, prog_bar=False)
+        # logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
         logger.info(f"[rank {self.rank}] Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
 
     def calc_loss_kd_subnets(self, output, outputs_list, kd_method='ensemble'):
@@ -138,15 +172,16 @@ class OFAModel(BaseModel):
         loss = self.criterion(output, targets)
 
         # log val metrics
-        preds = torch.argmax(output, dim=1)
+        # preds = torch.argmax(output, dim=1)
+        preds = torch.softmax(output, -1)
         acc = self.val_metric(preds, targets)
-        if acc not in self.arch_perf_history:
-            self.arch_perf_history[self.arch] = [acc]
-        else:
-            self.arch_perf_history[self.arch].append(acc)
-        sync_dist = not self.is_net_parallel # sync the metrics if all processes train the same sub network
-        self.log(f"val/loss", loss, on_step=False, on_epoch=True, sync_dist=False, prog_bar=True)
-        self.log(f"val/acc", acc, on_step=False, on_epoch=True, sync_dist=False, prog_bar=True)
+        # if self.arch not in self.arch_perf_history:
+        #     self.arch_perf_history[self.arch] = [acc]
+        # else:
+        #     self.arch_perf_history[self.arch].append(acc)
+        # sync_dist = not self.is_net_parallel # sync the metrics if all processes train the same sub network
+        # self.log(f"val/loss", loss, on_step=False, on_epoch=True, sync_dist=sync_dist, prog_bar=True)
+        # self.log(f"val/acc", acc, on_step=False, on_epoch=True, sync_dist=sync_dist, prog_bar=True)
         # if batch_idx % 10 == 0:
         #     logger.info(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
@@ -155,8 +190,11 @@ class OFAModel(BaseModel):
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
         mflops, size = self.arch_size((1,3,32,32), convert=True)
-        logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
-        logger.info(f"[rank {self.rank}] Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        sync_dist = not self.is_net_parallel # sync the metrics if all processes train the same sub network
+        self.log(f"val/loss", loss, on_step=False, on_epoch=True, sync_dist=sync_dist, prog_bar=True)
+        self.log(f"val/acc", acc, on_step=False, on_epoch=True, sync_dist=sync_dist, prog_bar=True)
+        # logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
+        # logger.info(f"[rank {self.rank}] Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
     
     # def validation_epoch_end(self, outputs: List[Any]):
     def test_step(self, batch: Any, batch_idx: int):
@@ -169,7 +207,8 @@ class OFAModel(BaseModel):
             loss = self.criterion(output, targets)
 
             # log test metrics
-            preds = torch.argmax(output, dim=1)
+            # preds = torch.argmax(output, dim=1)
+            preds = torch.softmax(output, -1)
             acc = self.test_metric(preds, targets)
             loss_avg += loss
             acc_avg += acc
