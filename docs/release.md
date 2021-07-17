@@ -176,6 +176,11 @@ defaults:
 
 - benchmark OFA
 
+# 2021年7月17日23:02:29
+
+- add `scheduler_cfg` to `base_model`
+- add `Lamb` optimizer and its yaml config
+
 # TODO
 
 - [ ] 可视化模型结构

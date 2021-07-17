@@ -195,8 +195,7 @@ class OFAModel(BaseModel):
         self.log(f"val/acc", acc, on_step=False, on_epoch=True, sync_dist=sync_dist, prog_bar=True)
         # logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
         # logger.info(f"[rank {self.rank}] Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
-    
-    # def validation_epoch_end(self, outputs: List[Any]):
+
     def test_step(self, batch: Any, batch_idx: int):
         loss_avg = 0.
         acc_avg = 0.

@@ -17,6 +17,7 @@ logger = get_logger(__name__)
 def instantiate(*args, **kwargs):
     return hydra.utils.instantiate(*args, **kwargs)
 
+
 class BaseModel(LightningModule):
     """NAS Model Template
         Example of LightningModule for MNIST classification.
@@ -37,6 +38,7 @@ class BaseModel(LightningModule):
         network_cfg: Optional[Union[DictConfig, dict]] = None,
         mutator_cfg: Optional[Union[DictConfig, dict]] = None,
         optimizer_cfg: Optional[Union[DictConfig, dict]] = None,
+        scheduler_cfg: Optional[Union[DictConfig, dict]] = None,
         loss_cfg: Optional[Union[DictConfig, dict]] = None,
         metric_cfg: Optional[Union[DictConfig, dict]] = None,
         **kwargs
@@ -124,6 +126,11 @@ class BaseModel(LightningModule):
         """
         optimizer_cfg = DictConfig(self.hparams.optimizer_cfg)
         optim = instantiate(optimizer_cfg, params=self.network.parameters())
+
+        scheduler_cfg = DictConfig(self.hparams.scheduler_cfg)
+        if scheduler_cfg is not None:
+            scheduler = instantiate(scheduler_cfg, params=self.network.parameters())
+            return [optim], [scheduler]
         return optim
 
     @property
