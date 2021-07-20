@@ -181,6 +181,10 @@ defaults:
 - add `scheduler_cfg` to `base_model`
 - add `Lamb` optimizer and its yaml config
 
+# 2021年7月20日14:19:54
+
+- add `ImageNetDatamodule` and its yaml config
+
 # TODO
 
 - [ ] 可视化模型结构
