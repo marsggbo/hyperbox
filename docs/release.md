@@ -185,6 +185,8 @@ defaults:
 
 - add `ImageNetDatamodule` and its yaml config
 - fixbugs in `layers2d.py` and `conv.py`
+- add `GradualWarmupScheduler` and its yaml config
+- add yaml config of `Lamb` optimizer
 
 # TODO
 
