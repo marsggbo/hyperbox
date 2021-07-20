@@ -24,12 +24,21 @@ from .base_model import BaseModel
 class SampleSearch(Callback):
 
     def on_train_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
+        if trainer.current_epoch < 30:
+            # train the Supernet only
+            return
         start = time.time()
         with torch.no_grad():
             pl_module.sample_search()
         duration = time.time() - start
         pl_module.time_records.update({'sample_search': duration})
         logger.debug(f"[rank {pl_module.rank}] batch idx={batch_idx} sample search {duration} seconds")
+
+    def on_train_epoch_start(self, trainer: 'pl.Trainer', pl_module: 'pl.LightningModule'):
+        if pl_module.lr_schedulers() is not None:
+            self.scheduler = pl_module.lr_schedulers()
+            self.scheduler.step(trainer.current_epoch)
+            logger.info(f"Epoch{trainer.current_epoch} lr={self.scheduler.get_lr()}")
 
     # def on_validation_epoch_start(self, trainer, pl_module):
     #     pl_module.sample_search()
@@ -43,6 +52,7 @@ class OFAModel(BaseModel):
         optimizer_cfg: Optional[Union[DictConfig, dict]] = None,
         loss_cfg: Optional[Union[DictConfig, dict]] = None,
         metric_cfg: Optional[Union[DictConfig, dict]] = None,
+        scheduler_cfg: Optional[Union[DictConfig, dict]] = None,
         is_net_parallel: bool = True,
         is_sync: bool = False,
         num_valid_archs: int = 5,
@@ -61,7 +71,7 @@ class OFAModel(BaseModel):
                 - 'ensemble': using subnets' ensemble as the teacher to kd all subnets
         '''
         super().__init__(network_cfg, mutator_cfg, optimizer_cfg,
-                         loss_cfg, metric_cfg, **kwargs)
+                         loss_cfg, metric_cfg, scheduler_cfg, **kwargs)
         self.automatic_optimization = False
         self.kd_subnets_method = kd_subnets_method
         self.aux_weight = aux_weight
@@ -76,7 +86,14 @@ class OFAModel(BaseModel):
     def sample_search(self):
         super().sample_search(self.is_sync, self.is_net_parallel)
 
+    def parse_batch(self, batch):
+        # parse DALI-based batch data
+        batch = [batch[0]['data'], batch[0]['label'].long().view(-1)]
+        return batch
+
     def training_step(self, batch: Any, batch_idx: int):
+        if isinstance(batch, list) and len(batch)==1:
+            batch = self.parse_batch(batch)
         self.optimizer = self.optimizers()
         self.optimizer.zero_grad()
 
@@ -165,6 +182,8 @@ class OFAModel(BaseModel):
         return loss
 
     def validation_step(self, batch: Any, batch_idx: int):
+        if isinstance(batch, list) and len(batch)==1:
+            batch = self.parse_batch(batch)
         loss_avg = 0.
         acc_avg = 0.
         inputs, targets = batch
@@ -197,6 +216,8 @@ class OFAModel(BaseModel):
         # logger.info(f"[rank {self.rank}] Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
 
     def test_step(self, batch: Any, batch_idx: int):
+        if isinstance(batch, list) and len(batch)==1:
+            batch = self.parse_batch(batch)
         loss_avg = 0.
         acc_avg = 0.
         inputs, targets = batch
@@ -226,17 +247,6 @@ class OFAModel(BaseModel):
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
         logger.info(f"Test epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
-
-    def configure_optimizers(self):
-        """Choose what optimizers and learning-rate schedulers to use in your optimization.
-        Normally you'd need one. But in the case of GANs or similar you might have multiple.
-
-        See examples here:
-            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-        """
-        optimizer_cfg = DictConfig(self.hparams.optimizer_cfg)
-        optim = hydra.utils.instantiate(optimizer_cfg, params=self.network.parameters())
-        return optim
 
     def configure_callbacks(self):
         sample_search_callback = SampleSearch()

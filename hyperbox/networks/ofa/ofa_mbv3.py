@@ -20,7 +20,7 @@ class OFAMobileNetV3(BaseNASNetwork):
         self,
         kernel_size_list: List[int] = [3, 5, 7],
         expand_ratio_list: List[float] = [4, 6],
-        depth_list: List[int] = [3, 4],
+        depth_list: List[int] = [2, 3, 4],
         base_stage_width: List[int] = [16, 16, 24, 40, 80, 112, 160, 960, 1280],
         stride_stages: List[int] = [1, 2, 2, 2, 1, 2],
         act_stages: List[str] = ['relu', 'relu', 'relu', 'h_swish', 'h_swish', 'h_swish'],
@@ -79,7 +79,8 @@ class OFAMobileNetV3(BaseNASNetwork):
                     stride = _stride
                 else:
                     stride = 1
-                kernel_size = spaces.ValueSpace(self.kernel_size_list, key=f'ks_block{_block_index-n_blocks+i}')
+                # kernel_size = spaces.ValueSpace(self.kernel_size_list, key=f'ks_block{_block_index-n_blocks+i}')
+                kernel_size = 3
                 expand_ratio = spaces.ValueSpace(self.expand_ratio_list, key=f'er_block{_block_index-n_blocks+i}')
                 mobile_inverted_conv = layers.MBConvLayer(
                     feature_dim, output_channel, kernel_size, stride, 1, expand_ratio, act_func, use_se

@@ -191,6 +191,17 @@ defaults:
 - add `scheduler_cfg` for `BaseModel` class
 - update `GradualWarmupScheduler`
 
+# 2021年7月20日17:17:07
+
+- fix kernel size for `ofa_mbv3.py`
+- `OFAModel`支持DALI数据集
+```python
+...
+    def training_step(self, batch: Any, batch_idx: int):
+        image, label = batch[0]['data'], batch[0]['label'].long().view(-1)
+```
+
+
 # TODO
 
 - [ ] 可视化模型结构
