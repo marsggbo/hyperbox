@@ -1,6 +1,9 @@
 '''
 source code: https://github.com/ildoonet/pytorch-gradual-warmup-lr
 '''
+import hydra
+from omegaconf import DictConfig
+
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
@@ -20,6 +23,9 @@ class GradualWarmupScheduler(_LRScheduler):
         if self.multiplier < 1.:
             raise ValueError('multiplier should be greater thant or equal to 1.')
         self.total_epoch = total_epoch
+        if isinstance(after_scheduler, (dict, DictConfig)):
+            after_scheduler_cfg = after_scheduler
+            after_scheduler = hydra.utils.instantiate(after_scheduler_cfg, optimizer=optimizer)
         self.after_scheduler = after_scheduler
         self.finished = False
         super(GradualWarmupScheduler, self).__init__(optimizer)

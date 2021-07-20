@@ -188,6 +188,8 @@ defaults:
 - add `GradualWarmupScheduler` and its yaml config
 - add yaml config of `Lamb` optimizer
 - add `_module_available`
+- add `scheduler_cfg` for `BaseModel` class
+- update `GradualWarmupScheduler`
 
 # TODO
 

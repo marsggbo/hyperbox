@@ -38,9 +38,9 @@ class BaseModel(LightningModule):
         network_cfg: Optional[Union[DictConfig, dict]] = None,
         mutator_cfg: Optional[Union[DictConfig, dict]] = None,
         optimizer_cfg: Optional[Union[DictConfig, dict]] = None,
-        scheduler_cfg: Optional[Union[DictConfig, dict]] = None,
         loss_cfg: Optional[Union[DictConfig, dict]] = None,
         metric_cfg: Optional[Union[DictConfig, dict]] = None,
+        scheduler_cfg: Optional[Union[DictConfig, dict]] = None,
         **kwargs
     ):
         r'''NAS model template
@@ -127,9 +127,9 @@ class BaseModel(LightningModule):
         optimizer_cfg = DictConfig(self.hparams.optimizer_cfg)
         optim = instantiate(optimizer_cfg, params=self.network.parameters())
 
-        scheduler_cfg = DictConfig(self.hparams.scheduler_cfg)
-        if scheduler_cfg is not None:
-            scheduler = instantiate(scheduler_cfg, params=self.network.parameters())
+        if self.hparams.scheduler_cfg is not None:
+            scheduler_cfg = DictConfig(self.hparams.scheduler_cfg)
+            scheduler = hydra.utils.instantiate(scheduler_cfg, optimizer=optim)
             return [optim], [scheduler]
         return optim
 

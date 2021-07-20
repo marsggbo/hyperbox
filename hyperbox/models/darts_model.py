@@ -22,6 +22,7 @@ class DARTSModel(BaseModel):
         optimizer_cfg: Optional[Union[DictConfig, dict]] = None,
         loss_cfg: Optional[Union[DictConfig, dict]] = None,
         metric_cfg: Optional[Union[DictConfig, dict]] = None,
+        scheduler_cfg: Optional[Union[DictConfig, dict]] = None,
         arc_lr: float = 0.001,
         unrolled: bool = False,
         aux_weight: float = 0.4,
@@ -30,7 +31,7 @@ class DARTSModel(BaseModel):
         **kwargs
     ):
         super().__init__(network_cfg, mutator_cfg, optimizer_cfg,
-                         loss_cfg, metric_cfg, **kwargs)
+                         loss_cfg, metric_cfg, scheduler_cfg, **kwargs)
         self.arc_lr = arc_lr
         self.unrolled = unrolled
         self.aux_weight = aux_weight

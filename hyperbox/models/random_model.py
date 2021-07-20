@@ -34,6 +34,7 @@ class RandomModel(BaseModel):
         optimizer_cfg: Optional[Union[DictConfig, dict]] = None,
         loss_cfg: Optional[Union[DictConfig, dict]] = None,
         metric_cfg: Optional[Union[DictConfig, dict]] = None,
+        scheduler_cfg: Optional[Union[DictConfig, dict]] = None,
         is_sync: bool = True,
         is_net_parallel: bool = True,
         **kwargs
@@ -47,7 +48,7 @@ class RandomModel(BaseModel):
             metric: metric function, such as Accuracy, Precision, etc.
         '''
         super().__init__(network_cfg, mutator_cfg, optimizer_cfg,
-                         loss_cfg, metric_cfg, **kwargs)
+                         loss_cfg, metric_cfg, scheduler_cfg, **kwargs)
 
     def sample_search(self):
         super().sample_search(self.is_sync, self.is_net_parallel)
