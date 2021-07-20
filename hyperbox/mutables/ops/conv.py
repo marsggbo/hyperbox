@@ -143,7 +143,7 @@ class BaseConvNd(_ConvNd, FinegrainedModule):
 
         if self.search_in_channel:
             in_channels = self.value_spaces['in_channels'].value
-            filters = filers[:, :in_channels, ...]
+            filters = filters[:, :in_channels, ...]
         if self.search_out_channel:
             out_channels = self.value_spaces['out_channels'].value
             if self.bias is not None:

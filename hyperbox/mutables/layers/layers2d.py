@@ -118,7 +118,7 @@ class MBConvLayer(Base2DLayer):
             ]))
 
         self.depth_conv = nn.Sequential(OrderedDict([
-            ('conv', ops.Conv2d(middle_channels, middle_channels, kernel_size=kernel_size, stride=stride, auto_padding=True)),
+            ('conv', ops.Conv2d(middle_channels, middle_channels, kernel_size=kernel_size, stride=stride, groups=middle_channels, auto_padding=True)),
             ('bn', ops.BatchNorm2d(middle_channels)),
             ('act', build_activation(self.act_func))
         ]))

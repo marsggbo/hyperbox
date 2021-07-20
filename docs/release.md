@@ -184,6 +184,7 @@ defaults:
 # 2021年7月20日14:19:54
 
 - add `ImageNetDatamodule` and its yaml config
+- fixbugs in `layers2d.py` and `conv.py`
 
 # TODO
 
