@@ -3,6 +3,7 @@ import inspect
 import logging
 import warnings
 from typing import List, Sequence
+from importlib.util import find_spec
 
 import pytorch_lightning as pl
 import rich.syntax
@@ -15,6 +16,31 @@ from pytorch_lightning.loggers.wandb import WandbLogger
 from pytorch_lightning.utilities import rank_zero_only
 
 from .logger import get_logger
+
+
+__all__ = [
+    '_module_available', 'TorchTensorEncoder', 'load_json', 'extras', 'print_config',
+    'empty', 'log_hyperparameters', 'finish', 'hparams_wrapper'
+]
+
+
+def _module_available(module_path: str) -> bool:
+    """
+    Check if a path is available in your environment
+
+    >>> _module_available('os')
+    True
+    >>> _module_available('bla.bla')
+    False
+    """
+    try:
+        return find_spec(module_path) is not None
+    except AttributeError:
+        # Python 3.6
+        return False
+    except ModuleNotFoundError:
+        # Python 3.7+
+        return False
 
 
 class TorchTensorEncoder(json.JSONEncoder):

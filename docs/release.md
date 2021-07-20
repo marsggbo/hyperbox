@@ -187,6 +187,7 @@ defaults:
 - fixbugs in `layers2d.py` and `conv.py`
 - add `GradualWarmupScheduler` and its yaml config
 - add yaml config of `Lamb` optimizer
+- add `_module_available`
 
 # TODO
 
