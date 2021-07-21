@@ -49,6 +49,8 @@ class RandomModel(BaseModel):
         '''
         super().__init__(network_cfg, mutator_cfg, optimizer_cfg,
                          loss_cfg, metric_cfg, scheduler_cfg, **kwargs)
+        self.is_sync = is_sync
+        self.is_net_parallel = is_net_parallel
 
     def sample_search(self):
         super().sample_search(self.is_sync, self.is_net_parallel)

@@ -6,7 +6,7 @@
 defaults:
   - override /trainer: debug.yaml # choose trainer from 'configs/trainer/'
   - override /model: random_nas_model.yaml
-  - override /datamodule: fakedata_datamodule.yaml
+  - override /datamodule: cifar10_datamodule.yaml
   - override /callbacks: default.yaml
   - override /logger: wandb.yaml
 
@@ -17,5 +17,5 @@ seed: 12345
 
 trainer:
   min_epochs: 1
-  max_epochs: 1
+  max_epochs: 100
   accelerator: ddp
