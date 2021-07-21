@@ -1,8 +1,12 @@
 _target_: hyperbox.schedulers.warmup_scheduler.GradualWarmupScheduler
 multiplier: 1
-total_epoch: 5
-after_scheduler: null
+warmup_epoch: 10
+# after_scheduler: null
 # after_scheduler:
 #     _target_: torch.optim.lr_scheduler.StepLR
 #     step_size: 80
 #     gamma: 0.1
+after_scheduler:
+    _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+    T_max: 80
+    eta_min: 1e-4
