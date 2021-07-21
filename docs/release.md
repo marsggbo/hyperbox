@@ -201,6 +201,9 @@ defaults:
         image, label = batch[0]['data'], batch[0]['label'].long().view(-1)
 ```
 
+# 2021年7月21日16:54:07
+
+- fixbug in `GradualWarmupScheduler`: epoch=0时， lr为0
 
 # TODO
 

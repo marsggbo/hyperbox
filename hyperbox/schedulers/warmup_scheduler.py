@@ -40,7 +40,7 @@ class GradualWarmupScheduler(_LRScheduler):
             return [base_lr * self.multiplier for base_lr in self.base_lrs]
 
         if self.multiplier == 1.0:
-            return [base_lr * (float(self.last_epoch) / self.warmup_epoch) for base_lr in self.base_lrs]
+            return [base_lr * (float(self.last_epoch+1) / self.warmup_epoch) for base_lr in self.base_lrs]
         else:
             return [base_lr * ((self.multiplier - 1.) * self.last_epoch / self.warmup_epoch + 1.) for base_lr in self.base_lrs]
 
@@ -81,8 +81,8 @@ if __name__ == '__main__':
     optim = SGD(model, 0.1)
 
     # scheduler_warmup is chained with schduler_steplr
-    total_epoch = 50
-    warmup_epoch = 5
+    total_epoch = 30
+    warmup_epoch = 10
     scheduler_steplr = StepLR(optim, step_size=2, gamma=0.9)
     scheduler_steplr = CosineAnnealingLR(optim, T_max=total_epoch-warmup_epoch, eta_min=1e-6)
     # scheduler_steplr = None
