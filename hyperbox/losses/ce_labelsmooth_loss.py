@@ -8,7 +8,7 @@ __all__ = [
 
 class CrossEntropyLabelSmooth(torch.nn.Module):
     def __init__(self, label_smoothing):
-        super(_CrossEntropyLabelSmooth, self).__init__()
+        super(CrossEntropyLabelSmooth, self).__init__()
         self.label_smoothing = label_smoothing
 
     def forward(self, pred, target):

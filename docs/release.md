@@ -204,6 +204,7 @@ defaults:
 # 2021年7月21日16:54:07
 
 - fixbug in `GradualWarmupScheduler`: epoch=0时， lr为0
+- fixbug in `CrossEntropyLabelSmooth` & add yaml configure
 
 # TODO
 
