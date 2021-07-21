@@ -1,4 +1,4 @@
-_target_: hyperbox.models.random_nas_model.RandomModel
+_target_: hyperbox.models.random_model.RandomModel
 
 defaults:
     - network_cfg: finegrained_resnet
