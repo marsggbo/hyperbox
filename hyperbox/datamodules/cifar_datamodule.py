@@ -10,6 +10,9 @@ from torchvision.transforms import transforms
 from .transforms import get_transforms
 
 
+__all__ = ['CIFAR10DataModule', 'CIFAR100DataModule']
+
+
 class CIFAR10DataModule(bolt_cifar10):
     """
     Example of LightningDataModule for CIFAR10 dataset.

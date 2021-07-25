@@ -6,6 +6,9 @@ from torchvision.datasets import FakeData
 from torchvision.transforms import transforms
 
 
+__all__ = ['FakeDataModule']
+
+
 class FakeDataModule(LightningDataModule):
     """
     Example of LightningDataModule for Fake dataset.

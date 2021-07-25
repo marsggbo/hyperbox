@@ -206,6 +206,10 @@ defaults:
 - fixbug in `GradualWarmupScheduler`: epoch=0时， lr为0
 - fixbug in `CrossEntropyLabelSmooth` & add yaml configure
 
+# 2021年7月25日14:04:46
+
+- update `DataModule` and their yaml configs
+
 # TODO
 
 - [ ] 可视化模型结构

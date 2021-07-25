@@ -2,27 +2,25 @@
 https://github1s.com/PyTorchLightning/pytorch-lightning/blob/HEAD/pl_examples/basic_examples/dali_image_classifier.py
 '''
 import os
-from typing import Optional, Tuple, Union, Any, List, Callable
 from abc import ABC
-from packaging.version import Version
+from typing import Any, Callable, List, Optional, Tuple, Union
 
 import numpy as np
-from omegaconf import DictConfig
+from packaging.version import Version
+from pl_bolts.datamodules import ImagenetDataModule as bolt_imagenet
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
-from pl_bolts.datamodules import ImagenetDataModule as bolt_imagenet
-from torchvision.datasets import ImageNet, ImageFolder, FakeData
-# from torchvision.transforms import transforms
+from torchvision.datasets import ImageFolder, ImageNet
 
-from hyperbox.utils.utils import _module_available
 from hyperbox.datamodules.transforms import get_transforms
+from hyperbox.utils.utils import _module_available
 
 if _module_available('torchvision'):
-    from torchvision import transforms
+    from torchvision.transforms import transforms as transform_lib
 
 if _module_available("nvidia.dali"):
     from nvidia.dali import __version__ as dali_version
-    from nvidia.dali import ops, fn, types
+    from nvidia.dali import fn, ops, types
     from nvidia.dali.pipeline import Pipeline, pipeline_def
     from nvidia.dali.plugin.pytorch import DALIClassificationIterator
 
@@ -34,6 +32,117 @@ else:
     ops, Pipeline, DALIClassificationIterator, LastBatchPolicy = ..., ABC, ABC, ABC
 
 
+__all__ = ['ImagenetDataModule', 'ImagenetDALIDataModule', 'create_dali_pipeline']
+
+
+class ImagenetDataModule(bolt_imagenet):
+    def __init__(
+        self,
+        data_dir: str,
+        meta_dir: Optional[str] = None,
+        classes: int = 1000,
+        image_size: Optional[Union[int, List]] = 224,
+        valid_image_size: Optional[Union[int, List]] = None, # valid is the test set by default
+        num_imgs_per_val_class: int = 50,
+        num_workers: int = 16,
+        batch_size: int = 32,
+        shuffle: bool = True,
+        pin_memory: bool = False,
+        drop_last: bool = False,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        self._num_classes = classes
+        self.valid_image_size = valid_image_size
+        super(ImagenetDataModule, self).__init__(
+            data_dir, meta_dir, num_imgs_per_val_class, image_size, num_workers,
+            batch_size, shuffle, pin_memory, drop_last, *args, **kwargs)
+
+    def prepare_data(self) -> None:
+        pass
+
+    @property
+    def num_classes(self) -> int:
+        return self._num_classes
+
+    def train_transform(self, size=None) -> Callable:
+        if size is None:
+            size = self.image_size
+        preprocessing = transform_lib.Compose([
+            transform_lib.RandomResizedCrop(size),
+            transform_lib.RandomHorizontalFlip(),
+            transform_lib.ToTensor(),
+            transform_lib.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]
+            ),
+        ])
+
+        return preprocessing
+
+    def val_transform(self) -> Callable:
+        preprocessing = transform_lib.Compose([
+            transform_lib.Resize(self.image_size + 32),
+            transform_lib.CenterCrop(self.image_size),
+            transform_lib.ToTensor(),
+            transform_lib.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]
+            ),
+        ])
+        return preprocessing
+
+    def setup(self, stage: Optional[str] = None):
+        transform_train = self.train_transform() if self.train_transforms is None else self.train_transforms
+        data_train = ImageFolder(
+            root=os.path.join(self.data_dir, 'train'),
+            transform=transform_train
+        )
+
+        transform_test = self.val_transform() if self.test_transforms is None else self.test_transforms
+        self.data_test = ImageFolder(
+            root=os.path.join(self.data_dir, 'val'),
+            transform=transform_test
+        )
+
+        if self.valid_image_size is not None:
+            transform_valid = self.train_transform(self.valid_image_size)
+            validation_size = self.num_imgs_per_val_class * self.num_classes
+            train_size = len(data_train) - validation_size
+            self.data_train, self.data_valid = random_split(data_train, [train_size, validation_size])
+        else:
+            self.data_valid = self.data_test
+            self.data_train = data_train
+
+    def train_dataloader(self):
+        return DataLoader(
+            self.data_train,
+            batch_size=self.batch_size,
+            shuffle=self.shuffle,
+            num_workers=self.num_workers,
+            drop_last=self.drop_last,
+            pin_memory=self.pin_memory
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.data_valid,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            drop_last=self.drop_last,
+            pin_memory=self.pin_memory
+        )
+
+    def test_dataloader(self):
+        return DataLoader(
+            self.data_test,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            drop_last=self.drop_last,
+            pin_memory=self.pin_memory
+        )
 
 @pipeline_def
 def create_dali_pipeline(data_dir, crop, size, shard_id, num_shards, dali_cpu=False, is_training=True):
@@ -83,7 +192,7 @@ def create_dali_pipeline(data_dir, crop, size, shard_id, num_shards, dali_cpu=Fa
     return images, labels
 
 
-class ImagenetDataModule(LightningDataModule):
+class ImagenetDALIDataModule(LightningDataModule):
 
     def __init__(
         self,
@@ -109,17 +218,23 @@ class ImagenetDataModule(LightningDataModule):
 
     @property
     def global_rank(self):
-        return self.trainer.global_rank
+        if getattr(self, 'trainer', None) is not None:
+            return self.trainer.global_rank
+        return 0
 
     @property
     def local_rank(self):
-        return self.trainer.local_rank
+        if getattr(self, 'trainer', None) is not None:
+            return self.trainer.local_rank
+        return 0
 
     @property
     def world_size(self):
-        return self.trainer.world_size
+        if getattr(self, 'trainer', None) is not None:
+            return self.trainer.world_size
+        return 0
 
-    def setup(self, stage: Optional[str]):
+    def setup(self, stage: Optional[str]=None):
         self.train_pipe = create_dali_pipeline(
             batch_size=self.batch_size,
             num_threads=self.num_workers,
@@ -285,11 +400,11 @@ class ImagenetDataModule1(LightningDataModule):
         """
         Optional transforms (or collection of transforms) you can apply to train dataset
         """
-        return transforms.Compose([
-                transforms.RandomResizedCrop(224),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+        return transform_lib.Compose([
+                transform_lib.RandomResizedCrop(224),
+                transform_lib.RandomHorizontalFlip(),
+                transform_lib.ToTensor(),
+                transform_lib.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
             ])
 
@@ -298,32 +413,32 @@ class ImagenetDataModule1(LightningDataModule):
         """
         Optional transforms (or collection of transforms) you can apply to validation dataset
         """
-        return transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+        return transform_lib.Compose([
+                transform_lib.Resize(256),
+                transform_lib.CenterCrop(224),
+                transform_lib.ToTensor(),
+                transform_lib.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
             ])
 
     def prepare_data1(self):
         dataset = ImageFolder(
             root=self.cat_path([self.dataset_path, 'train']),
-            transform=transforms.Compose([
-                transforms.RandomResizedCrop(224),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+            transform=transform_lib.Compose([
+                transform_lib.RandomResizedCrop(224),
+                transform_lib.RandomHorizontalFlip(),
+                transform_lib.ToTensor(),
+                transform_lib.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
             ])
         )
         self.data_test = ImageFolder(
             root=self.cat_path([self.dataset_path, 'val']),
-            transform=transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+            transform=transform_lib.Compose([
+                transform_lib.Resize(256),
+                transform_lib.CenterCrop(224),
+                transform_lib.ToTensor(),
+                transform_lib.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
             ])
         )
@@ -377,7 +492,7 @@ class ImagenetDataModule1(LightningDataModule):
 
 
 if __name__ == '__main__':
-    dm = ImagenetDataModule('/datasets/imagenet100')
+    dm = ImagenetDALIDataModule('/datasets/imagenet100')
     dm.setup()
     for i, data in enumerate(dm.train_dataloader()):
         if i > 2: break

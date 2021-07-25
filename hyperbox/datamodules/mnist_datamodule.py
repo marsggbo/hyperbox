@@ -5,6 +5,8 @@ from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
 
+__all__ = ['MNISTDataModule']
+
 
 class MNISTDataModule(LightningDataModule):
     """
