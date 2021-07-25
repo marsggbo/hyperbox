@@ -24,7 +24,7 @@ from .base_model import BaseModel
 class SampleSearch(Callback):
 
     def on_train_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
-        if trainer.current_epoch < 30:
+        if trainer.current_epoch < pl_module.supernet_epoch:
             # train the Supernet only
             return
         start = time.time()
@@ -38,10 +38,10 @@ class SampleSearch(Callback):
         if pl_module.lr_schedulers() is not None:
             self.scheduler = pl_module.lr_schedulers()
             self.scheduler.step(trainer.current_epoch)
-            logger.info(f"Epoch{trainer.current_epoch} lr={self.scheduler.get_lr()}")
+            logger.info(f"Epoch{trainer.current_epoch} lr={self.scheduler.get_lr()[0]:.6f}")
 
-    # def on_validation_epoch_start(self, trainer, pl_module):
-    #     pl_module.sample_search()
+    def on_validation_epoch_start(self, trainer, pl_module):
+        pl_module.sample_search()
 
 
 class OFAModel(BaseModel):
@@ -58,6 +58,7 @@ class OFAModel(BaseModel):
         num_valid_archs: int = 5,
         kd_subnets_method: str = '',
         aux_weight: float = 0.4,
+        supernet_epoch: int = 180,
         **kwargs
     ):
         '''
@@ -78,6 +79,7 @@ class OFAModel(BaseModel):
         self.num_valid_archs = num_valid_archs
         self.is_net_parallel = is_net_parallel
         self.is_sync = is_sync
+        self.supernet_epoch = supernet_epoch
         self.arch_perf_history = {}
         self.reset_seed_flag = 1 # initial value should >= 1
         if not hasattr(self, 'time_records'):

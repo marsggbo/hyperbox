@@ -112,13 +112,13 @@ class MBConvLayer(Base2DLayer):
             self.inverted_bottleneck = None
         else:
             self.inverted_bottleneck = nn.Sequential(OrderedDict([
-                ('conv', ops.Conv2d(in_channels, middle_channels, kernel_size=1, stride=1)),
+                ('conv', ops.Conv2d(in_channels, middle_channels, kernel_size=1, stride=1, bias=False)),
                 ('bn', ops.BatchNorm2d(middle_channels)),
                 ('act', build_activation(self.act_func)),
             ]))
 
         self.depth_conv = nn.Sequential(OrderedDict([
-            ('conv', ops.Conv2d(middle_channels, middle_channels, kernel_size=kernel_size, stride=stride, groups=middle_channels, auto_padding=True)),
+            ('conv', ops.Conv2d(middle_channels, middle_channels, kernel_size=kernel_size, stride=stride, groups=middle_channels, auto_padding=True, bias=False)),
             ('bn', ops.BatchNorm2d(middle_channels)),
             ('act', build_activation(self.act_func))
         ]))
@@ -126,7 +126,7 @@ class MBConvLayer(Base2DLayer):
             self.depth_conv.add_module('se', SELayer(middle_channels))
 
         self.point_linear = nn.Sequential(OrderedDict([
-            ('conv', ops.Conv2d(middle_channels, out_channels, kernel_size=1, stride=1)),
+            ('conv', ops.Conv2d(middle_channels, out_channels, kernel_size=1, stride=1, bias=False)),
             ('bn', ops.BatchNorm2d(out_channels)),
         ]))
 

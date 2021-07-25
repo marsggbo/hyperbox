@@ -63,7 +63,7 @@ class BaseNASNetwork(nn.Module):
                 continue
             else:
                 model_dict[key] = state_dict[key]
-        super(self.__class__, self).load_state_dict(model_dict, **kwargs)
+        super(BaseNASNetwork, self).load_state_dict(model_dict, **kwargs)
 
     def build_subnet(self, mask):
         '''build subnet by the given mask'''

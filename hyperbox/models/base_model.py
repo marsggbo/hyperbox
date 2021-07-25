@@ -129,7 +129,7 @@ class BaseModel(LightningModule):
 
         if self.hparams.scheduler_cfg is not None:
             scheduler_cfg = DictConfig(self.hparams.scheduler_cfg)
-            scheduler = hydra.utils.instantiate(scheduler_cfg, optimizer=optim)
+            scheduler = hydra.utils.instantiate(scheduler_cfg, optimizer=optim, _recursive_=False)
             return [optim], [scheduler]
         return optim
 
