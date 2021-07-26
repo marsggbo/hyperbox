@@ -214,6 +214,7 @@ defaults:
 
 - fix bug in `fixed_mutator`，适配 `ValueSpace`
 - `load_json` 函数转化成 `torch.tensor`格式
+- import predefined networks in `__init__`
 
 # TODO
 
