@@ -210,6 +210,11 @@ defaults:
 
 - update `DataModule` and their yaml configs
 
+# 2021年7月27日00:12:33
+
+- fix bug in `fixed_mutator`，适配 `ValueSpace`
+- `load_json` 函数转化成 `torch.tensor`格式
+
 # TODO
 
 - [ ] 可视化模型结构

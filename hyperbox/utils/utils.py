@@ -61,7 +61,7 @@ def load_json(filename):
         with open(filename, 'r') as f:
             data = json.load(f)
         for key, value in data.items():
-            data[key] = np.array(value, dtype='int')
+            data[key] = torch.tensor(value).int()
     elif isinstance(filename, dict):
         data = filename
     else:

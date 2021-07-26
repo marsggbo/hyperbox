@@ -36,10 +36,13 @@ class FixedArchitecture(Mutator):
             raise RuntimeError("Missing keys in fixed architecture: {}.".format(mutable_keys - fixed_arc_keys))
 
     def sample_search(self):
-        return self._fixed_arc
+        result = self._fixed_arc # for OperationSpace and InputSpace
+        for mutable in self.mutables:
+            mutable.mask = result[mutable.key] # for ValueSpace
+        return result
 
     def sample_final(self):
-        return self._fixed_arc
+        return self.sample_search()
 
 
 def _encode_tensor(data):
