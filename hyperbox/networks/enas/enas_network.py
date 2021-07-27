@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import hyperbox.mutables.spaces as spaces
+from hyperbox.networks.base_nas_network import BaseNASNetwork
 from .enas_ops import FactorizedReduce, StdConv, SepConvBN, Pool, ConvBranch, PoolBranch, Calibration
 
 
@@ -20,17 +21,17 @@ __all__ = [
 
 
 class Cell(nn.Module):
-    def __init__(self, cell_name, prev_labels, channels):
+    def __init__(self, cell_name, prev_labels, channels, mask=None):
         super().__init__()
         self.input_choice = spaces.InputSpace(choose_from=prev_labels, n_chosen=1, return_mask=True,
-                                                 key=cell_name + "_input")
+                                                 key=cell_name + "_input", mask=mask)
         self.op_choice = spaces.OperationSpace([
             SepConvBN(channels, channels, 3, 1),
             SepConvBN(channels, channels, 5, 2),
             Pool("avg", 3, 1, 1),
             Pool("max", 3, 1, 1),
             nn.Identity()
-        ], key=cell_name + "_op")
+        ], key=cell_name + "_op", mask=mask)
 
     def forward(self, prev_layers):
         chosen_input, chosen_mask = self.input_choice(prev_layers)
@@ -38,11 +39,11 @@ class Cell(nn.Module):
         return cell_out, chosen_mask
 
 
-class Node(spaces.MutableScope):
-    def __init__(self, node_name, prev_node_names, channels):
-        super().__init__(node_name)
-        self.cell_x = Cell(node_name + "_x", prev_node_names, channels)
-        self.cell_y = Cell(node_name + "_y", prev_node_names, channels)
+class Node(nn.Module):
+    def __init__(self, node_name, prev_node_names, channels, mask=None):
+        super().__init__()
+        self.cell_x = Cell(node_name + "_x", prev_node_names, channels, mask)
+        self.cell_y = Cell(node_name + "_y", prev_node_names, channels, mask)
 
     def forward(self, prev_layers):
         out_x, mask_x = self.cell_x(prev_layers)
@@ -73,8 +74,12 @@ class ENASMicroLayer(nn.Module):
         output channels of this layer
     reduction: bool
         is reduction operation empolyed before this layer
+    layer_id: int
+        the layer id
+    mask: dict
+        the mask of all Mutables
     """
-    def __init__(self, num_nodes, in_channels_pp, in_channels_p, out_channels, reduction):
+    def __init__(self, num_nodes, in_channels_pp, in_channels_p, out_channels, reduction, layer_id, mask):
         super().__init__()
         self.reduction = reduction
         if self.reduction:
@@ -89,8 +94,8 @@ class ENASMicroLayer(nn.Module):
         self.nodes = nn.ModuleList()
         node_labels = [spaces.InputSpace.NO_KEY, spaces.InputSpace.NO_KEY]
         for i in range(num_nodes):
-            node_labels.append("{}_node_{}".format(name_prefix, i))
-            self.nodes.append(Node(node_labels[-1], node_labels[:-1], out_channels))
+            node_labels.append("layer{}_{}_node_{}".format(layer_id, name_prefix, i))
+            self.nodes.append(Node(node_labels[-1], node_labels[:-1], out_channels, mask))
         self.final_conv_w = nn.Parameter(torch.zeros(out_channels, self.num_nodes + 2, out_channels, 1, 1),
                                          requires_grad=True)
         self.bn = nn.BatchNorm2d(out_channels, affine=False)
@@ -127,9 +132,9 @@ class ENASMicroLayer(nn.Module):
         return prev, self.bn(out)
 
 
-class ENASMicroNetwork(nn.Module):
+class ENASMicroNetwork(BaseNASNetwork):
     def __init__(self, num_layers=2, num_nodes=5, out_channels=24, in_channels=3, num_classes=10,
-                 dropout_rate=0.0):
+                 dropout_rate=0.0, mask=None):
         super().__init__()
         self.num_layers = num_layers
 
@@ -149,7 +154,7 @@ class ENASMicroNetwork(nn.Module):
             reduction = False
             if layer_id in pool_layers:
                 c_cur, reduction = c_p * 2, True
-            self.layers.append(ENASMicroLayer(num_nodes, c_pp, c_p, c_cur, reduction))
+            self.layers.append(ENASMicroLayer(num_nodes, c_pp, c_p, c_cur, reduction, layer_id, mask))
             if reduction:
                 c_pp = c_p = c_cur
             c_pp, c_p = c_p, c_cur
@@ -181,7 +186,7 @@ class ENASMicroNetwork(nn.Module):
         return logits
 
 
-class ENASMacroLayer(spaces.MutableScope):
+class ENASMacroLayer(nn.Module):
     """
     Builtin ENAS Marco Layer. With search space changing to layer level, the controller decides
     what operation is employed and the previous layer to connect to for skip connections. The model
@@ -198,8 +203,8 @@ class ENASMacroLayer(spaces.MutableScope):
     out_filters:
         the number of output channels
     """
-    def __init__(self, key, prev_labels, in_filters, out_filters):
-        super().__init__(key)
+    def __init__(self, key, prev_labels, in_filters, out_filters, mask=None):
+        super().__init__()
         self.in_filters = in_filters
         self.out_filters = out_filters
         self.mutable = spaces.OperationSpace([
@@ -209,9 +214,9 @@ class ENASMacroLayer(spaces.MutableScope):
             ConvBranch(in_filters, out_filters, 5, 1, 2, separable=True),
             PoolBranch('avg', in_filters, out_filters, 3, 1, 1),
             PoolBranch('max', in_filters, out_filters, 3, 1, 1)
-        ])
+        ], key=f"{key}_OS", mask=mask)
         if prev_labels:
-            self.skipconnect = spaces.InputSpace(choose_from=prev_labels, n_chosen=None)
+            self.skipconnect = spaces.InputSpace(choose_from=prev_labels, n_chosen=None, key=f"{key}_IS", mask=mask)
         else:
             self.skipconnect = None
         self.batch_norm = nn.BatchNorm2d(out_filters, affine=False)
@@ -233,7 +238,7 @@ class ENASMacroLayer(spaces.MutableScope):
         return self.batch_norm(out)
 
 
-class ENASMacroGeneralModel(nn.Module):
+class ENASMacroGeneralModel(BaseNASNetwork):
     """
     The network is made up by stacking ENASMacroLayer. The Macro search space contains these layers.
     Each layer chooses an operation from predefined ones and SkipConnect then forms a network.
@@ -252,7 +257,7 @@ class ENASMacroGeneralModel(nn.Module):
         Dropout layer's dropout rate before the final dense layer.
     """
     def __init__(self, num_layers=12, out_filters=24, in_channels=3, num_classes=10,
-                 dropout_rate=0.0):
+                 dropout_rate=0.0, mask=None):
         super().__init__()
         self.num_layers = num_layers
         self.num_classes = num_classes
@@ -275,7 +280,7 @@ class ENASMacroGeneralModel(nn.Module):
             labels.append("layer_{}".format(layer_id))
             if layer_id in self.pool_layers_idx:
                 self.pool_layers.append(FactorizedReduce(self.out_filters, self.out_filters))
-            self.layers.append(ENASMacroLayer(labels[-1], labels[:-1], self.out_filters, self.out_filters))
+            self.layers.append(ENASMacroLayer(labels[-1], labels[:-1], self.out_filters, self.out_filters, mask))
 
         self.gap = nn.AdaptiveAvgPool2d(1)
         self.dense = nn.Linear(self.out_filters, self.num_classes)

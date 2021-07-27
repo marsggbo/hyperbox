@@ -216,6 +216,11 @@ defaults:
 - `load_json` 函数转化成 `torch.tensor`格式
 - import predefined networks in `__init__`
 
+# 2021年7月27日23:57:00
+
+- 给所有模型增加`mask`参数，方便得到指定的子模型
+
+
 # TODO
 
 - [ ] 可视化模型结构
