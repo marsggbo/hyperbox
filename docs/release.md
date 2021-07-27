@@ -219,7 +219,8 @@ defaults:
 # 2021年7月27日23:57:00
 
 - 给所有模型增加`mask`参数，方便得到指定的子模型
-
+- 更新`OperationSpace`的内置函数，以`choices`为准
+- 修复`InputSpace`在`is_search=False`情况下的bug
 
 # TODO
 

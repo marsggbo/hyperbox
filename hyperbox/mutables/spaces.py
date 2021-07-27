@@ -106,8 +106,9 @@ class MutableScope(Mutable):
 
     def __call__(self, *args, **kwargs):
         try:
-            self._check_built()
-            self.mutator.enter_mutable_scope(self)
+            if self.is_search:
+                self._check_built()
+                self.mutator.enter_mutable_scope(self)
             return super().__call__(*args, **kwargs)
         finally:
             self.mutator.exit_mutable_scope(self)
@@ -245,11 +246,26 @@ class OperationSpace(CategoricalSpace):
         else:
             return out
 
+    def __getitem__(self, index):
+        return self.choices[index]
+
+    def __setitem__(self, index, data):
+        self.choices[index] = data
+
+    def __len__(self):
+        return len(self.choices)
+
+    def __iter__(self):
+        for elem in self.choices:
+            yield elem
+
     def __repr__(self):
         if self.is_search:
             return super(Mutable, self).__repr__()
         else:
-            return self.choices[0].__repr__()
+            name = self.__class__.__name__
+            _repr = f'{name}(key={repr(self.key)}, value={self.value})'
+            return _repr
 
 
 class InputSpace(CategoricalSpace):
@@ -359,6 +375,7 @@ class InputSpace(CategoricalSpace):
             elif isinstance(optional_inputs, dict):
                 index = self.choose_from[self.index]
             out = optional_inputs[index]
+            mask = self.mask.bool()
         if self.return_mask:
             return out, mask
         else:
