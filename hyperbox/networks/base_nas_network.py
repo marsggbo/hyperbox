@@ -1,6 +1,7 @@
 from typing import Optional, Union, Tuple, List
 import torch.nn as nn
 
+from hyperbox.mutables import spaces, ops
 from hyperbox.utils.utils import load_json, hparams_wrapper
 from hyperbox.utils.calc_model_size import flops_size_counter
 
@@ -67,7 +68,25 @@ class BaseNASNetwork(nn.Module):
 
     def build_subnet(self, mask):
         '''build subnet by the given mask'''
-        raise NotImplementedError
+        hparams = self.hparams
+        hparams['mask'] = mask
+        new_cls = self.__class__(**hparams)
+        return new_cls
+
+    def get_module_by_name(self, name):
+        def is_int(item):
+            try:
+                item = int(item)
+                return True
+            except:
+                return False
+        full_name = 'self'
+        for item in name.split('.'):
+            if is_int(item):
+                full_name += f"[{item}]"
+            else:
+                full_name += f".{item}"
+        return eval(full_name)
 
     def load_subnet_state_dict(self, state_dict, **kwargs):
         '''load subnet state dict from the given state_dict'''
@@ -79,32 +98,49 @@ class BaseNASNetwork(nn.Module):
             return start, end
 
         model_dict = self.state_dict()
-        for key in state_dict:
+        for key in model_dict:
             if 'total_ops' in key or \
                 'total_params' in key or \
                 'module_used' in key or \
                 'mask' in key:
                 continue
-            if model_dict[key].shape == state_dict[key].shape:
-                model_dict[key] = state_dict[key]
+            if '.choices' in key:
+                # OperationSpace
+                name = ''.join(key.split('.choices')[0])
+                module = self.get_module_by_name(name)
+                if isinstance(module, spaces.OperationSpace):
+                    index = module.index
+                    prefix, suffix = key.split('.choices.')
+                    prefix += '.choices'
+                    suffix = '.'.join(suffix.split('.')[1:])
+                    fullname = f"{prefix}.{index}.{suffix}"
+                    model_dict[key] = state_dict[fullname]
             else:
-                dim = len(model_dict[key].shape)
-                if dim == 1:
-                    # e.g., bias
-                    model_dict[key].data = state_dict[key].data[:shape[0]]
-                if dim == 2:
-                    # e.g., linear weight
-                    _out, _in = shape
-                    model_dict[key].data = state_dict[key].data[:_out, :_in]
-                if dim >= 3:
-                    # e.g., conv weight
-                    _out, _in, k = shape[:3]
-                    k_larger = state_dict[key].shape[-1]
-                    start, end = sub_filter_start_end(k_larger, k)
-                    if dim == 3: # conv1d
-                        model_dict[key].data = state_dict[key].data[:_out, :_in, start:end]
-                    elif dim == 4: #conv2d
-                        model_dict[key].data = state_dict[key].data[:_out, :_in, start:end, start:end]
-                    else:
-                        model_dict[key].data = state_dict[key].data[:_out, :_in, start:end, start:end, start:end]
-        super(self.__class__, self).load_state_dict(model_dict, **kwargs, strict=False)
+                name = '.'.join(key.split('.')[:-1])
+                module = self.get_module_by_name(name)
+                if not isinstance(module, ops.FinegrainedModule):
+                    assert model_dict[key].shape == state_dict[key].shape, f"the shape of {key} not match"
+                    model_dict[key] = state_dict[key]
+                else:
+                    # ValueSpace-based operation
+                    shape = model_dict[key].shape
+                    dim = len(shape)
+                    if dim == 1:
+                        # e.g., bias
+                        model_dict[key].data = state_dict[key].data[:shape[0]]
+                    if dim == 2:
+                        # e.g., linear weight
+                        _out, _in = shape
+                        model_dict[key].data = state_dict[key].data[:_out, :_in]
+                    if dim >= 3:
+                        # e.g., conv weight
+                        _out, _in, k = shape[:3]
+                        k_larger = state_dict[key].shape[-1]
+                        start, end = sub_filter_start_end(k_larger, k)
+                        if dim == 3: # conv1d
+                            model_dict[key].data = state_dict[key].data[:_out, :_in, start:end]
+                        elif dim == 4: #conv2d
+                            model_dict[key].data = state_dict[key].data[:_out, :_in, start:end, start:end]
+                        else:
+                            model_dict[key].data = state_dict[key].data[:_out, :_in, start:end, start:end, start:end]
+        super(BaseNASNetwork, self).load_state_dict(model_dict, **kwargs, strict=False)

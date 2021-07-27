@@ -221,6 +221,9 @@ defaults:
 - 给所有模型增加`mask`参数，方便得到指定的子模型
 - 更新`OperationSpace`的内置函数，以`choices`为准
 - 修复`InputSpace`在`is_search=False`情况下的bug
+- 更新基类`BaseNASNetwork`的`build_subnet`和`load_subnet_state_dict`函数
+    TODO: 
+    - [ ] 有的子模型虽然能成功load父模型的权重，但是最后的结果会有偏差，但是还未找到原因
 
 # TODO
 
