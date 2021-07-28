@@ -223,7 +223,27 @@ defaults:
 - 修复`InputSpace`在`is_search=False`情况下的bug
 - 更新基类`BaseNASNetwork`的`build_subnet`和`load_subnet_state_dict`函数
     TODO: 
-    - [ ] 有的子模型虽然能成功load父模型的权重，但是最后的结果会有偏差，但是还未找到原因
+    - [x] 有的子模型虽然能成功load父模型的权重，但是最后的结果会有偏差，但是还未找到原因
+
+# 2021年7月28日19:23:08
+
+- 修复子模型load父模型权重后结果会出现偏差的问题，原因是`InputSpace`在`is_search=False`时的`forward`函数存在逻辑欠缺，之前没有考虑了输出多个值的情况，导致有的结果就漏掉了。解决办法是参照`DefaultMutator`中的方法改进了
+
+原来的代码
+```python
+class InputSpace(...):
+    ...
+    def forward(self, ...)
+        if is_search:
+            ...
+        else:
+            if isinstance(optional_inputs, list):
+                index = self.index
+            elif isinstance(optional_inputs, dict):
+                index = self.choose_from[self.index]
+            out = optional_inputs[index] # 这里只输出某一个值，但是像DARTS和ENAS可能会输出多个节点的值
+```
+
 
 # TODO
 

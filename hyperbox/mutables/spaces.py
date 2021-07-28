@@ -214,6 +214,29 @@ class CategoricalSpace(Mutable):
         new_instance.mask = self.mask
         return new_instance
 
+    def _select_with_mask(self, map_fn, candidates, mask):
+        if "BoolTensor" in mask.type():
+            out = [map_fn(*cand) for cand, m in zip(candidates, mask) if m]
+        elif "FloatTensor" in mask.type():
+            out = [map_fn(*cand) * m for cand, m in zip(candidates, mask) if m]
+        else:
+            raise ValueError("Unrecognized mask")
+        return out
+
+    def _tensor_reduction(self, reduction_type, tensor_list):
+        if reduction_type == "none":
+            return tensor_list
+        if not tensor_list:
+            return None  # empty. return None for now
+        if len(tensor_list) == 1:
+            return tensor_list[0]
+        if reduction_type == "sum":
+            return sum(tensor_list)
+        if reduction_type == "mean":
+            return sum(tensor_list) / len(tensor_list)
+        if reduction_type == "concat":
+            return torch.cat(tensor_list, dim=1)
+        raise ValueError("Unrecognized reduction policy: \"{}\"".format(reduction_type))
 
 class OperationSpace(CategoricalSpace):
     def __init__(self,
@@ -370,12 +393,11 @@ class InputSpace(CategoricalSpace):
                 "Length of the input list must be equal to number of candidates."
             out, mask = self.mutator.on_forward_input_space(self, optional_input_list)
         else:
-            if isinstance(optional_inputs, list):
-                index = self.index
-            elif isinstance(optional_inputs, dict):
-                index = self.choose_from[self.index]
-            out = optional_inputs[index]
             mask = self.mask.bool()
+            assert len(mask) == self.n_candidates, \
+                "Invalid mask, expected {} to be of length {}.".format(mask, self.n_candidates)
+            out = self._select_with_mask(lambda x: x, [(t,) for t in optional_inputs], mask)
+            out = self._tensor_reduction(self.reduction, out)
         if self.return_mask:
             return out, mask
         else:
