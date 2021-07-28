@@ -245,6 +245,10 @@ class InputSpace(...):
 ```
 - rename `load_subnet_state_dict` to `load_from_supernet`
 
+# 2021年7月28日23:14:32
+
+- fixbugs in `hyperbox.mutables.layers.layers2d`. 主要是通道数转化问题
+
 # TODO
 
 - [ ] 可视化模型结构

@@ -60,7 +60,7 @@ class SELayer(Base2DLayer):
 
         if isinstance(channel, ValueSpace):
             num_mid = []
-            for c in num_mid.candidates:
+            for c in channel.candidates:
                 num_mid.append(
                     make_divisible(c // self.reduction, divisor=self.CHANNEL_DIVISIBLE)
                 )
@@ -95,6 +95,8 @@ class MBConvLayer(Base2DLayer):
         act_func: str = 'relu6',
         use_se: bool = False,
     ):
+        flag = isinstance(in_channels, ValueSpace) and isinstance(expand_ratio, ValueSpace)
+        assert not flag, "in_channels and expand_ratio cannot both be ValueSpace"
         super(MBConvLayer, self).__init__()
 
         # build modules
@@ -105,10 +107,17 @@ class MBConvLayer(Base2DLayer):
                     make_divisible(round(self.in_channels * self.expand_ratio), self.CHANNEL_DIVISIBLE)
                 )
             middle_channels = ValueSpace(middle_channels)
+        elif isinstance(expand_ratio, ValueSpace):
+            middle_channels = []
+            for e in expand_ratio.candidates:
+                middle_channels.append(
+                    make_divisible(round(self.in_channels * e), self.CHANNEL_DIVISIBLE)
+                )
+            middle_channels = ValueSpace(middle_channels)
         else:
             middle_channels = make_divisible(
                 round(self.in_channels * self.expand_ratio), self.CHANNEL_DIVISIBLE)
-        if self.expand_ratio == 1:
+        if (isinstance(expand_ratio, ValueSpace) and expand_ratio.max_value==1) or self.expand_ratio== 1:
             self.inverted_bottleneck = None
         else:
             self.inverted_bottleneck = nn.Sequential(OrderedDict([
