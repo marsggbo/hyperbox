@@ -286,7 +286,7 @@ class ResNet(BaseNASNetwork):
         self.counter_subnet += 1
         return subnet
 
-    def load_subnet_state_dict(self, state_dict, **kwargs):
+    def load_from_supernet(self, state_dict, **kwargs):
         def sub_filter_start_end(kernel_size, sub_kernel_size):
             center = kernel_size // 2
             dev = sub_kernel_size // 2

@@ -243,7 +243,7 @@ class InputSpace(...):
                 index = self.choose_from[self.index]
             out = optional_inputs[index] # 这里只输出某一个值，但是像DARTS和ENAS可能会输出多个节点的值
 ```
-
+- rename `load_subnet_state_dict` to `load_from_supernet`
 
 # TODO
 

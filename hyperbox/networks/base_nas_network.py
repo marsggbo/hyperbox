@@ -88,7 +88,7 @@ class BaseNASNetwork(nn.Module):
                 full_name += f".{item}"
         return eval(full_name)
 
-    def load_subnet_state_dict(self, state_dict, **kwargs):
+    def load_from_supernet(self, state_dict, **kwargs):
         '''load subnet state dict from the given state_dict'''
         def sub_filter_start_end(kernel_size, sub_kernel_size):
             center = kernel_size // 2
