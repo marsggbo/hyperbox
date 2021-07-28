@@ -39,7 +39,7 @@ def count_FG_convNd(m, _, y):
     elif isinstance(kernel_size, (list, tuple)):
         kernel_ops = torch.prod(torch.Tensor(kernel_size))
     ops_per_element = kernel_ops
-    groups = m.value_spaces['groups'] if m.search_groups else m.groups
+    groups = m.value_spaces['groups'].value if m.search_groups else m.groups
     output_elements = y.nelement()
     total_ops = cin * output_elements * ops_per_element // groups  # cout x oW x oH
     m.total_ops = torch.Tensor([int(total_ops)])

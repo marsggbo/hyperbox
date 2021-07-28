@@ -47,13 +47,7 @@ class BaseNASNetwork(nn.Module):
             "Please specify valid data size, e.g., size=self.arch_size(datasize=(1,3,32,32))"
         result = flops_size_counter(self, size, convert, verbose)
         mflops, mb_size = list(result.values())
-        return mflops, mb_size   
-
-    def export_model_from_mask(self, mask: Optional[dict]=None):
-        # Todo
-        if mask is not None:
-            self.mask = mask
-        # iteratate all mutables
+        return mflops, mb_size
 
     def load_state_dict(self, state_dict, **kwargs):
         model_dict = self.state_dict()

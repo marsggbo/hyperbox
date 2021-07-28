@@ -248,6 +248,8 @@ class InputSpace(...):
 # 2021年7月28日23:14:32
 
 - fixbugs in `hyperbox.mutables.layers.layers2d`. 主要是通道数转化问题
+- fixbugs in `calc_model_size.py`. 当`groups`是`ValueSpace`时，未正常取值
+- remove `export_model_from_mask` in `BaseNASNetwork`，这个和`build_subnet`功能重叠
 
 # TODO
 
