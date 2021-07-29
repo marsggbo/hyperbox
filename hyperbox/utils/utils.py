@@ -74,7 +74,6 @@ def extras(config: DictConfig) -> None:
     - disabling warnings
     - easier access to debug mode
     - forcing debug friendly configuration
-    - forcing multi-gpu friendly configuration
 
     Modifies DictConfig in place.
 
@@ -107,15 +106,6 @@ def extras(config: DictConfig) -> None:
             config.datamodule.pin_memory = False
         if config.datamodule.get("num_workers"):
             config.datamodule.num_workers = 0
-
-    # force multi-gpu friendly configuration if <config.trainer.accelerator=ddp>
-    accelerator = config.trainer.get("accelerator")
-    if accelerator in ["ddp", "ddp_spawn", "dp", "ddp2"]:
-        log.info(f"Forcing ddp friendly configuration! <config.trainer.accelerator={accelerator}>")
-        if config.datamodule.get("num_workers"):
-            config.datamodule.num_workers = 0
-        if config.datamodule.get("pin_memory"):
-            config.datamodule.pin_memory = False
 
     # disable adding new keys to config
     OmegaConf.set_struct(config, True)
@@ -156,7 +146,8 @@ def print_config(
 
         branch.add(rich.syntax.Syntax(branch_content, "yaml"))
 
-    rich.print(tree)
+    with open("config_tree.txt", "w") as fp:
+        rich.print(tree, file=fp)
 
 
 def empty(*args, **kwargs):
@@ -184,6 +175,8 @@ def log_hyperparameters(
     hparams["trainer"] = config["trainer"]
     hparams["model"] = config["model"]
     hparams["datamodule"] = config["datamodule"]
+    if "seed" in config:
+        hparams["seed"] = config["seed"]
     if "callbacks" in config:
         hparams["callbacks"] = config["callbacks"]
 
@@ -217,7 +210,8 @@ def finish(
 
     # without this sweeps with wandb logger might crash!
     for lg in logger:
-        if isinstance(lg, WandbLogger):
+        if isinstance(lg, pl.loggers.wandb.WandbLogger):
+            import wandb
             wandb.finish()
 
 
