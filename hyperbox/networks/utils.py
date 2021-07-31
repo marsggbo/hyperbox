@@ -69,7 +69,12 @@ def set_running_statistics(model, data_loader):
     bn_mean = {}
     bn_var = {}
 
-    forward_model = copy.deepcopy(model)
+    device = next(model.parameters()).device
+    try:
+        forward_model = model.copy() # only support `BaseNASNetwork`
+    except:
+        forward_model = copy.deepcopy(model) # normal `nn.Module`
+    forward_model.to(device)
     for name, m in forward_model.named_modules():
         if isinstance(m, nn.BatchNorm2d):
             bn_mean[name] = AverageMeter(name)
@@ -104,7 +109,6 @@ def set_running_statistics(model, data_loader):
         return
 
     with torch.no_grad():
-        device = next(forward_model.parameters()).device
         for images, labels in data_loader:
             images = images.to(device)
             forward_model(images)

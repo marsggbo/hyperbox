@@ -34,7 +34,13 @@ class BaseNASNetwork(nn.Module):
     @property
     def arch(self):
         '''return the current arch encoding'''
-        raise NotImplementedError
+        arch = ''
+        for name, module in self.named_modules():
+            if isinstance(module, spaces.Mutable):
+                key = module.key
+                mask = module.mask
+                arch += f"{name}-{key}:{mask}\n"
+        return arch
 
     def arch_size(
         self,
@@ -60,12 +66,19 @@ class BaseNASNetwork(nn.Module):
                 model_dict[key] = state_dict[key]
         super(BaseNASNetwork, self).load_state_dict(model_dict, **kwargs)
 
-    def build_subnet(self, mask):
+    def build_subnet(self, mask, preserve_weight=True):
         '''build subnet by the given mask'''
         hparams = self.hparams
         hparams['mask'] = mask
         new_cls = self.__class__(**hparams)
+        if preserve_weight:
+            new_cls.load_from_supernet(self.state_dict())
         return new_cls
+
+    def copy(self):
+        new_net = self.build_subnet(None, False)
+        new_net.load_state_dict(self.state_dict())
+        return new_net
 
     def get_module_by_name(self, name):
         def is_int(item):

@@ -256,6 +256,10 @@ class InputSpace(...):
 - fixbugs in `OFAMobileNetV3`:
     - `kernel_size_list=[3,5,7]` by defeault
     - `self.runtime_depth`
+- add new features to `BaseNASNetwork`:
+    - add `build_subnet` and `copy` function
+    - add `arch` property
+
 
 # TODO
 
