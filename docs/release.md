@@ -259,6 +259,7 @@ class InputSpace(...):
 - add new features to `BaseNASNetwork`:
     - add `build_subnet` and `copy` function
     - add `arch` property
+- add `reset_running_statistics` to `BaseModel`
 
 
 # TODO

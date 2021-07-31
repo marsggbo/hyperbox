@@ -225,3 +225,19 @@ class BaseModel(LightningModule):
                 for m in self.mutator.mutables:
                     m.mask.data = mask[m.key].data.to(self.device)
                     self.mutator._cache[m.key].data = mask[m.key].data.to(self.device)
+
+    @property
+    def datamodule(self):
+        return self.trainer.datamodule
+
+    def reset_running_statistics(self, net=None, subset_size=2000, subset_batch_size=200, dataloader=None):
+        from hyperbox.networks.utils import set_running_statistics
+        if net is None:
+            net = self.network
+        if dataloader is None:
+            dataset = self.datamodule.train_dataloader().dataset
+            indices = np.random.choice(np.arange(len(dataset)), size=subset_size, replace=False)
+            sub_sampler = torch.utils.data.sampler.SubsetRandomSampler(indices)
+            dataloader = torch.utils.data.DataLoader(dataset, batch_size=subset_batch_size,
+                num_workers=8, sampler=sub_sampler)
+        set_running_statistics(net, dataloader)
