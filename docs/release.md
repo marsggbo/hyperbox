@@ -251,6 +251,12 @@ class InputSpace(...):
 - fixbugs in `calc_model_size.py`. 当`groups`是`ValueSpace`时，未正常取值
 - remove `export_model_from_mask` in `BaseNASNetwork`，这个和`build_subnet`功能重叠
 
+# 2021年7月31日19:06:48
+
+- fixbugs in `OFAMobileNetV3`:
+    - `kernel_size_list=[3,5,7]` by defeault
+    - `self.runtime_depth`
+
 # TODO
 
 - [ ] 可视化模型结构
