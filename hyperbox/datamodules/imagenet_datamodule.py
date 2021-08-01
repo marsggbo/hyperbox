@@ -71,6 +71,7 @@ class ImagenetDataModule(bolt_imagenet):
         preprocessing = transform_lib.Compose([
             transform_lib.RandomResizedCrop(size),
             transform_lib.RandomHorizontalFlip(),
+            transform_lib.ColorJitter(brightness=32. / 255., saturation=0.5),
             transform_lib.ToTensor(),
             transform_lib.Normalize(
                 mean=[0.485, 0.456, 0.406],

@@ -266,6 +266,7 @@ class InputSpace(...):
 - update default argument of `EarlyStopping` callback:
     - `check_on_train_epoch_end=False` -> only check once evaluation epoch is end
     - `strict=False` -> The program will not be terminated because of an error
+- add `ColorJitter` transformation for ImageNet
 
 # TODO
 
