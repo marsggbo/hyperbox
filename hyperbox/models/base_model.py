@@ -82,7 +82,6 @@ class BaseModel(LightningModule):
             from hyperbox.mutator.random_mutator import RandomMutator
             logger.info('Mutator cfg is not specified, so use RandomMutator as the default.')
             self.mutator = RandomMutator(self.network)
-        self.mutator.reset()
 
     def build_loss(self, cfg):
         # build loss function
