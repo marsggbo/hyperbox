@@ -261,6 +261,11 @@ class InputSpace(...):
     - add `arch` property
 - add `reset_running_statistics` to `BaseModel`
 
+# 2021年8月1日22:51:24
+
+- update default argument of `EarlyStopping` callback:
+    - `check_on_train_epoch_end=False` -> only check once evaluation epoch is end
+    - `strict=False` -> The program will not be terminated because of an error
 
 # TODO
 
