@@ -41,8 +41,11 @@ class SampleSearch(Callback):
             logger.info(f"Epoch{trainer.current_epoch} lr={self.scheduler.get_lr()[0]:.6f}")
 
     def on_validation_epoch_start(self, trainer, pl_module):
-        pl_module.sample_search()
+        # pl_module.sample_search()
+        pl_module.reset_running_statistics()
 
+    def on_test_epoch_start(self, trainer, pl_module):
+        pl_module.reset_running_statistics()
 
 class OFAModel(BaseModel):
     def __init__(
@@ -165,9 +168,9 @@ class OFAModel(BaseModel):
     def training_epoch_end(self, outputs: List[Any]):
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
-        mflops, size = self.arch_size((1,3,32,32), convert=True)
         self.log("train/loss", loss, on_step=False, on_epoch=True, sync_dist=False, prog_bar=False)
         self.log("train/acc", acc, on_step=False, on_epoch=True, sync_dist=False, prog_bar=False)
+        # mflops, size = self.arch_size((1,3,32,32), convert=True)
         # logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
         logger.info(f"[rank {self.rank}] Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
 
@@ -201,8 +204,8 @@ class OFAModel(BaseModel):
         # else:
         #     self.arch_perf_history[self.arch].append(acc)
         # sync_dist = not self.is_net_parallel # sync the metrics if all processes train the same sub network
-        # self.log(f"val/loss", loss, on_step=False, on_epoch=True, sync_dist=sync_dist, prog_bar=True)
-        # self.log(f"val/acc", acc, on_step=False, on_epoch=True, sync_dist=sync_dist, prog_bar=True)
+        self.log(f"val/loss", loss, on_step=True, on_epoch=True, sync_dist=False, prog_bar=False)
+        self.log(f"val/acc", acc, on_step=True, on_epoch=True, sync_dist=False, prog_bar=False)
         # if batch_idx % 10 == 0:
         #     logger.info(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
@@ -223,27 +226,14 @@ class OFAModel(BaseModel):
         loss_avg = 0.
         acc_avg = 0.
         inputs, targets = batch
-        for i in range(self.num_valid_archs):
-            self.mutator.reset()
-            output = self.network(inputs)
-            loss = self.criterion(output, targets)
+        output = self.network(inputs)
+        loss = self.criterion(output, targets)
 
-            # log test metrics
-            # preds = torch.argmax(output, dim=1)
-            preds = torch.softmax(output, -1)
-            acc = self.test_metric(preds, targets)
-            loss_avg += loss
-            acc_avg += acc
-            # self.log(f"test/{self.arch}_loss", loss, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True)
-            # self.log(f"test/{self.arch}_acc", acc, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True)
-            # logger.info(f"Valid: arch={self.arch} loss={loss}, acc={acc}")
-        loss_avg = self.all_gather(loss_avg).mean()
-        acc_avg = self.all_gather(acc_avg).mean()
-        self.log("test/loss", loss_avg, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("test/acc", acc_avg, on_step=False, on_epoch=True, prog_bar=True)
-        if batch_idx % 10 == 0:
-            logger.info(f"Test batch{batch_idx}: loss={loss}, acc={acc}")
-        return {"loss": loss, "preds": preds, "targets": targets}
+        # log val metrics
+        # preds = torch.argmax(output, dim=1)
+        preds = torch.softmax(output, -1)
+        acc = self.val_metric(preds, targets)
+        return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
     def test_epoch_end(self, outputs: List[Any]):
         acc = np.mean([output['acc'].item() for output in outputs])
