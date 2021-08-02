@@ -75,7 +75,8 @@ def train(config: DictConfig) -> Optional[float]:
     # Train the model
     if config.get("test_ckpt"):
         import torch
-        ckpt_path = config.get("test_ckpt")
+        from hydra.utils import to_absolute_path
+        ckpt_path = to_absolute_path(config.get("test_ckpt"))
         ckpt = torch.load(ckpt_path)
         if 'epoch' in ckpt:
             model = model.load_from_checkpoint(ckpt_path)
