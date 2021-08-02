@@ -269,6 +269,10 @@ class InputSpace(...):
 - add `ColorJitter` transformation for ImageNet
 - disable sampling when initializing `Mutator`
 
+# 2021年8月2日23:02:00
+
+- support `test` mode
+
 # TODO
 
 - [ ] 可视化模型结构

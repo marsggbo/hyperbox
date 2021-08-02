@@ -73,14 +73,24 @@ def train(config: DictConfig) -> Optional[float]:
     )
 
     # Train the model
-    
-    log.info("Starting training!")
-    trainer.fit(model=model, datamodule=datamodule)
+    if config.get("test_ckpt"):
+        import torch
+        ckpt_path = config.get("test_ckpt")
+        ckpt = torch.load(ckpt_path)
+        if 'epoch' in ckpt:
+            model = model.load_from_checkpoint(ckpt_path)
+        else:
+            model.network.load_state_dict(ckpt)
+        result = trainer.test(model=model, datamodule=datamodule)
+        print(result)
+    else:
+        log.info("Starting training!")
+        trainer.fit(model=model, datamodule=datamodule)
 
-    # Evaluate model on test set, using the best model achieved during training
-    if config.get("test_after_training") and not config.trainer.get("fast_dev_run"):
-        log.info("Starting testing!")
-        trainer.test()
+        # Evaluate model on test set, using the best model achieved during training
+        if config.get("test_after_training") and not config.trainer.get("fast_dev_run"):
+            log.info("Starting testing!")
+            trainer.test()
 
     # Make sure everything closed properly
     log.info("Finalizing!")
