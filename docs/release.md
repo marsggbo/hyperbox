@@ -273,6 +273,10 @@ class InputSpace(...):
 
 - support `test` mode
 
+- 2021年8月4日21:12:37
+
+- refactor: add `only_test` and `pretrained_weight`
+
 # TODO
 
 - [ ] 可视化模型结构

@@ -43,4 +43,8 @@ ignore_warnings: True
 test_after_training: True
 
 # checkpoint for testing. If specified, only test will be performed
-test_ckpt: null
+only_test: False
+
+# only load pretrained weights for network (exclude optimizer and scheduler)
+# e.g., 'logs/run/exp_name/checkpoint/epoch=66/acc=66.66.ckpt'
+pretrained_weight: null

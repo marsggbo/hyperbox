@@ -38,6 +38,16 @@ def train(config: DictConfig) -> Optional[float]:
     # Init Lightning model
     log.info(f"Instantiating model <{config.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(config.model, _recursive_=False)
+    if config.get('pretrained_weight'):
+        import torch
+        from hydra.utils import to_absolute_path
+        ckpt_path = to_absolute_path(config.get("pretrained_weight"))
+        ckpt = torch.load(ckpt_path, map_location='cpu')
+        if 'epoch' in ckpt:
+            model.load_from_checkpoint(ckpt_path)
+        else:
+            model.network.load_state_dict(ckpt)
+        log.info(f"Loading pretrained weight from {ckpt_path}")
 
     # Init Lightning callbacks
     callbacks: List[Callback] = []
@@ -73,15 +83,9 @@ def train(config: DictConfig) -> Optional[float]:
     )
 
     # Train the model
-    if config.get("test_ckpt"):
-        import torch
-        from hydra.utils import to_absolute_path
-        ckpt_path = to_absolute_path(config.get("test_ckpt"))
-        ckpt = torch.load(ckpt_path)
-        if 'epoch' in ckpt:
-            model = model.load_from_checkpoint(ckpt_path)
-        else:
-            model.network.load_state_dict(ckpt)
+    if config.get("only_test"):
+        if config.get('pretrained_weight') is None:
+            log.info('No petrained weight provided')
         result = trainer.test(model=model, datamodule=datamodule)
         print(result)
     else:
