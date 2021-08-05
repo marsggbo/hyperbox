@@ -273,9 +273,13 @@ class InputSpace(...):
 
 - support `test` mode
 
-- 2021年8月4日21:12:37
+# 2021年8月4日21:12:37
 
 - refactor: add `only_test` and `pretrained_weight`
+
+# 2021年8月5日21:02:27
+
+- fix bug of `load_from_checkpoint` of `Model`: load the overrided configurations
 
 # TODO
 
