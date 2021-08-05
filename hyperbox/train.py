@@ -44,7 +44,7 @@ def train(config: DictConfig) -> Optional[float]:
         ckpt_path = to_absolute_path(config.get("pretrained_weight"))
         ckpt = torch.load(ckpt_path, map_location='cpu')
         if 'epoch' in ckpt:
-            model.load_from_checkpoint(ckpt_path)
+            model = model.load_from_checkpoint(ckpt_path)
         else:
             model.network.load_state_dict(ckpt)
         log.info(f"Loading pretrained weight from {ckpt_path}")
