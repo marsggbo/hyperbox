@@ -100,8 +100,8 @@ def extras(config: DictConfig) -> None:
     if config.trainer.get("fast_dev_run"):
         log.info("Forcing debugger friendly configuration! <config.trainer.fast_dev_run=True>")
         # Debuggers don't like GPUs or multiprocessing
-        if config.trainer.get("gpus"):
-            config.trainer.gpus = 0
+        if config.trainer.get("gpus")>1:
+            config.trainer.gpus = 1
         if config.datamodule.get("pin_memory"):
             config.datamodule.pin_memory = False
         if config.datamodule.get("num_workers"):
