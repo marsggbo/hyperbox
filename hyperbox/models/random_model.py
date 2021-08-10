@@ -72,30 +72,23 @@ class RandomModel(BaseModel):
 
         # log train metrics
         acc = self.train_metric(preds, targets)
-        self.log("train/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
-        self.log("train/acc", acc, on_step=False, on_epoch=True, prog_bar=False)
+        self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=False)
+        self.log("train/acc", acc, on_step=True, on_epoch=True, prog_bar=False)
 
         # we can return here dict with any tensors
         # and then read it in some callback or in training_epoch_end() below
         # remember to always return loss from training_step, or else backpropagation will fail!
         return {"loss": loss, "preds": preds, "targets": targets}
 
-    def training_epoch_end(self, outputs: List[Any]):
-        # `outputs` is a list of dicts returned from `training_step()`
-        pass
-
     def validation_step(self, batch: Any, batch_idx: int):
         loss, preds, targets = self.step(batch)
 
         # log val metrics
         acc = self.val_metric(preds, targets)
-        self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
-        self.log("val/acc", acc, on_step=False, on_epoch=True, prog_bar=False)
+        self.log("val/loss", loss, on_step=True, on_epoch=True, prog_bar=False)
+        self.log("val/acc", acc, on_step=True, on_epoch=True, prog_bar=False)
 
         return {"loss": loss, "preds": preds, "targets": targets}
-
-    def validation_epoch_end(self, outputs: List[Any]):
-        pass
 
     def test_step(self, batch: Any, batch_idx: int):
         loss, preds, targets = self.step(batch)
