@@ -52,7 +52,8 @@ class SELayer(Base2DLayer):
     def __init__(
         self,
         channel: Union[int, ValueSpace],
-        reduction=None
+        reduction=None,
+        prefix=None
     ):
         super(SELayer, self).__init__()
 
@@ -64,7 +65,11 @@ class SELayer(Base2DLayer):
                 num_mid.append(
                     make_divisible(c // self.reduction, divisor=self.CHANNEL_DIVISIBLE)
                 )
-            num_mid = ValueSpace(num_mid)
+            if prefix is None:
+                key = channel.key + '_subSE_mc'
+            else:
+                key = prefix + '_subSE_mc'
+            num_mid = ValueSpace(num_mid, key=key)
         else:
             num_mid = make_divisible(channel // self.reduction, divisor=self.CHANNEL_DIVISIBLE)
 
@@ -94,6 +99,7 @@ class MBConvLayer(Base2DLayer):
         expand_ratio: Union[int, ValueSpace] = 6,
         act_func: str = 'relu6',
         use_se: bool = False,
+        prefix=None, # prefix for key of ValueSpace
     ):
         flag = isinstance(in_channels, ValueSpace) and isinstance(expand_ratio, ValueSpace)
         assert not flag, "in_channels and expand_ratio cannot both be ValueSpace"
@@ -106,14 +112,22 @@ class MBConvLayer(Base2DLayer):
                 middle_channels.append(
                     make_divisible(round(self.in_channels * self.expand_ratio), self.CHANNEL_DIVISIBLE)
                 )
-            middle_channels = ValueSpace(middle_channels)
+            if prefix is None:
+                key = in_channels.key + '_subMB_mc'
+            else:
+                key = prefix + '_subMB_mc'
+            middle_channels = ValueSpace(middle_channels, key=key)
         elif isinstance(expand_ratio, ValueSpace):
             middle_channels = []
             for e in expand_ratio.candidates:
                 middle_channels.append(
                     make_divisible(round(self.in_channels * e), self.CHANNEL_DIVISIBLE)
                 )
-            middle_channels = ValueSpace(middle_channels)
+            if prefix is None:
+                key = expand_ratio.key + '_subMB_mc'
+            else:
+                key = prefix + '_subMB_mc'
+            middle_channels = ValueSpace(middle_channels, key=key)
         else:
             middle_channels = make_divisible(
                 round(self.in_channels * self.expand_ratio), self.CHANNEL_DIVISIBLE)
