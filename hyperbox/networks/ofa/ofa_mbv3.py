@@ -129,6 +129,59 @@ class OFAMobileNetV3(BaseNASNetwork):
         x = self.classifier(x)
         return x
 
+    @property
+    def arch(self):
+        arch = ''
+        for name, m in self.named_modules():
+            if isinstance(m, spaces.Mutable):
+                if 'ks' in m.key:
+                    key = 'k'
+                elif 'er' in m.key:
+                    key = 'W'
+                elif 'depth' in m.key:
+                    key = 'D'
+                else:
+                    continue
+                arch += f"{key}{m.value}-"
+        return arch
+
+    def build_archs_for_valid(
+        self,
+        depth_list: List = [2,3,4],
+        expand_ratio_list: List = [4,6],
+        kernel_size_list: List = [3,5,7]
+    ):
+        is_compliant = lambda _input, _origin: all([x in _origin for x in _input])
+        assert is_compliant(depth_list, list(range(1,max(self.depth_list)+1))), f"all elements of your depth input {depth_list} must be in {list(range(1,max(self.depth_list)+1))}"
+        assert is_compliant(expand_ratio_list, self.expand_ratio_list), f"all elements of your er input {expand_ratio_list} must be in {self.expand_ratio_list}"
+        assert is_compliant(kernel_size_list, self.kernel_size_list), f"all elements of your ks input {kernel_size_list} must be in {self.kernel_size_list}"
+        self.archs_to_valid = {}
+        for d in depth_list:
+            for e in expand_ratio_list:
+                for k in kernel_size_list:
+                    mask = self.gen_mask(d, e, k)
+                    self.archs_to_valid[f"d{d}-e{e}-k{k}"] = mask
+        return self.archs_to_valid
+
+    def gen_mask(self, depth, expand_ratio, kernel_size):
+        mask = {}
+        for m in self.modules():
+            if isinstance(m, spaces.Mutable):
+                if 'mc' in m.key:
+                    mask_item = m.mask
+                    mask[m.key] = mask_item
+                    continue
+                if 'ks' in m.key:
+                    mask_item = (torch.tensor(self.kernel_size_list) - kernel_size)==0
+                elif 'er' in m.key:
+                    mask_item = (torch.tensor(self.expand_ratio_list) - expand_ratio)==0
+                elif 'depth' in m.key:
+                    mask_item = (torch.arange(1, max(self.depth_list)+1) - depth)==0
+                assert mask_item.shape==m.mask.shape,\
+                    f"{mask_item.shape} failed to match the original shape {m.mask.shape} of {m.key}"
+                mask[m.key] = mask_item
+        return mask
+
 
 if __name__ == '__main__':
     from hyperbox.mutator import RandomMutator

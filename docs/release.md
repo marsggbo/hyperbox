@@ -281,6 +281,14 @@ class InputSpace(...):
 
 - fix bug of `load_from_checkpoint` of `Model`: load the overrided configurations
 
+# 2021年8月10日16:30:03
+
+- add features for `Mutator`:
+    - add `sample_by_mask`: 根据传入的mask采样指定的子网络结构
+    - add `build_archs_for_valid`：构建用于validation的子模型结构,
+        - 默认情况下只有一个子网络，即supernet
+        - 传入的`model`如果自定义了 `build_archs_for_valid`函数，则会根据其得到指定的子网络集 (例子可参考：`ofa_mbv3.py`)
+
 # TODO
 
 - [ ] 可视化模型结构

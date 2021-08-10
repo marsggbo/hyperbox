@@ -6,6 +6,7 @@ import json
 
 import torch
 
+from hyperbox.mutables import spaces
 from hyperbox.utils.utils import TorchTensorEncoder
 
 from .base_mutator import BaseMutator
@@ -18,6 +19,35 @@ class Mutator(BaseMutator):
     def __init__(self, model):
         super().__init__(model)
         self._cache = dict()
+        default_mask = dict()
+        for m in model.modules():
+            if isinstance(m, spaces.Mutable):
+                default_mask[m.key] = m.mask
+        self.default_mask = default_mask
+
+    def sample_by_mask(self, mask: dict):
+        '''
+        Sample an architecture by the mask
+        '''
+        self._cache = mask
+        for mutable in self.mutables:
+            assert mutable.mask.shape==mask[mutable.key].shape,\
+                f"the given mask ({mask[mutable.key].shape}) cannot match the original size [{mutable.key}]{mutable.mask.shape}"
+            mutable.mask = mask[mutable.key]
+
+    def build_archs_for_valid(self, *args, **kwargs):
+        '''
+        Build a list of archs for validation
+
+        Returns
+        -------
+        a list of dict
+        '''
+        if hasattr(self.model, 'build_archs_for_valid'):
+            archs_to_valid = self.model.build_archs_for_valid(*args, **kwargs)
+        else:
+            archs_to_valid = [self.default_mask]
+        self.archs_to_valid = archs_to_valid
 
     def sample_search(self):
         """
