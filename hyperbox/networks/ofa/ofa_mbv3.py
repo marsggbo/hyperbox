@@ -109,7 +109,7 @@ class OFAMobileNetV3(BaseNASNetwork):
         self.runtime_depth = []
         for idx, block_group in enumerate(self.block_group_info):
             self.runtime_depth.append(
-                spaces.ValueSpace(list(range(1, len(block_group)+1)), key=f"depth{idx}", mask=mask)
+                spaces.ValueSpace(list(range(1, len(block_group)+1)), key=f"depth{idx+1}", mask=mask)
             )
         self.runtime_depth = nn.Sequential(*self.runtime_depth)
 
