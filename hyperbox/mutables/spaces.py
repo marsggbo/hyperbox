@@ -92,6 +92,25 @@ class Mutable(nn.Module):
     def __repr__(self):
         return "{} ({})".format(self.name, self.key)
 
+    def __setattr__(self, attribute, value):
+        if getattr(self, 'is_freeze', False) and \
+            attribute in getattr(self, 'frozen_attributes', []):
+            if getattr(self, 'verbose_freeze', False):
+                print(f"{attribute} has been forzen, you should call `defrost` function before you modify it.")
+        else:
+            self.__dict__[attribute] = value
+
+    def freeze(self, attribute=None, verbose=False):
+        self.is_freeze = True
+        self.verbose_freeze = verbose
+        if attribute is None:
+            self.frozen_attributes = ['mask', 'index', 'candidates', 'key']
+        else:
+            self.frozen_attributes = [attribute]
+
+    def defrost(self):
+        self.is_freeze = False
+
 
 class MutableScope(Mutable):
     """
@@ -176,10 +195,10 @@ class CategoricalSpace(Mutable):
     def max_value(self):
         try:
             value = max(self.candidates)
-            return max(self.candidates)
+            return value
         except Expection as e:
             print(str(e))
-            print("The candidates cannot be compared to get max value.")
+            print("The candidates cannot be compared to get max value, return the first item instead.")
             return self.candidates[0]
 
     def forward(self):
@@ -208,7 +227,8 @@ class CategoricalSpace(Mutable):
         return self
 
     def __deepcopy__(self, memo):
-        global_mutable_counting._counter -= 1
+        if self.hparams['key'] is None:
+            global_mutable_counting._counter -= 1
         new_instance = self.__class__(self.candidates)
         new_instance._key = self.key
         new_instance.mask = self.mask
@@ -237,6 +257,7 @@ class CategoricalSpace(Mutable):
         if reduction_type == "concat":
             return torch.cat(tensor_list, dim=1)
         raise ValueError("Unrecognized reduction policy: \"{}\"".format(reduction_type))
+
 
 class OperationSpace(CategoricalSpace):
     def __init__(self,

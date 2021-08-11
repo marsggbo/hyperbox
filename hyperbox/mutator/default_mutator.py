@@ -86,6 +86,13 @@ class Mutator(BaseMutator):
         else:
             self._cache = self.sample_func(self, *args, **kwargs)
             del self.sample_func
+        self._cache = self.check_freeze_mutable(self._cache)
+
+    def check_freeze_mutable(self, mask):
+        for mutable in self.mutables:
+            if getattr(mutable, 'is_freeze', False):
+                mask[mutable.key] = mutable.mask
+        return mask
 
     def export(self):
         """

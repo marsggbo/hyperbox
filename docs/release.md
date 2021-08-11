@@ -289,6 +289,12 @@ class InputSpace(...):
         - 默认情况下只有一个子网络，即supernet
         - 传入的`model`如果自定义了 `build_archs_for_valid`函数，则会根据其得到指定的子网络集 (例子可参考：`ofa_mbv3.py`)
 
+# 2021年8月11日16:16:55
+
+- add featrues: `Mutable`可以被冻结，这样可以动态地实现部分模块可搜索
+    - `spaces.Mutable`: add `freeze`&`deforst` functions 
+    - `DefaultMutator`: add `check_freeze_mutable`
+
 # TODO
 
 - [ ] 可视化模型结构
