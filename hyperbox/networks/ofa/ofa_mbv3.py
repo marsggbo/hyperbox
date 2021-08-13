@@ -19,7 +19,7 @@ class OFAMobileNetV3(BaseNASNetwork):
     def __init__(
         self,
         kernel_size_list: List[int] = [3, 5, 7],
-        expand_ratio_list: List[float] = [4, 6],
+        expand_ratio_list: List[float] = [3, 4, 6],
         depth_list: List[int] = [2, 3, 4],
         base_stage_width: List[int] = [16, 16, 24, 40, 80, 112, 160, 960, 1280],
         stride_stages: List[int] = [1, 2, 2, 2, 1, 2],
@@ -182,12 +182,52 @@ class OFAMobileNetV3(BaseNASNetwork):
                 mask[m.key] = mask_item
         return mask
 
+    def build_search_space(self, mutator):
+        import re
+        from itertools import product
+        key2num = lambda key: int(re.findall(r'\d{1,3}', key)[0])
+        num2id = lambda num: (num-1)//4
+        d2e = {2:3, 3:4, 4:6}
+        
+        depth_list = sorted(self.depth_list)
+        ks_list = sorted(self.kernel_size_list)
+        er_list = sorted(self.expand_ratio_list)
+        assert len(depth_list)==len(er_list),\
+            f'the length of depth_list should be equal to that of er_list'
+        combinations = [depth_list]*len(self.block_group_info)
+        combinations = list(product(*combinations))
+        combinations = list(product(*[combinations, ks_list]))
+
+        masks = {}
+        for c in combinations:
+            depths, k = c
+            expand_ratios = [d2e[d] for d in depths]
+            mask = {}
+            for m in mutator.mutables:
+                key = m.key
+                num = key2num(key)
+                layer_id = num2id(num)
+                if 'ks' in key:
+                    mask[key] = (torch.tensor(ks_list)-k)==0
+                elif 'er' in key:
+                    mask[key] = (torch.tensor(er_list)-expand_ratios[layer_id])==0
+                elif 'depth' in key:
+                    mask[key] = (torch.arange(1, max(depth_list)+1)-depths[layer_id])==0
+            masks[str(c)] = mask
+        return masks
+
 
 if __name__ == '__main__':
+    import json
     from hyperbox.mutator import RandomMutator
     x = torch.rand(2,3,64,64)
     net = OFAMobileNetV3()
-    m = RandomMutator(net)
+    rm = RandomMutator(net)
+    rm.reset()
+    masks = net.build_search_space(rm)
+    from hyperbox.utils.utils import TorchTensorEncoder
+    with open('ofa_mbv3_searchspace.json','w') as f:
+        json.dump(masks, f, indent=4, sort_keys=True, cls=TorchTensorEncoder)
     for i in range(10):
         m.reset()
         r = net.arch_size((2,3,32,32), True, True)
