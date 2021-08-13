@@ -223,7 +223,10 @@ class BaseModel(LightningModule):
 
                 for m in self.mutator.mutables:
                     m.mask.data = mask[m.key].data.to(self.device)
-                    self.mutator._cache[m.key].data = mask[m.key].data.to(self.device)
+                    if m.key in self.mutator._cache:
+                        self.mutator._cache[m.key].data = mask[m.key].data.to(self.device)
+                    else:
+                        self.mutator._cache[m.key] = mask[m.key].to(self.device)
 
     @property
     def datamodule(self):
