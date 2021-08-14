@@ -7,7 +7,8 @@ from pl_bolts.datamodules import CIFAR10DataModule as bolt_cifar10
 from torchvision.datasets import CIFAR10, CIFAR100
 from torchvision.transforms import transforms
 
-from .transforms import get_transforms
+from hyperbox.datamodules.transforms import get_transforms
+from hyperbox.datamodules.transforms.cutout import Cutout
 
 
 __all__ = ['CIFAR10DataModule', 'CIFAR100DataModule']
@@ -66,23 +67,24 @@ class CIFAR10DataModule(bolt_cifar10):
         return self._num_classes
 
     def default_train_transforms(self):
-        return self._transforms._transform_train
-        # return transforms.Compose([
-        #     transforms.RandomCrop(32, padding=4),
-        #     transforms.RandomHorizontalFlip(0.5),
-        #     transforms.ToTensor(),
-        #     transforms.Normalize(self.MEAN, self.STD)
-        # ])
+        # return self._transforms._transform_train
+        return transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(0.5),
+            transforms.ToTensor(),
+            Cutout(4, 8),
+            transforms.Normalize(self.MEAN, self.STD)
+        ])
 
     def default_transforms(self) -> Callable:
         """ Default transform for the dataset """
-        return self._transforms._transform_valid
-        # return transforms.Compose(
-        #     [
-        #         transforms.ToTensor(),
-        #         transforms.Normalize(self.MEAN, self.STD)
-        #     ]
-        # )
+        # return self._transforms._transform_valid
+        return transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(self.MEAN, self.STD)
+            ]
+        )
 
     def setup(self, stage: Optional[str] = None):
         if stage == "fit" or stage is None:

@@ -1,6 +1,7 @@
 
 from .base_transforms import BaseTransforms
 from .torch_transforms import TorchTransforms
+from .cutout import Cutout
 
 import importlib
 alb = importlib.find_loader('albumentations')
