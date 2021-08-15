@@ -6,9 +6,9 @@
 defaults:
   - override /trainer: default.yaml # choose trainer from 'configs/trainer/'
   - override /model: darts_model.yaml
-  - override /datamodule: fakedata_datamodule.yaml
+  - override /datamodule: cifar10_datamodule.yaml
   - override /callbacks: default.yaml
-  - override /logger: wandb.yaml
+  - override /logger: tensorboard.yaml
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
