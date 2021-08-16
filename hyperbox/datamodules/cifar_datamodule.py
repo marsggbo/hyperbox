@@ -35,8 +35,8 @@ class CIFAR10DataModule(bolt_cifar10):
     dataset_cls = CIFAR10
     dims = (3, 32, 32)
     EXTRA_ARGS = {}
-    MEAN = [0.5070751592371323, 0.48654887331495095, 0.4409178433670343]
-    STD = [0.2673342858792401, 0.2564384629170883, 0.27615047132568404]
+    MEAN = [0.4914, 0.4822, 0.4465]
+    STD = [0.2023, 0.1994, 0.2010]
 
     def __init__(
         self,
@@ -72,7 +72,7 @@ class CIFAR10DataModule(bolt_cifar10):
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(0.5),
             transforms.ToTensor(),
-            Cutout(4, 8),
+            Cutout(1, 16),
             transforms.Normalize(self.MEAN, self.STD)
         ])
 

@@ -5,11 +5,12 @@ import torch
 
 class Cutout(object):
     """Randomly mask out one or more patches from an image.
+    https://github.com/uoguelph-mlrg/Cutout/blob/287f934ea5fa00d4345c2cccecf3552e2b1c33e3/train.py#L45
     Args:
         n_holes (int): Number of patches to cut out of each image.
         length (int): The length (in pixels) of each square patch.
     """
-    def __init__(self, n_holes=4, length=8):
+    def __init__(self, n_holes=1, length=16):
         self.n_holes = n_holes
         self.length = length
 
