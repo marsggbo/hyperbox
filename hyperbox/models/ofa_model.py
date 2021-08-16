@@ -18,18 +18,36 @@ from hyperbox.utils.logger import get_logger
 from hyperbox.utils.average_meter import AverageMeter, AverageMeterGroup
 logger = get_logger(__name__, logging.INFO, rank_zero=True)
 
-from .base_model import BaseModel
+from hyperbox.models.base_model import BaseModel
 
 
-class SampleSearch(Callback):
+class OFACallback(Callback):
+
+    def on_fit_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+        if pl_module.kd_subnets_method=='teacher':
+            trainer.teacher_net = pl_module.network.copy().to(pl_module.device)
+            trainer.teacher_net.eval()
+            pl_module.__class__.teacher_net = property(lambda self: self.trainer.teacher_net)
+        # build archs for validation
+        pl_module.mutator.build_archs_for_valid(
+            depth_list=[2,4],
+            expand_ratio_list=[4,6],
+            kernel_size_list=[3,7])
 
     def on_train_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
         if trainer.current_epoch < pl_module.supernet_epoch:
             # train the Supernet only
             return
         start = time.time()
-        with torch.no_grad():
-            pl_module.sample_search()
+        if batch_idx%1==0:
+            with torch.no_grad():
+                pl_module.sample_search()
+                if hasattr(pl_module.mutator, 'count') and \
+                    pl_module.rank==0 and batch_idx%10==0:
+                    pl_module.mutator.count += 1
+        if batch_idx % 8 == 0:
+            mflops, size = pl_module.arch_size((2,3,32,32), convert=True)
+            logger.info(f"[rank {pl_module.rank}] train batch[{batch_idx}] current model: {mflops:.4f} MFLOPs, {size:.4f} MB.")
         duration = time.time() - start
         pl_module.time_records.update({'sample_search': duration})
         logger.debug(f"[rank {pl_module.rank}] batch idx={batch_idx} sample search {duration} seconds")
@@ -40,12 +58,13 @@ class SampleSearch(Callback):
             self.scheduler.step(trainer.current_epoch)
             logger.info(f"Epoch{trainer.current_epoch} lr={self.scheduler.get_lr()[0]:.6f}")
 
-    def on_validation_epoch_start(self, trainer, pl_module):
-        # pl_module.sample_search()
-        pl_module.reset_running_statistics()
+    # def on_validation_epoch_start(self, trainer, pl_module):
+    #     # pl_module.sample_search()
+    #     pl_module.reset_running_statistics()
 
     def on_test_epoch_start(self, trainer, pl_module):
         pl_module.reset_running_statistics()
+
 
 class OFAModel(BaseModel):
     def __init__(
@@ -73,6 +92,7 @@ class OFAModel(BaseModel):
                 - '': disable kd subnets
                 - 'mutual': subnets kd each other mutually
                 - 'ensemble': using subnets' ensemble as the teacher to kd all subnets
+                - 'teacher': using a teacher net
         '''
         super().__init__(network_cfg, mutator_cfg, optimizer_cfg,
                          loss_cfg, metric_cfg, scheduler_cfg, **kwargs)
@@ -88,8 +108,12 @@ class OFAModel(BaseModel):
         if not hasattr(self, 'time_records'):
             self.time_records = AverageMeterGroup()
 
-    def sample_search(self):
-        super().sample_search(self.is_sync, self.is_net_parallel)
+    def sample_search(self, is_sync=None, is_net_parallel=None):
+        if is_sync is None:
+            is_sync = self.is_sync
+        if is_net_parallel is None:
+            is_net_parallel = self.is_net_parallel
+        super().sample_search(is_sync, is_net_parallel)
 
     def parse_batch(self, batch):
         # parse DALI-based batch data
@@ -117,13 +141,23 @@ class OFAModel(BaseModel):
 
         loss = self.criterion(output, targets)
         loss = loss + self.aux_weight * aux_loss
-        if self.kd_subnets_method and self.trainer.world_size > 1:
-            outputs_list = self.all_gather(output)
-            if isinstance(output, list):
-                # horovod
-                outputs_list = torch.cat(outputs_list, 0).mean()
-            loss_kd_subnets = self.calc_loss_kd_subnets(output, outputs_list, self.kd_subnets_method)
-            loss = loss + 0.6 * loss_kd_subnets
+        if self.kd_subnets_method:
+            loss_kd_subnets = 0
+            method = self.kd_subnets_method
+            if method == 'teacher':
+                assert hasattr(self, 'teacher_net')
+                with torch.no_grad():
+                    output_teacher = self.teacher_net(inputs).detach()
+                alpha = 1
+                temperature = 4
+                loss_kd_subnets = KDLoss(output, output_teacher, alpha, temperature)
+            elif self.trainer.world_size > 1:
+                outputs_list = self.all_gather(output)
+                if isinstance(output, list):
+                    # horovod
+                    outputs_list = torch.cat(outputs_list, 0).mean()
+                loss_kd_subnets = self.calc_loss_kd_subnets(output, outputs_list, self.kd_subnets_method)
+            loss = loss + 0.8 * loss_kd_subnets
 
         # torch.cuda.synchronize()
         duration = time.time() - start
@@ -166,13 +200,61 @@ class OFAModel(BaseModel):
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
     def training_epoch_end(self, outputs: List[Any]):
-        acc = np.mean([output['acc'].item() for output in outputs])
-        loss = np.mean([output['loss'].item() for output in outputs])
-        self.log("train/loss", loss, on_step=False, on_epoch=True, sync_dist=False, prog_bar=False)
-        self.log("train/acc", acc, on_step=False, on_epoch=True, sync_dist=False, prog_bar=False)
-        # mflops, size = self.arch_size((1,3,32,32), convert=True)
-        # logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
-        logger.info(f"[rank {self.rank}] Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        # acc = np.mean([output['acc'].item() for output in outputs])
+        # loss = np.mean([output['loss'].item() for output in outputs])
+        # self.log("train/loss", loss, on_step=False, on_epoch=True, sync_dist=False, prog_bar=False)
+        # self.log("train/acc", acc, on_step=False, on_epoch=True, sync_dist=False, prog_bar=False)
+        # # mflops, size = self.arch_size((1,3,32,32), convert=True)
+        # # logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
+        # logger.info(f"[rank {self.rank}] Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+
+        # evaluation
+        if self.current_epoch < self.supernet_epoch:
+            return
+        acc_valid_avg = 0.
+        loss_valid_avg = 0.
+        count = len(self.mutator.archs_to_valid)
+        for name, mask in self.mutator.archs_to_valid.items():
+            try:
+                self.mutator.sample_by_mask(mask)
+                acc_valid, loss_valid = self.custom_validate()
+                logger.info(f"[rank {self.rank}] valid arch={name} acc={acc_valid:.4f} loss={loss_valid:.4f}")
+                self.log(f"val_{name}/loss", loss_valid, on_step=False, on_epoch=True, sync_dist=False, prog_bar=True)
+                self.log(f"val_{name}/acc", acc_valid, on_step=False, on_epoch=True, sync_dist=False, prog_bar=True)
+                acc_valid_avg += acc_valid
+                loss_valid_avg += loss_valid
+            except:
+                print('failed to sample by mask')
+        acc_valid_avg /= count
+        loss_valid_avg /= count
+        logger.info(f"[rank {self.rank}] Val epoch{self.current_epoch} all-subnets result: loss={loss_valid_avg:.4f}, acc={acc_valid_avg:.4f}")
+        self.log(f"val/loss", loss_valid_avg, on_step=False, on_epoch=True, sync_dist=False, prog_bar=False)
+        self.log(f"val/acc", acc_valid_avg, on_step=False, on_epoch=True, sync_dist=False, prog_bar=False)
+
+    def custom_validate(self):
+        mflops, size = self.arch_size((1,3,32,32), convert=True)
+        logger.info(f"[rank {self.rank}] valid current model: {mflops:.4f} MFLOPs, {size:.4f} MB.")
+        self.reset_running_statistics()
+        dataloader = self.trainer.val_dataloaders[0]
+        acc_valid = 0
+        loss_valid = 0
+        # logger.info(f"[rank {self.rank}] len(valid_dataloader)={len(dataloader)}")
+        for i, (inputs, targets) in enumerate(dataloader):
+            inputs = inputs.to(self.device)
+            targets = targets.to(self.device)
+            output = self.network(inputs)
+            loss = self.criterion(output, targets)
+            preds = torch.softmax(output, -1)
+            acc = self.val_metric(preds, targets)
+            acc_valid += acc.item()
+            loss_valid += loss.item()
+        acc_valid = acc_valid / (i+1)
+        loss_valid = loss_valid / (i+1)
+        if self.trainer.world_size <= 1:
+            return acc_valid, loss_valid
+        acc_valid = torch.tensor(self.all_gather(acc_valid)).mean()
+        loss_valid = torch.tensor(self.all_gather(loss_valid)).mean()
+        return acc_valid, loss_valid
 
     def calc_loss_kd_subnets(self, output, outputs_list, kd_method='ensemble'):
         loss = 0
@@ -187,6 +269,8 @@ class OFAModel(BaseModel):
         return loss
 
     def validation_step(self, batch: Any, batch_idx: int):
+        if self.current_epoch > self.supernet_epoch:
+            return
         if isinstance(batch, list) and len(batch)==1:
             batch = self.parse_batch(batch)
         loss_avg = 0.
@@ -210,13 +294,15 @@ class OFAModel(BaseModel):
         #     logger.info(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
-    def validation_epoch_end(self, outputs: List[Any]):
-        acc = np.mean([output['acc'].item() for output in outputs])
-        loss = np.mean([output['loss'].item() for output in outputs])
-        mflops, size = self.arch_size((1,3,32,32), convert=True)
-        sync_dist = not self.is_net_parallel # sync the metrics if all processes train the same sub network
-        self.log(f"val/loss", loss, on_step=False, on_epoch=True, sync_dist=sync_dist, prog_bar=True)
-        self.log(f"val/acc", acc, on_step=False, on_epoch=True, sync_dist=sync_dist, prog_bar=True)
+    # def validation_epoch_end(self, outputs: List[Any]):
+    #     if self.current_epoch > self.supernet_epoch:
+    #         return
+        # acc = np.mean([output['acc'].item() for output in outputs])
+        # loss = np.mean([output['loss'].item() for output in outputs])
+        # mflops, size = self.arch_size((1,3,32,32), convert=True)
+        # sync_dist = not self.is_net_parallel # sync the metrics if all processes train the same sub network
+        # self.log(f"val/loss", loss, on_step=False, on_epoch=True, sync_dist=sync_dist, prog_bar=True)
+        # self.log(f"val/acc", acc, on_step=False, on_epoch=True, sync_dist=sync_dist, prog_bar=True)
         # logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
         # logger.info(f"[rank {self.rank}] Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
 
@@ -233,17 +319,21 @@ class OFAModel(BaseModel):
         # preds = torch.argmax(output, dim=1)
         preds = torch.softmax(output, -1)
         acc = self.val_metric(preds, targets)
+        self.log(f"val/acc", acc, on_step=True, on_epoch=True, prog_bar=False)
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
-    def test_epoch_end(self, outputs: List[Any]):
-        acc = np.mean([output['acc'].item() for output in outputs])
-        loss = np.mean([output['loss'].item() for output in outputs])
-        logger.info(f"Test epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+    # def test_epoch_end(self, outputs: List[Any]):
+    #     acc = np.mean([output['acc'].item() for output in outputs])
+    #     loss = np.mean([output['loss'].item() for output in outputs])
+    #     if self.trainer.world_size > 1:
+    #         acc = torch.tensor(self.all_gather(acc)).mean()
+    #         loss = torch.tensor(self.all_gather(loss)).mean()
+    #     logger.info(f"Test epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
 
     def configure_callbacks(self):
-        sample_search_callback = SampleSearch()
+        ofa_callback = OFACallback()
         return [
-            sample_search_callback
+            ofa_callback
         ]
 
     @property
