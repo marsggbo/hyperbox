@@ -27,6 +27,7 @@ class OFAMobileNetV3(BaseNASNetwork):
         se_stages: List[bool] = [False, False, True, False, True, True],
         width_mult: float = 1.0,
         num_classes: int = 1000,
+        first_stride: int = 1, # 1: CIFAR10 2: Imagenet
         mask=None,
     ):
         super(OFAMobileNetV3, self).__init__()
@@ -46,8 +47,12 @@ class OFAMobileNetV3(BaseNASNetwork):
 
         # first stem layer
         first_channels, first_block_dim = width_list[0], width_list[1]
+        if first_stride==2:
+            conv = nn.Conv2d(3, first_channels, kernel_size=3, stride=2, padding=1, bias=False) # imagenet
+        else:
+            conv = nn.Conv2d(3, first_channels, kernel_size=3, stride=1, padding=0, bias=False) # cifar10
         self.stem_layer = nn.Sequential(
-            nn.Conv2d(3, first_channels, kernel_size=3, stride=2, padding=1, bias=False),
+            conv,
             nn.BatchNorm2d(first_channels),
             Hswish()
         )
