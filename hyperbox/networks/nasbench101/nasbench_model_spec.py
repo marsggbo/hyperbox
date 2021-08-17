@@ -10,7 +10,7 @@ from __future__ import print_function
 import copy
 import numpy as np
 
-import graph_util
+from . import graph_util
 
 # Graphviz is optional and only required for visualization.
 try:

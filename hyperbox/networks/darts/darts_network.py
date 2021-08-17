@@ -52,16 +52,7 @@ class Node(nn.Module):
                         DilConv(channels, channels, 5, stride, 4, 2, affine=False)
                 ], key=choice_keys[-1], mask=mask)
             )
-                # spaces.OperationSpace(OrderedDict([
-                #     ("maxpool", PoolBN('max', channels, 3, stride, 1, affine=False)),
-                #     ("avgpool", PoolBN('avg', channels, 3, stride, 1, affine=False)),
-                #     ("skipconnect",
-                #      nn.Identity() if stride == 1 else FactorizedReduce(channels, channels, affine=False)),
-                #     ("sepconv3x3", SepConv(channels, channels, 3, stride, 1, affine=False)),
-                #     ("sepconv5x5", SepConv(channels, channels, 5, stride, 2, affine=False)),
-                #     ("dilconv3x3", DilConv(channels, channels, 3, stride, 2, 2, affine=False)),
-                #     ("dilconv5x5", DilConv(channels, channels, 5, stride, 4, 2, affine=False))
-                # ]), key=choice_keys[-1]))
+
         self.drop_path = DropPath()
         self.input_switch = spaces.InputSpace(choose_from=choice_keys, n_chosen=2, key="{}_switch".format(node_id), mask=mask)
 

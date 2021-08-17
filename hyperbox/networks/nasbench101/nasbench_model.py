@@ -13,14 +13,16 @@ from __future__ import print_function
 
 import numpy as np
 import math
-
+import hyperbox.mutables.spaces as spaces
+from .base_ops import Conv1x1BnRelu, Conv3x3BnRelu, MaxPool3x3
 from base_ops import *
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ..base_nas_network import BaseNASNetwork 
+from ..base_nas_network import BaseNASNetwork
+
 
 class Network(BaseNASNetwork):
     def __init__(self, spec, args):
@@ -44,7 +46,7 @@ class Network(BaseNASNetwork):
                 out_channels *= 2
 
             for module_num in range(args.num_modules_per_stack):
-                cell = Cell(spec, in_channels, out_channels)
+                cell = Cell(spec, in_channels, out_channels, module_num)
                 self.layers.append(cell)
                 in_channels = out_channels
 
@@ -83,7 +85,7 @@ class Cell(nn.Module):
     concatenation of Tensors.
     """
 
-    def __init__(self, spec, in_channels, out_channels):
+    def __init__(self, spec, in_channels, out_channels, mask=None, cell_id=None):
         super(Cell, self).__init__()
 
         self.spec = spec
@@ -95,12 +97,25 @@ class Cell(nn.Module):
 
         # operation for each node
         self.vertex_op = nn.ModuleList([None])
+        choice_keys = []
         for t in range(1, self.num_vertices - 1):
-            op = OP_MAP[spec.ops[t]](self.vertex_channels[t], self.vertex_channels[t])
-            self.vertex_op.append(op)
+            choice_keys.append("{}-c{}" % (cell_id, t))
+
+            self.vertex_op.append(
+                spaces.OperationSpace([
+                    Conv3x3BnRelu(self.vertex_channels[t], self.vertex_channels[t]),
+                    Conv1x1BnRelu(self.vertex_channels[t], self.vertex_channels[t]),
+                    MaxPool3x3(self.vertex_channels[t], self.vertex_channels[t])
+                ], key=choice_keys[-1], mask=mask)
+            )
+
+        # for t in range(1, self.num_vertices - 1):
+        #     op = OP_MAP[spec.ops[t]](self.vertex_channels[t], self.vertex_channels[t])
+        #     self.vertex_op.append(op)
 
         # operation for input on each vertex
         self.input_op = nn.ModuleList([None])
+
         for t in range(1, self.num_vertices):
             if self.spec.matrix[0, t]:
                 self.input_op.append(Projection(in_channels, self.vertex_channels[t]))

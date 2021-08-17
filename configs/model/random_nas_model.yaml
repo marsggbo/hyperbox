@@ -1,7 +1,7 @@
 _target_: hyperbox.models.random_model.RandomModel
 
 defaults:
-    - network_cfg: finegrained_resnet
+    - network_cfg: darts_network 
     - mutator_cfg: random_mutator
     - optimizer_cfg: adam
     - metric_cfg: accuracy
