@@ -408,6 +408,7 @@ class InputSpace(CategoricalSpace):
             optional_input_list = optional_inputs
             if isinstance(optional_inputs, dict):
                 optional_input_list = [optional_inputs[tag] for tag in self.choose_from]
+                
             assert isinstance(optional_input_list, list), \
                 "Optional input list must be a list, not a {}.".format(type(optional_input_list))
             assert len(optional_inputs) == self.n_candidates, \
