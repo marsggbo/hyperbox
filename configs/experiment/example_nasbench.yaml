@@ -18,4 +18,4 @@ seed: 12345
 trainer:
   min_epochs: 1
   max_epochs: 10
-  accelerator: ddp
+  gpus: 1

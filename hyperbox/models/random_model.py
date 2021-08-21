@@ -51,7 +51,7 @@ class RandomModel(BaseModel):
                          loss_cfg, metric_cfg, scheduler_cfg, **kwargs)
 
     def sample_search(self):
-        super().sample_search(self.is_sync, self.is_net_parallel)
+        super().sample_search()
 
     def forward(self, x: torch.Tensor):
         return self.network(x)
@@ -66,7 +66,7 @@ class RandomModel(BaseModel):
     def training_step(self, batch: Any, batch_idx: int):
         self.network.train()
         self.mutator.eval()
-        if batch_idx % 5==0:
+        if batch_idx % 5 == 0:
             self.sample_search()
         loss, preds, targets = self.step(batch)
 

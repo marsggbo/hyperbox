@@ -69,7 +69,7 @@ class BaseModel(LightningModule):
         assert cfg is not None, 'Please specify the config for network'
         if isinstance(cfg, (DictConfig, dict)):
             cfg = DictConfig(cfg)
-            self.network = instantiate(cfg)
+            self.network = instantiate(cfg).cuda()
             logger.info(f'Building {cfg._target_} ...')
 
     def build_mutator(self, cfg):

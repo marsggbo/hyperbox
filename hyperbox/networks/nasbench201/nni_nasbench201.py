@@ -145,24 +145,26 @@ class NASBench201Cell(nn.Module):
         self.NUM_NODES = 4
         self.layers = nn.ModuleList()
 
-        OPS = lambda layer_idx: OrderedDict([
-            ("none", Zero(C_in, C_out, stride)),
-            ("avg_pool_3x3", Pooling(C_in, C_out, stride if layer_idx == 0 else 1, bn_affine, bn_momentum,
-                                     bn_track_running_stats)),
-            ("conv_3x3", ReLUConvBN(C_in, C_out, 3, stride if layer_idx == 0 else 1, 1, 1, bn_affine, bn_momentum,
-                                    bn_track_running_stats)),
-            ("conv_1x1", ReLUConvBN(C_in, C_out, 1, stride if layer_idx == 0 else 1, 0, 1, bn_affine, bn_momentum,
-                                    bn_track_running_stats)),
-            ("skip_connect", nn.Identity() if stride == 1 and C_in == C_out
+        OPS = lambda layer_idx: [
+            Zero(C_in, C_out, stride),
+            Pooling(C_in, C_out, stride if layer_idx == 0 else 1, bn_affine, bn_momentum,
+                                     bn_track_running_stats),
+            ReLUConvBN(C_in, C_out, 3, stride if layer_idx == 0 else 1, 1, 1, bn_affine, bn_momentum,
+                                    bn_track_running_stats),
+            ReLUConvBN(C_in, C_out, 1, stride if layer_idx == 0 else 1, 0, 1, bn_affine, bn_momentum,
+                                    bn_track_running_stats),
+            nn.Identity() if stride == 1 and C_in == C_out
              else FactorizedReduce(C_in, C_out, stride if layer_idx == 0 else 1, bn_affine, bn_momentum,
-                                   bn_track_running_stats))
-        ])
+                                   bn_track_running_stats)
+        ]
 
         for i in range(self.NUM_NODES):
             node_ops = nn.ModuleList()
             for j in range(0, i):
-                node_ops.append(spaces.OperationSpace(OPS(j), key="%d_%d" % (j, i), reduction="mean"))
+                node_ops.append(spaces.OperationSpace(OPS(j), key="%d_%d" % (j, i)))
+
             self.layers.append(node_ops)
+
         self.in_dim = C_in
         self.out_dim = C_out
         self.cell_id = cell_id
@@ -247,11 +249,13 @@ class NASBench201Network(BaseNASNetwork):
 
         C_prev = C
         self.cells = nn.ModuleList()
+
         for i, (C_curr, reduction) in enumerate(zip(layer_channels, layer_reductions)):
             if reduction:
                 cell = ResNetBasicBlock(C_prev, C_curr, 2, self.bn_affine, self.bn_momentum, self.bn_track_running_stats)
             else:
                 cell = NASBench201Cell(i, C_prev, C_curr, 1, self.bn_affine, self.bn_momentum, self.bn_track_running_stats)
+            
             self.cells.append(cell)
             C_prev = C_curr
 
@@ -273,3 +277,14 @@ class NASBench201Network(BaseNASNetwork):
         logits = self.classifier(out)
 
         return logits
+
+if __name__ == "__main__":
+    from hyperbox.mutator import RandomMutator 
+    net = NASBench201Network(16, 5)
+    rm = RandomMutator(net)
+    rm.reset() 
+    # print(net)
+    a = torch.rand(2,3,64,64)
+    b = net(a)
+    print(type(net.stem[0].weight), type(a))
+    pass 

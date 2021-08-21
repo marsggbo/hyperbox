@@ -1,12 +1,15 @@
+import pdb
 from typing import Any, List, Optional, Union
 
 import hydra
 import torch
 from omegaconf import DictConfig
 from pytorch_lightning import LightningModule
+from pytorch_lightning.callbacks import Callback
 from torchmetrics.classification.accuracy import Accuracy
 
 from hyperbox.utils.logger import get_logger
+
 from .base_model import BaseModel
 
 logger = get_logger(__name__)
@@ -14,17 +17,17 @@ logger = get_logger(__name__)
 
 class NASBench201Model(BaseModel):
     """Random NAS Model Template
-        Example of LightningModule for MNIST classification.
+    Example of LightningModule for MNIST classification.
 
-        A LightningModule organizes your PyTorch code into 5 sections:
-            - Computations (init).
-            - Train loop (training_step)
-            - Validation loop (validation_step)
-            - Test loop (test_step)
-            - Optimizers (configure_optimizers)
+    A LightningModule organizes your PyTorch code into 5 sections:
+        - Computations (init).
+        - Train loop (training_step)
+        - Validation loop (validation_step)
+        - Test loop (test_step)
+        - Optimizers (configure_optimizers)
 
-        Read the docs:
-            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html
+    Read the docs:
+        https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html
     """
 
     def __init__(
@@ -39,25 +42,38 @@ class NASBench201Model(BaseModel):
         is_net_parallel: bool = True,
         **kwargs
     ):
-        r'''Random NAS model
+        r"""Random NAS model
         Args:
-            network [DictConfig, dict, torch.nn.Module]: 
-            mutator [DictConfig, dict, BaseMutator]: 
-            optimizer [DictConfig, dict, torch.optim.Optimizer]: 
+            network [DictConfig, dict, torch.nn.Module]:
+            mutator [DictConfig, dict, BaseMutator]:
+            optimizer [DictConfig, dict, torch.optim.Optimizer]:
             loss Optional[DictConfig, dict, Callable]: loss function or DictConfig of loss function
             metric: metric function, such as Accuracy, Precision, etc.
-        '''
-        super().__init__(network_cfg, mutator_cfg, optimizer_cfg,
-                         loss_cfg, metric_cfg, scheduler_cfg, **kwargs)
+        """
+        super().__init__(
+            network_cfg,
+            mutator_cfg,
+            optimizer_cfg,
+            loss_cfg,
+            metric_cfg,
+            scheduler_cfg,
+            **kwargs
+        )
+        self.is_sync = False
+        self.is_net_parallel = False
+        self.network = self.network.to(self.device)
 
     def sample_search(self):
         super().sample_search(self.is_sync, self.is_net_parallel)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x):
         return self.network(x)
 
     def step(self, batch: Any):
+        print("#############################step")
         x, y = batch
+        # print(self.network)
+        print(type(self.network.stem[0].weight.data), type(x))
         logits = self.forward(x)
         loss = self.criterion(logits, y)
         preds = torch.argmax(logits, dim=1)
@@ -66,7 +82,7 @@ class NASBench201Model(BaseModel):
     def training_step(self, batch: Any, batch_idx: int):
         self.network.train()
         self.mutator.eval()
-        if batch_idx % 5==0:
+        if batch_idx % 5 == 0:
             self.sample_search()
         loss, preds, targets = self.step(batch)
 
@@ -81,6 +97,8 @@ class NASBench201Model(BaseModel):
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def validation_step(self, batch: Any, batch_idx: int):
+        self.network = self.network.cuda()
+        self.mutator.reset()
         loss, preds, targets = self.step(batch)
 
         # log val metrics

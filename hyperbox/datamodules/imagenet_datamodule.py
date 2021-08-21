@@ -14,6 +14,7 @@ from torchvision.datasets import ImageFolder, ImageNet
 
 from hyperbox.datamodules.transforms import get_transforms
 from hyperbox.utils.utils import _module_available
+from nvidia.dali.pipeline import Pipeline, pipeline_def
 
 if _module_available('torchvision'):
     from torchvision.transforms import transforms as transform_lib
