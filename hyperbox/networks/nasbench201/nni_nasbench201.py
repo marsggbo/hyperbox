@@ -161,7 +161,7 @@ class NASBench201Cell(nn.Module):
         for i in range(self.NUM_NODES):
             node_ops = nn.ModuleList()
             for j in range(0, i):
-                node_ops.append(spaces.OperationSpace(OPS(j), key="%d_%d" % (j, i), reduction="mean"))
+                node_ops.append(spaces.OperationSpace(OPS(j).values(), key="%d_%d" % (j, i), reduction="mean"))
             self.layers.append(node_ops)
         self.in_dim = C_in
         self.out_dim = C_out
@@ -273,3 +273,10 @@ class NASBench201Network(BaseNASNetwork):
         logits = self.classifier(out)
 
         return logits
+
+if __name__ == "__main__":
+    from hyperbox.mutator import RandomMutator 
+    net = NASBench201Network(16, 5)
+    rm = RandomMutator(net)
+    rm.reset() 
+    pass 
