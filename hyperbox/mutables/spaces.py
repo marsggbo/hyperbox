@@ -98,7 +98,8 @@ class Mutable(nn.Module):
             if getattr(self, 'verbose_freeze', False):
                 print(f"{attribute} has been forzen, you should call `defrost` function before you modify it.")
         else:
-            self.__dict__[attribute] = value
+            # self.__dict__[attribute] = value
+            super(Mutable, self).__setattr__(attribute, value)
 
     def freeze(self, attribute=None, verbose=False):
         self.is_freeze = True
