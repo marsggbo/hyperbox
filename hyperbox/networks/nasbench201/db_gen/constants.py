@@ -1,0 +1,7 @@
+NONE = "none"
+SKIP_CONNECT = "skip_connect"
+CONV_1X1 = "conv_1x1"
+CONV_3X3 = "conv_3x3"
+AVG_POOL_3X3 = "avg_pool_3x3"
+
+PRIMITIVES = [NONE, AVG_POOL_3X3, CONV_3X3, CONV_1X1, SKIP_CONNECT]
