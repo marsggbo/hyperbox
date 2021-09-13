@@ -279,9 +279,8 @@ class OperationSpace(CategoricalSpace):
         return super(Mutable, self).__call__(*args, **kwargs)
 
     def forward(self, *inputs):
-        if self.is_search:
-            if hasattr(self, "mutator"):
-                out, mask = self.mutator.on_forward_operation_space(self, *inputs)
+        if self.is_search and hasattr(self, "mutator") and self.mutator._cache:
+            out, mask = self.mutator.on_forward_operation_space(self, *inputs)
         else:
             out = self.choices[0](*inputs)
             mask = torch.tensor([True])
