@@ -1,0 +1,9 @@
+_target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+mode: 'max' # acc, 'min' for loss
+factor: 0.5
+patience: 5
+threshold: 0.0001
+threshold_mode: 'rel' # or 'abs'
+cooldown: 0
+min_lr: 1e-6
+verbose: False
