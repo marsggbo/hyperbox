@@ -142,12 +142,14 @@ class OFAModel(BaseModel):
 
         inputs, targets = batch
         start = time.time()
-        output = self.network(inputs)
+        output = self.network(inputs, True)
         if isinstance(output, tuple):
-            output, aux_output = output
-            aux_loss = self.loss(aux_output, targets)
-        else:
-            aux_loss = 0.
+            output, features_sub = output
+        # if isinstance(output, tuple):
+        #     output, aux_output = output
+        #     aux_loss = self.loss(aux_output, targets)
+        # else:
+        #     aux_loss = 0.
 
         # log train metrics
         start = time.time()
@@ -158,17 +160,30 @@ class OFAModel(BaseModel):
         self.time_records.update({'acc': duration})
 
         loss = self.criterion(output, targets)
-        loss = loss + self.aux_weight * aux_loss
+        # loss = loss + self.aux_weight * aux_lovss
         if self.kd_subnets_method:
             loss_kd_subnets = 0
             method = self.kd_subnets_method
             if method == 'teacher':
                 assert hasattr(self, 'teacher_net')
                 with torch.no_grad():
-                    output_teacher = self.teacher_net(inputs).detach()
-                alpha = 1
-                temperature = 4
-                loss_kd_subnets = KDLoss(output, output_teacher, alpha, temperature)
+                    output_teacher = self.teacher_net(inputs, True)
+                    if isinstance(output_teacher, tuple):
+                        output_teacher, features_sup = output_teacher
+                        loss_kd_subnets = 0
+                        cos = torch.nn.CosineSimilarity(dim=1)
+                        for i in range(len(features_sup)):
+                            sub_feat, sup_feat = features_sub[i], features_sup[i].detach()
+                            bs = sub_feat.shape[0]
+                            loss_feat = cos(sub_feat.view(bs,-1), sup_feat.view(bs,-1)).mean()
+                            loss_kd_subnets += loss_feat
+                        # alpha = 1
+                        # temperature = 4
+                        # loss_kd_subnets += KDLoss(output, output_teacher.detach(), alpha, temperature)
+                    else:
+                        alpha = 1
+                        temperature = 4
+                        loss_kd_subnets = KDLoss(output, output_teacher, alpha, temperature)
             elif self.trainer.world_size > 1:
                 outputs_list = self.all_gather(output)
                 if isinstance(output, list):
@@ -176,7 +191,7 @@ class OFAModel(BaseModel):
                     outputs_list = torch.cat(outputs_list, 0).mean()
                 loss_kd_subnets = self.calc_loss_kd_subnets(output, outputs_list, self.kd_subnets_method)
             loss = loss + 0.8 * loss_kd_subnets
-        loss = (1 - acc.detach()/100) * loss
+        # loss = (1 - acc.detach()/100) * loss
 
         # torch.cuda.synchronize()
         duration = time.time() - start
@@ -204,7 +219,7 @@ class OFAModel(BaseModel):
         duration = time.time() - start
         self.time_records.update({'log': duration})
         if batch_idx % 50 ==0:
-            logger.info(f"[rank {self.rank}] Train epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
+            logger.info(f"[rank {self.rank}] Train epoch{self.current_epoch} batch{batch_idx}: loss={loss.item()}, acc={acc.item()}")
         duration_whole = time.time() - start_whole
         self.time_records.update({'whole_forward': duration_whole})
         # logger.debug(f"[rank {self.rank}] batch idx={batch_idx} whole forward {duration_whole} seconds")
