@@ -105,9 +105,3 @@ def CARS_NSGA(targets, objs, N):
                 selected[i] = 1
         stage += 1
     return np.where(selected == 1)[0]
-
-def encode_arch(arch):
-    code = []
-    for key in arch:
-        code.append(str(arch[key].int().argmax().item()))
-    return ''.join(code)

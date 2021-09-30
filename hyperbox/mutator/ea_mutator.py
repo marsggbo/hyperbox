@@ -10,8 +10,8 @@ from hyperbox.utils.calc_model_size import flops_size_counter
 from hyperbox.utils.utils import TorchTensorEncoder
 from hyperbox.mutables.spaces import InputSpace, OperationSpace
 
-from .random_mutator import RandomMutator
-from .utils import CARS_NSGA, encode_arch
+from hyperbox.mutator.random_mutator import RandomMutator
+from hyperbox.mutator.utils import CARS_NSGA
 
 __all__ = [
     'EAMutator',
@@ -24,18 +24,20 @@ OBJECT_KEY_MAP = {
 }
 
 TARGET_KEY_MAP = {
-    0: 'meters',
+    0: 'metric',
     1: 'speed',
+    2: 'acc'
 }
+
 
 class EAMutator(RandomMutator):
     def __init__(
         self,
         model: torch.nn.Module,
-        target_keys: list,
-        object_keys: list,
-        num_population: int,
-        warmup_epochs: int,
+        target_keys: list = [0],
+        object_keys: list = [0],
+        num_population: int = 50,
+        warmup_epochs: int = 10,
         prob_crossover: float = 0.2,  # probability of crossover
         prob_mutation: float = 0.1,   # probability of mutation
         offspring_ratio: float = 0.2, # the ratio of new offsprings from population
@@ -87,8 +89,8 @@ class EAMutator(RandomMutator):
             self._cache = self.pools[self.idx]['arch']
             self.idx += 1
 
-    def add_new_arch(self, pools, idx, arch, input_size):
-        if not self.is_pool_repeated(pools, arch):
+    def add_new_arch(self, pools, idx, arch, input_size=(2,3,64,64)):
+        if not self.is_arch_existed(pools, arch):
             self._cache = arch
             flops_size = flops_size_counter(self.model, input_size)
             flops, size = flops_size['flops'], flops_size['size']
@@ -112,13 +114,13 @@ class EAMutator(RandomMutator):
                 if self.add_new_arch(POOLS, idx, arch):
                     idx += 1
         elif mode == 'warmup':
-            sorted_pools = sorted(self.history.items(), key=lambda x: x[1]['speed'], reverse=True)
-            # sorted_pools = sorted(self.history.items(), key=lambda x: np.mean(x[1]['meters']), reverse=True)
+            # sorted_pools = sorted(self.history.items(), key=lambda x: x[1]['speed'], reverse=True)
+            sorted_pools = sorted(self.history.items(), key=lambda x: np.mean(x[1]['metric']), reverse=True)
             for idx, (key, value) in enumerate(sorted_pools):
                 if idx >= self.num_population:
                     break
                 value_cp = value.copy()
-                value_cp.pop('meters', None)
+                value_cp.pop('metric', None)
                 POOLS[idx] = value_cp
             # num_remaining = self.num_population - len(POOLS)
             while idx < self.num_population:
@@ -161,11 +163,11 @@ class EAMutator(RandomMutator):
             self.pools[idx] = individual
         return len(self.pools)
 
-    def fitness(self, population):
+    def fitness(self, population, fitness_name='metric'):
         targets = []
-        if 'meters' in self.target_keys:
-            meters = np.array([individual['meters'] for key, individual in population.items()])
-            targets.append(meters)
+        if 'metric' in self.target_keys:
+            metric = np.array([individual['metric'] for key, individual in population.items()])
+            targets.append(metric)
         if 'speed' in self.target_keys:
             speeds = np.array(self.fitness_increase_speed(population))
             targets.append(speeds)
@@ -187,17 +189,6 @@ class EAMutator(RandomMutator):
                 objs.append([0 for idx in population])
         objs = np.vstack(objs)
         return objs
-
-    def fitness_increase_speed(self, population):
-        speeds = []
-        for key, individual in population.items():
-            arch_code = individual['arch_code']
-            if arch_code in self.history:
-                speed = self.history[arch_code]['speed']
-            else:
-                speed = individual['meters']
-            speeds.append(speed)
-        return speeds
 
     def selection(self):
         try:
@@ -233,11 +224,21 @@ class EAMutator(RandomMutator):
         return new_arch
 
     def encode_arch(self, arch):
-        return encode_arch(arch)
+        code = []
+        for key in arch:
+            code.append(str(arch[key].int().argmax().item()))
+        return ''.join(code)
 
-    def is_pool_repeated(self, pools, new_arch):
+    def is_arch_existed(self, pools, new_arch):
         '''判断新arch是否已经在pools
         '''
+        def is_repeat(arch, new_arch):
+            '''判断两个arch是否相同
+            '''
+            for key in arch:
+                if sum(torch.abs(arch[key].float()-new_arch[key].float())) != 0:
+                    return False
+            return True
         if len(pools)<=1:
             return False
         for idx in pools:
@@ -248,50 +249,6 @@ class EAMutator(RandomMutator):
                 return True
         return False
 
-    def is_repeat(self, arch, new_arch):
-        '''判断两个arch是否相同
-        '''
-        for key in arch:
-            if sum(torch.abs(arch[key].float()-new_arch[key].float())) != 0:
-                return False
-        return True
-
-    def calculate_speed(self, meters):
-        '''the slop of the meters change
-            meters: (list) a list of meters, e.g. accuracy=[0.2,0.4,0.5]
-        '''
-        if len(meters) <= 1:
-            speed = meters[0]
-        else:
-            speed = np.polyfit(np.arange(len(meters)), np.array(meters), 1)[0] # slope of increase curve
-            if speed < 0: speed = (abs(speed)+1e-8) * 1e-8
-        return speed
-
-    def update_history(self, individual):
-        key = individual['arch_code']
-        if key not in self.history:
-            self.history[key] = {}
-            self.history[key]['meters'] = []
-        for feature in individual: # feature = {arch_code, arch, meters, flops, size}
-            if feature == 'meters':
-                self.history[key][feature].append(individual[feature])
-            else:
-                self.history[key][feature] = individual[feature]
-        self.history[key]['speed'] = self.calculate_speed(self.history[key]['meters'])
-
-    def update_individual(self, idx, meters):
-        '''更新单个individual的性能
-        '''
-        if idx not in self.pools:
-            self.pools[idx] = {}
-        self.pools[idx]['meters'] = meters['save_metric'].avg
-        self.update_history(self.pools[idx])
-
-    def save_history(self, history):
-        file_path = os.path.join(self.cfg.logger.path, 'history.json')
-        with open(file_path, 'w') as f:
-            json.dump(history, f, indent=4, cls=TorchTensorEncoder)
-
     def evolve(self):
         '''进化
         '''
@@ -299,7 +256,9 @@ class EAMutator(RandomMutator):
             targets = self.fitness(self.pools)
             objectives = self.objectives(self.pools, self.object_keys)
             if self.algorithm == 'cars':
-                    indices = CARS_NSGA(targets, objectives, self.num_population)
+                indices = CARS_NSGA(targets, objectives, self.num_population)
+            else:
+                indices = self.selection()
         except Exception as e:
             print(e)
         pools = {}
@@ -307,3 +266,64 @@ class EAMutator(RandomMutator):
             pools[i] = self.pools[idx]
         self.pools = pools
         self.num_crt_population = self.expand_population()
+
+    def update_individual(self, idx, metric):
+        '''更新单个individual的性能
+        '''
+        if idx not in self.pools:
+            self.pools[idx] = {}
+        self.pools[idx]['metric'] = metric['save_metric'].avg
+        self.update_history(self.pools[idx])
+
+    def fitness_increase_speed(self, population):
+        speeds = []
+        for key, individual in population.items():
+            arch_code = individual['arch_code']
+            if arch_code in self.history:
+                speed = self.history[arch_code]['speed']
+            else:
+                speed = individual['metric']
+            speeds.append(speed)
+        return speeds
+
+    def calculate_speed(self, metric):
+        '''the slop of the metric change
+            metric: (list) a list of metric, e.g. accuracy=[0.2,0.4,0.5]
+        '''
+        if len(metric) <= 1:
+            speed = metric[0]
+        else:
+            speed = np.polyfit(np.arange(len(metric)), np.array(metric), 1)[0] # slope of increase curve
+            if speed < 0: speed = (abs(speed)+1e-8) * 1e-8
+        return speed
+
+    def update_history(self, individual):
+        key = individual['arch_code']
+        if key not in self.history:
+            self.history[key] = {}
+            self.history[key]['metric'] = []
+        for feature in individual: # feature = {arch_code, arch, metric, flops, size}
+            if feature == 'metric':
+                self.history[key][feature].append(individual[feature])
+            else:
+                self.history[key][feature] = individual[feature]
+        self.history[key]['speed'] = self.calculate_speed(self.history[key]['metric'])
+
+    def save_history(self, path, history):
+        file_path = os.path.join(path, 'history.json')
+        with open(file_path, 'w') as f:
+            json.dump(history, f, indent=4, cls=TorchTensorEncoder)
+
+
+if __name__ == '__main__':
+    from hyperbox.networks.bnnas.bn_net import BNNet
+    net = BNNet()
+    ea = EAMutator(net)
+    ea.start_evolve = True
+    ea.reset()
+    for arch in ea.pools.values():
+        arch['metric'] = random.random()
+    x = torch.rand(2,3,64,64)
+    y = net(x)
+    ea.evolve()
+    pass
