@@ -16,7 +16,6 @@ blocks_dict = {
     'k5r6':lambda inp, oup, stride : InvertedResidual(inp, oup, 5, 2, stride, 6),
     'k7r3':lambda inp, oup, stride : InvertedResidual(inp, oup, 7, 3, stride, 3),
     'k7r6':lambda inp, oup, stride : InvertedResidual(inp, oup, 7, 3, stride, 6),
-    # 'identity': lambda inp, oup, stride: nn.Identity()
 }
 
 

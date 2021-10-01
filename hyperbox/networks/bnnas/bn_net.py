@@ -16,14 +16,15 @@ from hyperbox.networks.bnnas.bn_blocks import blocks_dict, InvertedResidual, con
 class BNNet(BaseNASNetwork):
     def __init__(
         self,
-        first_stride: int = 1,
-        first_channels: int = 24,
-        width_mult: int = 1,
-        channels_list: list = [32, 40, 80, 96, 192, 320],
-        num_blocks: list = [2, 2, 4, 4, 4, 1],
-        strides_list: list = [2, 2, 2, 1, 2, 1],
-        num_classes: int = 1000,
-        mask: dict = None
+        first_stride: int=1,
+        first_channels: int=24,
+        width_mult: int=1,
+        channels_list: list=[32, 40, 80, 96, 192, 320],
+        num_blocks: list=[2, 2, 4, 4, 4, 1],
+        strides_list: list=[2, 2, 2, 1, 2, 1],
+        num_classes: int=1000,
+        search_depth: bool=True,
+        mask: dict=None
     ):
         super(BNNet, self).__init__()
         self.num_layers = len(channels_list)
@@ -34,13 +35,14 @@ class BNNet(BaseNASNetwork):
         )
 
         self.block_group_info = []
-        _block_index = 1
         self.features = nn.ModuleDict()
         c_in = channels
         for layer_id in range(self.num_layers):
             c_out = int(channels_list[layer_id] * width_mult)
             stride = strides_list[layer_id]
             n_blocks = num_blocks[layer_id]
+            self.block_group_info.append([i for i in range(n_blocks)])
+
             ops = nn.Sequential()
             for i in range(n_blocks):
                 key=f"layer{layer_id}_{i}"
@@ -63,7 +65,8 @@ class BNNet(BaseNASNetwork):
         self.runtime_depth = []
         for idx, block_group in enumerate(self.block_group_info):
             self.runtime_depth.append(
-                spaces.ValueSpace(list(range(1, len(block_group)+1)), key=f"depth{idx+1}", mask=mask)
+                ValueSpace(
+                    list(range(1, len(block_group)+1)), key=f"depth{idx+1}", mask=mask)
             )
         self.runtime_depth = nn.Sequential(*self.runtime_depth)
 
@@ -71,8 +74,16 @@ class BNNet(BaseNASNetwork):
         bs = x.shape[0]
         x = self.first_conv(x)
 
-        for key in self.features:
-            x = self.features[key](x)
+        if self.search_depth:
+            for stage_id, key in enumerate(self.features.keys()):
+                block_group = self.block_group_info[stage_id]
+                depth = self.runtime_depth[stage_id].value
+                active_idx = block_group[:depth]
+                for idx in active_idx:
+                    x = self.features[key][idx](x)
+        else:
+            for key in self.features:
+                x = self.features[key](x)
         
         x = self.avgpool(x)
         x = x.view(bs, -1)
@@ -106,7 +117,7 @@ if __name__ == '__main__':
     opt = torch.optim.SGD(net.parameters(), lr=0.01)
     print(f"Supernet size: {net.arch_size((2,3,64,64), 1, 1)}")
     rm = RandomMutator(net)
-    for i in range(2):
+    for i in range(10):
         rm.reset()
         print(f"Subnet size: {net.arch_size((2,3,64,64), 1, 1)}")
         print(net.bn_metrics())
