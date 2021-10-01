@@ -49,6 +49,8 @@ class RandomModel(BaseModel):
         '''
         super().__init__(network_cfg, mutator_cfg, optimizer_cfg,
                          loss_cfg, metric_cfg, scheduler_cfg, **kwargs)
+        self.is_sync = is_sync
+        self.is_net_parallel = is_net_parallel
 
     def sample_search(self):
         super().sample_search(self.is_sync, self.is_net_parallel)
@@ -61,7 +63,8 @@ class RandomModel(BaseModel):
         logits = self.forward(x)
         loss = self.criterion(logits, y)
         preds = torch.argmax(logits, dim=1)
-        return loss, preds, y
+        return loss, logits, y
+        # return loss, preds, y
 
     def training_step(self, batch: Any, batch_idx: int):
         self.network.train()
@@ -75,10 +78,18 @@ class RandomModel(BaseModel):
         self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=False)
         self.log("train/acc", acc, on_step=True, on_epoch=True, prog_bar=False)
 
+        if batch_idx % 50 == 0:
+            logger.info(f'Train epoch{self.trainer.current_epoch} batch{batch_idx} acc={acc.item():.4f} loss={loss.item():.4f}')
+
         # we can return here dict with any tensors
         # and then read it in some callback or in training_epoch_end() below
         # remember to always return loss from training_step, or else backpropagation will fail!
         return {"loss": loss, "preds": preds, "targets": targets}
+
+    def training_epoch_end(self, outputs: List[Any]):
+        acc_epoch = self.trainer.callback_metrics['train/acc_epoch'].item()
+        loss_epoch = self.trainer.callback_metrics['train/loss_epoch'].item()
+        logger.info(f'Train epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
 
     def validation_step(self, batch: Any, batch_idx: int):
         loss, preds, targets = self.step(batch)
@@ -89,6 +100,11 @@ class RandomModel(BaseModel):
         self.log("val/acc", acc, on_step=True, on_epoch=True, prog_bar=False)
 
         return {"loss": loss, "preds": preds, "targets": targets}
+
+    def validation_epoch_end(self, outputs: List[Any]):
+        acc_epoch = self.trainer.callback_metrics['val/acc_epoch'].item()
+        loss_epoch = self.trainer.callback_metrics['val/loss_epoch'].item()
+        logger.info(f'Val epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
 
     def test_step(self, batch: Any, batch_idx: int):
         loss, preds, targets = self.step(batch)
@@ -101,4 +117,7 @@ class RandomModel(BaseModel):
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def test_epoch_end(self, outputs: List[Any]):
-        pass
+        acc_epoch = self.trainer.callback_metrics['test/acc'].item()
+        loss_epoch = self.trainer.callback_metrics['test/loss'].item()
+        logger.info(f'Test epoch{self.trainer.current_epoch} acc={acc:.4f} loss={loss:.4f}')
+
