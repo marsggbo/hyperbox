@@ -9,6 +9,8 @@ def Dominates(x, y):
     :type x: array
     :param y: a sample
     :type y: array
+
+    the smaller value, the better performance
     """
     return np.all(x <= y) & np.any(x < y)
 
@@ -83,7 +85,7 @@ def CARS_NSGA(targets, objs, N):
     for target in targets:
         for obj in objs:
             fronts.append(NonDominatedSorting(np.vstack((1 / (target + 1e-10), obj))))
-            fronts.append(NonDominatedSorting(np.vstack((1 / (target + 1e-10), 1 / (obj + 1e-10)))))
+            # fronts.append(NonDominatedSorting(np.vstack((1 / (target + 1e-10), 1 / (obj + 1e-10)))))
     stage = 0
     while (np.sum(selected) < N):
         current_front = []
