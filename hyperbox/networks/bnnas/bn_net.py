@@ -24,6 +24,7 @@ class BNNet(BaseNASNetwork):
         strides_list: list=[2, 2, 2, 1, 2, 1],
         num_classes: int=1000,
         search_depth: bool=True,
+        is_only_train_bn: bool=True,
         mask: dict=None
     ):
         super(BNNet, self).__init__()
@@ -69,6 +70,10 @@ class BNNet(BaseNASNetwork):
                     list(range(1, len(block_group)+1)), key=f"depth{idx+1}", mask=mask)
             )
         self.runtime_depth = nn.Sequential(*self.runtime_depth)
+
+        if is_only_train_bn:
+            print(f"Only train BN.")
+            self.freeze_except_last_bn()
 
     def forward(self, x):
         bs = x.shape[0]
