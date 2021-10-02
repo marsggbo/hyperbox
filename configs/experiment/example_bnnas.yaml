@@ -21,8 +21,8 @@ trainer:
   accelerator: horovod
   gpus: 1
 debug: False
-logger.wandb.name: test
-logger.wandb.offline: True
-hydra:
-  job:
-    name: test
+# logger.wandb.name: test
+# logger.wandb.offline: True
+# hydra:
+#   job:
+#     name: test
