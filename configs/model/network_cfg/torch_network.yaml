@@ -1,0 +1,2 @@
+_target_: torchvision.models.mobilenet_v3_small
+num_classes: 10

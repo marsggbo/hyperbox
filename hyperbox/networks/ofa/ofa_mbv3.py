@@ -118,7 +118,8 @@ class OFAMobileNetV3(BaseNASNetwork):
             )
         self.runtime_depth = nn.Sequential(*self.runtime_depth)
 
-    def forward(self, x):
+    def forward(self, x, return_feature=False):
+        features = []
         x = self.stem_layer(x)
         x = self.blocks[0](x)
         # inverted residual blocks
@@ -127,11 +128,15 @@ class OFAMobileNetV3(BaseNASNetwork):
             active_idx = block_group[:depth]
             for idx in active_idx:
                 x = self.blocks[idx](x)
+        if return_feature: features.append(x)
         x = self.final_expand_layer(x)
+        if return_feature: features.append(x)
         x = x.mean(3, keepdim=True).mean(2, keepdim=True)  # global average pooling
         x = self.feature_mix_layer(x)
+        if return_feature: features.append(x)
         x = x.view(x.size(0), -1)
         x = self.classifier(x)
+        if return_feature: return (x, features)
         return x
 
     @property

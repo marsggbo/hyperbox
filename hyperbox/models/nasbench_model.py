@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 
 
 class NASBench201Model(BaseModel):
-    """Random NAS Model Template
+    """NASBench201 NAS Model Template(Random Search)
     Example of LightningModule for MNIST classification.
 
     A LightningModule organizes your PyTorch code into 5 sections:
@@ -70,10 +70,7 @@ class NASBench201Model(BaseModel):
         return self.network(x)
 
     def step(self, batch: Any):
-        print("#############################step")
         x, y = batch
-        # print(self.network)
-        print(type(self.network.stem[0].weight.data), type(x))
         logits = self.forward(x)
         loss = self.criterion(logits, y)
         preds = torch.argmax(logits, dim=1)
@@ -97,8 +94,6 @@ class NASBench201Model(BaseModel):
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def validation_step(self, batch: Any, batch_idx: int):
-        self.network = self.network.cuda()
-        self.mutator.reset()
         loss, preds, targets = self.step(batch)
 
         # log val metrics

@@ -1,3 +1,3 @@
-_target_: hyperbox.networks.nasbench201.nni_nasbench201.NASBench201Network
+_target_: hyperbox.networks.nasbench201.nasbench201.NASBench201Network
 stem_out_channels: 16 
 num_modules_per_stack: 5

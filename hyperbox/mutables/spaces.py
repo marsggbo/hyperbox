@@ -98,7 +98,7 @@ class Mutable(nn.Module):
             if getattr(self, 'verbose_freeze', False):
                 print(f"{attribute} has been forzen, you should call `defrost` function before you modify it.")
         else:
-            self.__dict__[attribute] = value
+            super(Mutable, self).__setattr__(attribute, value)
 
     def freeze(self, attribute=None, verbose=False):
         self.is_freeze = True
@@ -279,9 +279,8 @@ class OperationSpace(CategoricalSpace):
         return super(Mutable, self).__call__(*args, **kwargs)
 
     def forward(self, *inputs):
-        if self.is_search:
-            if hasattr(self, "mutator"):
-                out, mask = self.mutator.on_forward_operation_space(self, *inputs)
+        if self.is_search and hasattr(self, "mutator") and self.mutator._cache:
+            out, mask = self.mutator.on_forward_operation_space(self, *inputs)
         else:
             out = self.choices[0](*inputs)
             mask = torch.tensor([True])
@@ -408,7 +407,6 @@ class InputSpace(CategoricalSpace):
             optional_input_list = optional_inputs
             if isinstance(optional_inputs, dict):
                 optional_input_list = [optional_inputs[tag] for tag in self.choose_from]
-                
             assert isinstance(optional_input_list, list), \
                 "Optional input list must be a list, not a {}.".format(type(optional_input_list))
             assert len(optional_inputs) == self.n_candidates, \

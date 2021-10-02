@@ -1,1 +1,1 @@
-from .nni_nasbench201 import NASBench201Network
+from .nasbench201 import NASBench201Network
