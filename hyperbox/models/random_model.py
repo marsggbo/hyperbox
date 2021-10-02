@@ -117,7 +117,7 @@ class RandomModel(BaseModel):
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def test_epoch_end(self, outputs: List[Any]):
-        acc_epoch = self.trainer.callback_metrics['test/acc'].item()
-        loss_epoch = self.trainer.callback_metrics['test/loss'].item()
+        acc = self.trainer.callback_metrics['test/acc'].item()
+        loss = self.trainer.callback_metrics['test/loss'].item()
         logger.info(f'Test epoch{self.trainer.current_epoch} acc={acc:.4f} loss={loss:.4f}')
 
