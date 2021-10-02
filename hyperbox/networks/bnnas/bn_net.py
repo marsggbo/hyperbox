@@ -106,25 +106,50 @@ class BNNet(BaseNASNetwork):
         return values
 
     def freeze_except_last_bn(self):
-        for name, module in self.named_modules():
-            module.requires_grad_ = False
+        for name, params in self.named_parameters():
+            params.requires_grad = False
 
         for name, module in self.named_modules():
             if isinstance(module, OperationSpace):
                 for op in module.candidates:
-                    op.conv[-1].requires_grad_ = True
+                    op.conv[-1].requires_grad_(True)
 
+    def defrost_all_params(self):
+        for name, params in self.named_parameters():
+            params.requires_grad = True
+
+    def freeze_all_params(self):
+        for name, params in self.named_parameters():
+            params.requires_grad = False
 
 if __name__ == '__main__':
+    device='cuda'
     from hyperbox.mutator import RandomMutator
-    x = torch.rand(2,3,64,64)
-    net = BNNet()
+    net = BNNet(search_depth=False, is_only_train_bn=False, num_classes=10).to(device)
     opt = torch.optim.SGD(net.parameters(), lr=0.01)
+    H = torch.nn.CrossEntropyLoss()
     print(f"Supernet size: {net.arch_size((2,3,64,64), 1, 1)}")
     rm = RandomMutator(net)
-    for i in range(10):
-        rm.reset()
+    for i in range(30):
+        x = torch.rand(64,3,64,64).to(device)
+        y = torch.randint(0,10,(64,)).to(device)
+        opt.zero_grad()
+        # rm.reset()
         print(f"Subnet size: {net.arch_size((2,3,64,64), 1, 1)}")
         print(net.bn_metrics())
-    net.freeze_except_last_bn()
-    y = net(x)
+        pred = net(x)
+        loss = H(pred,y)
+        loss.backward()
+        conv = net.features['layer0'][0].candidates[-1].conv[0]
+        bn = net.features['layer0'][0].candidates[-1].conv[7]
+        linear = net.classifier[0]
+        print('conv', conv.weight[0,:5,...].view(-1).detach(), conv.weight.requires_grad)
+        print('bn', bn.weight[:5], bn.weight.requires_grad)
+        print('linear', linear.weight[:5,0].view(-1).detach(), linear.weight.requires_grad)
+        print('loss', loss.item())
+        opt.step()
+        if 6>i>3:
+            net.freeze_except_last_bn()
+        elif i > 6:
+            net.defrost_all_params()
+        pass
