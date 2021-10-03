@@ -1,0 +1,38 @@
+# @package _global_
+
+# to execute this experiment run:
+# python run.py experiment=example_simple.yaml
+
+# fintune repname_model.yaml -> classify_model
+
+defaults:
+  - override /trainer: debug.yaml # choose trainer from 'configs/trainer/'
+  - override /model: repnas_model.yaml
+  - override /datamodule: cifar10_datamodule.yaml
+  - override /callbacks: default.yaml
+  - override /logger: tensorboard.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+seed: 12345
+
+trainer:
+  min_epochs: 1
+  max_epochs: 200
+  gpus: 1
+  
+datamodule:
+  is_customized: True
+
+# model:
+#   mutator_cfg:
+#     _target_: hyperbox.mutator.OnehotMutator
+
+logger:
+  wandb:
+    offline: True
+
+model:
+  optimizer_cfg:
+    lr: 0.001

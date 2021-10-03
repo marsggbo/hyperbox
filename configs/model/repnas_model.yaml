@@ -1,0 +1,13 @@
+_target_: hyperbox.models.darts_model.DARTSModel
+# _target_: hyperbox.models.classify_model.ClassifyModel
+
+defaults:
+    - network_cfg: repnas_network.yaml
+    - mutator_cfg: darts_mutator
+    - optimizer_cfg: sgd
+    - metric_cfg: accuracy
+    - scheduler_cfg: warmup_scheduler
+    - loss_cfg: cross_entropy
+
+# network_cfg:
+    # mask: '/home/xihe/xinhe/hyperbox/hyperbox/networks/darts/darts_mask.json'

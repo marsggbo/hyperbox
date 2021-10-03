@@ -7,7 +7,7 @@ import numpy as np
 from omegaconf import DictConfig
 from pytorch_lightning import LightningModule
 from torchmetrics.classification.accuracy import Accuracy
-
+import json 
 from hyperbox.utils.logger import get_logger
 from hyperbox.utils.utils import TorchTensorEncoder
 from hyperbox.utils.calc_model_size import flops_size_counter

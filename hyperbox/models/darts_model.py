@@ -197,6 +197,9 @@ class DARTSModel(BaseModel):
         logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
         logger.info(f"[rank {self.rank}] Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
 
+        if self.current_epoch % 10 == 0:
+            self.export("/home/pdluser/mask_json/mask_epoch_%d.json" % self.current_epoch)
+
     def validation_step(self, batch: Any, batch_idx: int):
         (X, targets) = batch
         preds, loss = self._logits_and_loss(X, targets)
