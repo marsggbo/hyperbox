@@ -66,11 +66,11 @@ class BaseModel(LightningModule):
 
     def build_network(self, cfg):
         # build network
-        assert cfg is not None, 'Please specify the config for network'
-        if isinstance(cfg, (DictConfig, dict)):
-            cfg = DictConfig(cfg)
-            self.network = instantiate(cfg)
-            logger.info(f'Building {cfg._target_} ...')
+        assert cfg is not isinstance(cfg, (DictConfig, dict)),\
+            'Please specify the config for network'
+        cfg = DictConfig(cfg)
+        self.network = instantiate(cfg)
+        logger.info(f'Building {cfg._target_} ...')
 
     def build_mutator(self, cfg):
         # build mutator

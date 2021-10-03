@@ -8,15 +8,14 @@ from hyperbox.mutables.ops import Conv2d, Linear, BatchNorm2d
 from hyperbox.mutables.spaces import ValueSpace
 from hyperbox.utils.utils import load_json, hparams_wrapper
 
-from .base_nas_network import BaseNASNetwork
+from ..base_nas_network import BaseNASNetwork
 
 __all__ = [
     "ResNet",
     "resnet18",
     "resnet20",
     "resnet34",
-    "resnet50",
-    'ResNet18',
+    "resnet50"
 ]
 
 
