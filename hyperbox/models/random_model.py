@@ -69,7 +69,7 @@ class RandomModel(BaseModel):
     def training_step(self, batch: Any, batch_idx: int):
         self.network.train()
         self.mutator.eval()
-        if batch_idx % 5==0:
+        if batch_idx % 1==0:
             self.sample_search()
         loss, preds, targets = self.step(batch)
 
