@@ -73,7 +73,7 @@ class BNNet(BaseNASNetwork):
 
         if is_only_train_bn:
             print(f"Only train BN.")
-            self.freeze_except_last_bn()
+            self.freeze_except_bn()
 
     def forward(self, x):
         bs = x.shape[0]
@@ -105,14 +105,13 @@ class BNNet(BaseNASNetwork):
                 values += value
         return values
 
-    def freeze_except_last_bn(self):
+    def freeze_except_bn(self):
         for name, params in self.named_parameters():
             params.requires_grad = False
 
         for name, module in self.named_modules():
-            if isinstance(module, OperationSpace):
-                for op in module.candidates:
-                    op.conv[-1].requires_grad_(True)
+            if isinstance(module, (nn.BatchNorm1d, nn.BatchNorm2d)):
+                module.requires_grad_(True)
 
     def defrost_all_params(self):
         for name, params in self.named_parameters():
@@ -149,7 +148,7 @@ if __name__ == '__main__':
         print('loss', loss.item())
         opt.step()
         if 6>i>3:
-            net.freeze_except_last_bn()
+            net.freeze_except_bn()
         elif i > 6:
             net.defrost_all_params()
         pass
