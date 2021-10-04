@@ -1,4 +1,3 @@
-from .base_model import BaseModel
 from typing import Any, List, Optional, Union
 
 import copy
@@ -10,6 +9,8 @@ import torch.nn as nn
 from omegaconf import DictConfig
 
 from hyperbox.utils.logger import get_logger
+from .base_model import BaseModel
+
 logger = get_logger(__name__, rank_zero=True)
 
 
