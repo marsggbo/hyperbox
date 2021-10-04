@@ -86,9 +86,10 @@ class EAMutator(RandomMutator):
         if not self.start_evolve:
             self._cache = self.sample_search()
         else:
-            if self.idx >= self.num_population or self.idx == -1:
-                self.idx = 0
-            self._cache = self.population[self.idx]['arch']
+            assert self.num_population == len(self.population), \
+                f"{self.num_population}!={len(self.population)}"
+            idx = self.idx % self.num_population
+            self._cache = self.population[idx]['arch']
             for mutable in self.mutables:
                 mutable.mask = self._cache[mutable.key]
             self.idx += 1
@@ -164,18 +165,23 @@ class EAMutator(RandomMutator):
         objs = np.vstack(objs)
         return objs
 
-    def selection(self, num_selection):
+    def selection(self, num_selection, by_probability=False):
         '''Selection step:
         select `num_selection` individuals with probability of their fitness
         '''
-        try:
-            probs = self.fitness(self.population)
-            nan_indices = np.isnan(probs)
-            probs[nan_indices] = probs[~nan_indices].mean()
-            indices = np.random.choice(np.arange(self.num_population), num_selection, replace=False, p=probs/sum(probs))
-        except Exception as e:
-            print(e)
-            indices = np.random.choice(np.arange(self.num_population), num_selection, replace=False)
+        fitness = self.fitness(self.population)
+        if by_probability:
+            try:
+                probs = fitness
+                nan_indices = np.isnan(probs)
+                probs[nan_indices] = probs[~nan_indices].mean()
+                indices = np.random.choice(np.arange(self.num_population), num_selection, replace=False, p=probs/sum(probs))
+            except Exception as e:
+                print(e)
+                indices = np.random.choice(np.arange(self.num_population), num_selection, replace=False)
+        else:
+            top_values, top_indices = torch.tensor(fitness).topk(num_selection)
+            indices = top_indices.tolist()
         return indices
 
     def crossover(self, arch1, arch2):
@@ -267,9 +273,9 @@ class EAMutator(RandomMutator):
         '''
         try:
             targets = self.fitness(self.population)
-            objectives = self.objectives(self.population, self.object_keys)
             num_selection = int(round(self.ratio_selection * self.num_population))
             if self.algorithm == 'cars':
+                objectives = self.objectives(self.population, self.object_keys)
                 indices = CARS_NSGA(targets, objectives, num_selection)
             else:
                 indices = self.selection(num_selection)
@@ -293,8 +299,7 @@ class EAMutator(RandomMutator):
         return len(self.population)
 
     def gen_offsprings(self):
-        def calc_num(ratio, total_num):
-            return int(round(total_num*ratio))
+        calc_num = lambda ratio, total_num: int(round(total_num*ratio))
         offsprings = {}
         idx = 0
         num_mutation = calc_num(self.ratio_mutation, self.num_population)
@@ -302,22 +307,24 @@ class EAMutator(RandomMutator):
         num_random = calc_num(self.ratio_random, self.num_population)
         num_offspring = num_mutation + num_crossover + num_random
 
-        for i in range(num_mutation):
+        while num_mutation > 0:
             index = np.random.randint(0, len(self.population))
             arch = self.mutation(self.population[index]['arch'])
-            if self.add_new_arch(offsprings, idx, arch): idx += 1
-        for i in range(num_crossover):
+            if self.add_new_arch(offsprings, idx, arch):
+                idx += 1; num_mutation -= 1
+        while num_crossover > 0:
             index1 = np.random.randint(0, len(self.population))
-            index2 = np.random.randint(0, len(self.population))
-            while index1 == index2:
-                index2 = np.random.randint(0, len(self.population))
+            remain_spaces = list(range(index1)) + list(range(index1+1, len(self.population)))
+            index2 = np.random.choice(remain_spaces)
             arch = self.crossover(
                 self.population[index1]['arch'],
                 self.population[index2]['arch'])
-            if self.add_new_arch(offsprings, idx, arch): idx += 1
-        for i in range(num_random):
+            if self.add_new_arch(offsprings, idx, arch):
+                idx += 1; num_crossover -= 1
+        while num_random > 0:
             arch = self.sample_search()
-            if self.add_new_arch(offsprings, idx, arch): idx += 1
+            if self.add_new_arch(offsprings, idx, arch):
+                idx += 1; num_random -= 1
         return offsprings
 
     def update_individual(self, idx, metric):
