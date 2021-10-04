@@ -9,9 +9,9 @@ import torch.nn as nn
 from omegaconf import DictConfig
 
 from hyperbox.utils.logger import get_logger
-logger = get_logger(__name__, rank_zero=True)
-
 from .base_model import BaseModel
+
+logger = get_logger(__name__, rank_zero=True)
 
 
 class DARTSModel(BaseModel):
@@ -89,8 +89,9 @@ class DARTSModel(BaseModel):
         acc = self.train_metric(preds, trn_y)
         self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=False)
         self.log("train/acc", acc, on_step=True, on_epoch=True, prog_bar=False)
-        if batch_idx % 50 ==0:
-            logger.info(f"Train epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
+        if batch_idx % 50 == 0:
+            logger.info(
+                f"Train epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": trn_y, 'acc': acc}
 
     def _logits_and_loss(self, X, y):
@@ -173,7 +174,8 @@ class DARTSModel(BaseModel):
         norm = torch.cat([w.view(-1) for w in dw]).norm()
         eps = 0.01 / norm
         if norm < 1E-8:
-            self.logger.warning("In computing hessian, norm is smaller than 1E-8, cause eps to be %.6f.", norm.item())
+            self.logger.warning(
+                "In computing hessian, norm is smaller than 1E-8, cause eps to be %.6f.", norm.item())
 
         dalphas = []
         for e in [eps, -2. * eps]:
@@ -190,12 +192,18 @@ class DARTSModel(BaseModel):
         hessian = [(p - n) / 2. * eps for p, n in zip(dalpha_pos, dalpha_neg)]
         return hessian
 
-    def training_epoch_end(self, outputs: List[Any]):        
+    def training_epoch_end(self, outputs: List[Any]):
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
-        mflops, size = self.arch_size((1,3,32,32), convert=True)
-        logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
-        logger.info(f"[rank {self.rank}] Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        mflops, size = self.arch_size((1, 3, 32, 32), convert=True)
+        logger.info(
+            f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
+        logger.info(
+            f"[rank {self.rank}] Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        logger.info("self.mutator._cache: ", len(self.mutator._cache), self.mutator._cache)
+
+        if self.current_epoch % 10 == 0:
+            self.export("/home/pdluser/mask_json/mask_epoch_%d.json" % self.current_epoch)
 
     def validation_step(self, batch: Any, batch_idx: int):
         (X, targets) = batch
@@ -208,16 +216,18 @@ class DARTSModel(BaseModel):
         self.log("val/acc", acc, on_step=False, on_epoch=True, prog_bar=False)
         # if batch_idx % 10 == 0:
         # if True:
-            # logger.info(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
+        # logger.info(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
     def validation_epoch_end(self, outputs: List[Any]):
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
-        mflops, size = self.arch_size((1,3,32,32), convert=True)
-        logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
-        logger.info(f"[rank {self.rank}] Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
-    
+        mflops, size = self.arch_size((1, 3, 32, 32), convert=True)
+        logger.info(
+            f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
+        logger.info(
+            f"[rank {self.rank}] Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+
     def test_step(self, batch: Any, batch_idx: int):
         (X, targets) = batch
         preds, loss = self._logits_and_loss(X, targets)
@@ -234,7 +244,8 @@ class DARTSModel(BaseModel):
     def test_epoch_end(self, outputs: List[Any]):
         acc = np.mean([output['acc'].item() for output in outputs])
         loss = np.mean([output['loss'].item() for output in outputs])
-        logger.info(f"[rank {self.rank}] Test epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        logger.info(
+            f"[rank {self.rank}] Test epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
 
     def configure_optimizers(self):
         """Choose what optimizers and learning-rate schedulers to use in your optimization.

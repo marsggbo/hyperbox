@@ -11,7 +11,7 @@ from .base_transforms import BaseTransforms
 class TorchTransforms(BaseTransforms):
     def __init__(
         self,
-        input_size: Union[list],
+        input_size: Union[list] = [32],
         random_resized_crop: Union[dict, DictConfig] = {'enable': 0, 'padding': 0},
         resize: Union[dict, DictConfig] = {'enable': 0},
         random_crop: Union[dict, DictConfig] = {'enable': 0},
