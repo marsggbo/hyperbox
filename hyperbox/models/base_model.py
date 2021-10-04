@@ -7,7 +7,7 @@ import numpy as np
 from omegaconf import DictConfig
 from pytorch_lightning import LightningModule
 from torchmetrics.classification.accuracy import Accuracy
-import json 
+
 from hyperbox.utils.logger import get_logger
 from hyperbox.utils.utils import TorchTensorEncoder
 from hyperbox.utils.calc_model_size import flops_size_counter
@@ -66,11 +66,11 @@ class BaseModel(LightningModule):
 
     def build_network(self, cfg):
         # build network
-        assert cfg is not None, 'Please specify the config for network'
-        if isinstance(cfg, (DictConfig, dict)):
-            cfg = DictConfig(cfg)
-            self.network = instantiate(cfg).cuda()
-            logger.info(f'Building {cfg._target_} ...')
+        assert cfg is not isinstance(cfg, (DictConfig, dict)),\
+            'Please specify the config for network'
+        cfg = DictConfig(cfg)
+        self.network = instantiate(cfg)
+        logger.info(f'Building {cfg._target_} ...')
 
     def build_mutator(self, cfg):
         # build mutator
