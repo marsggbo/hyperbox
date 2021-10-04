@@ -53,8 +53,8 @@ class RepNAS(BaseNASNetwork):
 
         p_channels = first_conv_channels
         features = []
-        for num_blocks, channels in zip(self.stage_blocks, self.stage_channels):
-            features.extend(self._make_blocks(num_blocks, p_channels, channels))
+        for idx, (num_blocks, channels) in enumerate(zip(self.stage_blocks, self.stage_channels)):
+            features.extend(self._make_blocks(idx, num_blocks, p_channels, channels))
             p_channels = channels
         self.features = nn.Sequential(*features)
 
@@ -71,7 +71,7 @@ class RepNAS(BaseNASNetwork):
 
         self._initialize_weights()
 
-    def _make_blocks(self, blocks, in_channels, channels):
+    def _make_blocks(self, idx, blocks, in_channels, channels):
         result = []
         for i in range(blocks):
             stride = 2 if i == 0 else 1
@@ -87,7 +87,7 @@ class RepNAS(BaseNASNetwork):
                 ],
                 return_mask=False,
                 mask = self.mask,
-                key="block{}_stride{}".format(i, stride),
+                key="idx{}_block{}_stride{}".format(idx, i, stride),
             )
             result.append(choice_block)
 
@@ -156,7 +156,7 @@ if __name__ == "__main__":
     DBB1x1
     DBB1x1kxk
     """
-    from hyperbox.mutator import RandomMutator
+    from hyperbox.mutator import RandomMutator, DartsMutator
 
     m = RepNAS()
     rm = RandomMutator(m)
