@@ -107,7 +107,7 @@ class RandomModel(BaseModel):
         logger.info(f'Val epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
 
     def test_step(self, batch: Any, batch_idx: int):
-        loss, preds, targets = self.sep(batch)
+        loss, preds, targets = self.step(batch)
 
         # log test metrics
         acc = self.test_metric(preds, targets)
