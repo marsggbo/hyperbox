@@ -88,7 +88,8 @@ class EAMutator(RandomMutator):
         variable so that `on_forward_operation_space` and `on_forward_input_space` can use the decision directly.
         """
         if not self.start_evolve:
-            self._cache = self.sample_search()
+            arch = self.sample_search()
+            self.reset_cache_mask(arch)
         else:
             assert self.num_population == len(self.population), \
                 f"{self.num_population}!={len(self.population)}"
@@ -314,7 +315,7 @@ class EAMutator(RandomMutator):
                 idx += 1; num_mutation -= 1
         while num_crossover > 0:
             index1 = np.random.randint(0, crt_num_population)
-            remain_spaces = list(range(index1)) + list(range(index1+1, num_pareto))
+            remain_spaces = list(range(index1)) + list(range(index1+1, crt_num_population))
             index2 = np.random.choice(remain_spaces)
             arch = self.crossover(
                 self.population[index1]['arch'],
@@ -413,32 +414,33 @@ class EAMutator(RandomMutator):
         self.population = ckpt['population']
         print('Load checkpoint from', file)
 
-    def search(self, search_epochs, eval_func, ckpt_file=None):
+    def search(self, search_epochs, eval_func, verbose=False):
         '''Start search using EA
         Args:
         - search_epochs: int. # max epochs of searching
         - eval_func: evaluation function of arch performance
-        - ckpt_file: str. path/to/ckpt.pth
         '''
-        if ckpt_file is not None:
-            ckpt = torch.load(ckpt_file)
-            weights = {}
-            for key in ckpt['state_dict']:
-                weights[key.replace('network.', '')] = ckpt['state_dict'][key]
-            self.model.load_state_dict(weights)
 
         self.start_evolve = True
         self.init_population(self.init_population_mode) # init 
         self.crt_epoch = 0
         while self.crt_epoch < search_epochs:
-            logger.info(f"search epoch={self.crt_epoch}")
+            print(f"Evolution epoch={self.crt_epoch}")
             if self.crt_epoch > 0:
                 self.evolve()
             for j, arch in enumerate(self.population.values()):
                 self.reset_cache_mask(arch['arch'])
-                arch['metric'] = eval_func(arch)
+                arch['metric'] = eval_func(arch, self.model)
+            self.crt_epoch += 1
+            if verbose:
+                metrics = [pool['metric'] for pool in self.population.values()]
+                metrics.sort()
+                print('population',metrics)
+                metrics = [pool['metric'] for pool in self.pareto_fronts.values()]
+                metrics.sort()
+                print('pareto_fronts',metrics)
         self.save_ckpt()
-        # self.save_history('pareto_fronts.json', self.history)
+        print(f'Evolution is finished. The result is saved in {self.ckpt_name}')
 
 
 if __name__ == '__main__':
