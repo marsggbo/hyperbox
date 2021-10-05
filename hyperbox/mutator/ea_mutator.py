@@ -1,6 +1,7 @@
 import json
 import os
 import random
+from copy import deepcopy
 
 import numpy as np
 import torch
@@ -75,8 +76,11 @@ class EAMutator(RandomMutator):
             #  {'arch':arch, 'metric':0.92, 'flops':100MFLOPS, 'size':100MB}, # subnetwork
             # {'arch':arch, 'metric':0.97, 'flops':200MFLOPS, 'size':300MB}  # supernet
         # }
-        self.population = {}   # population of Pareto-fronts for each search epoch
+        self.population = {}   # population of each search epoch
         self.history = {}      # todo: 记录所有arch的结果
+        self.pareto_fronts = {}
+
+        self.crt_epoch = 0  # current search epoch
 
     def reset(self):
         """
@@ -89,10 +93,13 @@ class EAMutator(RandomMutator):
             assert self.num_population == len(self.population), \
                 f"{self.num_population}!={len(self.population)}"
             idx = self.idx % self.num_population
-            self._cache = self.population[idx]['arch']
-            for mutable in self.mutables:
-                mutable.mask = self._cache[mutable.key]
+            self.reset_cache_mask(self.population[idx]['arch'])
             self.idx += 1
+
+    def reset_cache_mask(self, arch: dict):
+        self._cache = arch
+        for mutable in self.mutables:
+            mutable.mask = self._cache[mutable.key]
 
     def init_population(self, mode='random'):
         '''initialize population
@@ -123,7 +130,6 @@ class EAMutator(RandomMutator):
                 if self.add_new_arch(POOLS, idx, arch):
                     idx += 1
         self.population = POOLS
-        self.idx = -1
         return POOLS
 
     def fitness(self, population, fitness_name='metric'):
@@ -165,40 +171,41 @@ class EAMutator(RandomMutator):
         objs = np.vstack(objs)
         return objs
 
-    def selection(self, num_selection, by_probability=False):
+    def selection(self, population, num_selection, by_probability=False):
         '''Selection step:
         select `num_selection` individuals with probability of their fitness
         '''
-        fitness = self.fitness(self.population)
+        fitness = self.fitness(population)
+        num_population = len(population)
         if by_probability:
             try:
                 probs = fitness
                 nan_indices = np.isnan(probs)
                 probs[nan_indices] = probs[~nan_indices].mean()
-                indices = np.random.choice(np.arange(self.num_population), num_selection, replace=False, p=probs/sum(probs))
+                indices = np.random.choice(np.arange(num_population), num_selection, replace=False, p=probs/sum(probs))
             except Exception as e:
                 print(e)
-                indices = np.random.choice(np.arange(self.num_population), num_selection, replace=False)
+                indices = np.random.choice(np.arange(num_population), num_selection, replace=False)
         else:
             top_values, top_indices = torch.tensor(fitness).topk(num_selection)
-            indices = top_indices.tolist()
+            indices = top_indices.view(-1).tolist()
         return indices
 
     def crossover(self, arch1, arch2):
         '''Crossover step
         Generate a new arch by randomly crossover part of architectures of two parent individuals
         '''
-        cross_arch = arch1.copy()
+        cross_arch = deepcopy(arch1)
         for key in arch1:
             if self.random_state.rand() < self.prob_crossover:
-                cross_arch[key] = arch2[key]
+                cross_arch[key] = deepcopy(arch2[key])
         return cross_arch
 
     def mutation(self, arch):
         '''Mutation step
         Mutate a parent individual
         '''
-        new_arch = arch.copy()
+        new_arch = deepcopy(arch)
         for key in arch:
             length = len(arch[key])
             if length > 1 and self.random_state.rand() < self.prob_mutation:
@@ -224,7 +231,7 @@ class EAMutator(RandomMutator):
         arch_code = self.encode_arch(arch)
         if not self.is_arch_existed(self.history, arch):
             # if not existed in `self.history`, then calculate its flops and size
-            self._cache = arch
+            self.reset_cache_mask(arch)
             flops_size = flops_size_counter(self.model, input_size)
             flops, size = flops_size['flops'], flops_size['size']
             if idx not in pools:
@@ -236,11 +243,11 @@ class EAMutator(RandomMutator):
                 'size': size
             }
             self.history[arch_code] = individual
-            pools[idx] = individual
+            pools[idx] = deepcopy(individual)
             return True
         if not self.is_arch_existed(pools, arch):
             # existed in self.history not population
-            pools[idx] = self.history[arch_code]
+            pools[idx] = deepcopy(self.history[arch_code])
             return True
         return False
 
@@ -254,7 +261,7 @@ class EAMutator(RandomMutator):
                 if sum(torch.abs(arch[key].float()-new_arch[key].float())) != 0:
                     return False
             return True
-        if len(pools)<=1:
+        if len(pools)<1:
             return False
         for idx in pools:
             if idx == -1:
@@ -272,49 +279,42 @@ class EAMutator(RandomMutator):
         '''进化
         '''
         try:
-            targets = self.fitness(self.population)
+            self.update_pareto_fronts(key='metric', reverse=True)
+            targets = self.fitness(self.pareto_fronts)
             num_selection = int(round(self.ratio_selection * self.num_population))
             if self.algorithm == 'cars':
-                objectives = self.objectives(self.population, self.object_keys)
+                objectives = self.objectives(self.pareto_fronts, self.object_keys)
                 indices = CARS_NSGA(targets, objectives, num_selection)
             else:
-                indices = self.selection(num_selection)
+                indices = self.selection(self.pareto_fronts, num_selection)
         except Exception as e:
             print(e)
         pools = {}
         for i, idx in enumerate(indices):
-            pools[i] = self.population[idx]
+            pools[i] = deepcopy(self.pareto_fronts[idx])
         self.population = pools
-        self.num_crt_population = self.expand_population()
+        self.expand_population()
 
     def expand_population(self):
         '''扩充population
         '''
-        offsprings = self.gen_offsprings()
-        individuals = [offsprings[idx] for idx in offsprings]
-        individuals.extend([self.population[idx] for idx in range(len(self.population))])
-        self.population = {}
-        for idx, individual in enumerate(individuals):
-            self.population[idx] = individual
-        return len(self.population)
-
-    def gen_offsprings(self):
         calc_num = lambda ratio, total_num: int(round(total_num*ratio))
-        offsprings = {}
-        idx = 0
+        offsprings = self.population
+        crt_num_population = len(offsprings)
+        idx = len(self.population)
         num_mutation = calc_num(self.ratio_mutation, self.num_population)
         num_crossover = calc_num(self.ratio_crossover, self.num_population)
         num_random = calc_num(self.ratio_random, self.num_population)
         num_offspring = num_mutation + num_crossover + num_random
 
         while num_mutation > 0:
-            index = np.random.randint(0, len(self.population))
+            index = np.random.randint(0, crt_num_population)
             arch = self.mutation(self.population[index]['arch'])
             if self.add_new_arch(offsprings, idx, arch):
                 idx += 1; num_mutation -= 1
         while num_crossover > 0:
-            index1 = np.random.randint(0, len(self.population))
-            remain_spaces = list(range(index1)) + list(range(index1+1, len(self.population)))
+            index1 = np.random.randint(0, crt_num_population)
+            remain_spaces = list(range(index1)) + list(range(index1+1, num_pareto))
             index2 = np.random.choice(remain_spaces)
             arch = self.crossover(
                 self.population[index1]['arch'],
@@ -325,7 +325,21 @@ class EAMutator(RandomMutator):
             arch = self.sample_search()
             if self.add_new_arch(offsprings, idx, arch):
                 idx += 1; num_random -= 1
-        return offsprings
+
+    def update_pareto_fronts(self, key='metric', reverse=True):
+        candidates = list(deepcopy(self.pareto_fronts).values()) + list(deepcopy(self.population).values())
+        pareto_fronts = []
+        visited = []
+        for cand in candidates:
+            arch_code = cand['arch_code']
+            if arch_code not in visited:
+                visited.append(arch_code)
+                pareto_fronts.append(cand)
+        pareto_fronts = sorted(pareto_fronts, key=lambda x:x[key], reverse=reverse)
+        pareto_fronts = pareto_fronts[:self.num_population]
+        self.pareto_fronts = {}
+        for i in range(self.num_population):
+            self.pareto_fronts[i] = pareto_fronts[i]
 
     def update_individual(self, idx, metric):
         '''更新单个individual的性能
@@ -374,6 +388,31 @@ class EAMutator(RandomMutator):
         with open(file_path, 'w') as f:
             json.dump(history, f, indent=4, cls=TorchTensorEncoder)
 
+    def save_ckpt(self, path_ckpt='.', filename=None):
+        if not os.path.exists(path_ckpt):
+            os.makedirs(path_ckpt)
+        if filename is None:
+            filename = f"epoch{self.crt_epoch}.pth"
+        ckpt = {}
+        ckpt['epoch'] = self.crt_epoch
+        ckpt['history'] = self.history
+        ckpt['pareto_fronts'] = self.pareto_fronts
+        ckpt['population'] = self.population
+        self.ckpt_name = os.path.join(ckpt_path, filename)
+        torch.save(ckpt, self.ckpt_name)
+        print('Save checkpoint to', self.checkpoint_name)
+
+    def load_ckpt(self, file):
+        if not os.path.exists(file):
+            print(file, 'not existed')
+            return False
+        ckpt = torch.load(file)
+        self.crt_epoch = ckpt['epoch']
+        self.history = ckpt['history']
+        self.pareto_fronts = ckpt['pareto_fronts']
+        self.population = ckpt['population']
+        print('Load checkpoint from', file)
+
     def search(self, search_epochs, eval_func, ckpt_file=None):
         '''Start search using EA
         Args:
@@ -396,9 +435,10 @@ class EAMutator(RandomMutator):
             if self.crt_epoch > 0:
                 self.evolve()
             for j, arch in enumerate(self.population.values()):
-                ea.reset()
+                self.reset_cache_mask(arch['arch'])
                 arch['metric'] = eval_func(arch)
-        self.save_history('pareto_fronts.json', self.history)
+        self.save_ckpt()
+        # self.save_history('pareto_fronts.json', self.history)
 
 
 if __name__ == '__main__':
