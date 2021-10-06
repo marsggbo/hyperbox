@@ -453,19 +453,14 @@ class EAMutator(RandomMutator):
 def plot_pareto_fronts(
         obj1: np.array,
         obj2: np.array,
+        pareto_indices: np.array,
         name_obj1: str='obj1',
         name_obj2: str='obj2',
-        figsize=(8,5)
+        figsize=(8,5),
+        figname=None
     ):
-    '''Plot pareto front line
-    Args:
-    - obj1: np.array. (should be 1-dimension, e.g., loss=[0.95,0.65,0.86,...])
-    - obj2: np.array. (should be 1-dimension, e.g., size=[8.1,15,6.5,20,,...])
-        both obj1 and obj2 should be the smaller the better
-    '''
-    from hyperbox.mutator.utils import NonDominatedSorting
-    pareto_lists = NonDominatedSorting(np.vstack( (obj1.reshape(-1), obj2.reshape(-1)) ))
-    pareto_indices = pareto_lists[0] # e.g., [75,  87, 113, 201, 205]
+
+    import matplotlib.pyplot as plt
     obj1_pareto = [x for x in obj1[pareto_indices]]
     obj2_pareto = [x for x in obj2[pareto_indices]]
     fig = plt.figure(num=1, figsize=figsize)
@@ -475,7 +470,8 @@ def plot_pareto_fronts(
     ax1.set_xlabel(name_obj1)
     ax1.set_ylabel(name_obj2)
     plt.show()
-    fig.savefig('pareto.png')
+    if figname is not None:
+        fig.savefig(figname)
 
 if __name__ == '__main__':
     from hyperbox.networks.bnnas.bn_net import BNNet
