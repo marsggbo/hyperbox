@@ -399,9 +399,9 @@ class EAMutator(RandomMutator):
         ckpt['history'] = self.history
         ckpt['pareto_fronts'] = self.pareto_fronts
         ckpt['population'] = self.population
-        self.ckpt_name = os.path.join(ckpt_path, filename)
+        self.ckpt_name = os.path.join(path_ckpt, filename)
         torch.save(ckpt, self.ckpt_name)
-        print('Save checkpoint to', self.checkpoint_name)
+        print('Save checkpoint to', self.ckpt_name)
 
     def load_ckpt(self, file):
         if not os.path.exists(file):
@@ -414,11 +414,12 @@ class EAMutator(RandomMutator):
         self.population = ckpt['population']
         print('Load checkpoint from', file)
 
-    def search(self, search_epochs, eval_func, verbose=False):
+    def search(self, search_epochs, eval_func, verbose=False, filling_history=False):
         '''Start search using EA
         Args:
         - search_epochs: int. # max epochs of searching
         - eval_func: evaluation function of arch performance
+        - filling_history: bool. calc metrics for all individuals in `history`
         '''
 
         self.start_evolve = True
@@ -430,7 +431,8 @@ class EAMutator(RandomMutator):
                 self.evolve()
             for j, arch in enumerate(self.population.values()):
                 self.reset_cache_mask(arch['arch'])
-                arch['metric'] = eval_func(arch, self.model)
+                if arch.get('metric') is None:
+                    arch['metric'] = eval_func(arch, self.model)
             self.crt_epoch += 1
             if verbose:
                 metrics = [pool['metric'] for pool in self.population.values()]
@@ -439,9 +441,41 @@ class EAMutator(RandomMutator):
                 metrics = [pool['metric'] for pool in self.pareto_fronts.values()]
                 metrics.sort()
                 print('pareto_fronts',metrics)
+        
+        if filling_history:
+            for j, arch in enumerate(self.history.values()):
+                self.reset_cache_mask(arch['arch'])
+                if arch.get('metric') is None:
+                    arch['metric'] = eval_func(arch, self.model)
         self.save_ckpt()
-        print(f'Evolution is finished. The result is saved in {self.ckpt_name}')
+        print(f'Evolution is finished')
 
+def plot_pareto_fronts(
+        obj1: np.array,
+        obj2: np.array,
+        name_obj1: str='obj1',
+        name_obj2: str='obj2',
+        figsize=(8,5)
+    ):
+    '''Plot pareto front line
+    Args:
+    - obj1: np.array. (should be 1-dimension, e.g., loss=[0.95,0.65,0.86,...])
+    - obj2: np.array. (should be 1-dimension, e.g., size=[8.1,15,6.5,20,,...])
+        both obj1 and obj2 should be the smaller the better
+    '''
+    from hyperbox.mutator.utils import NonDominatedSorting
+    pareto_lists = NonDominatedSorting(np.vstack( (obj1.reshape(-1), obj2.reshape(-1)) ))
+    pareto_indices = pareto_lists[0] # e.g., [75,  87, 113, 201, 205]
+    obj1_pareto = [x for x in obj1[pareto_indices]]
+    obj2_pareto = [x for x in obj2[pareto_indices]]
+    fig = plt.figure(num=1, figsize=figsize)
+    ax1 = fig.add_subplot(111)
+    ax1.scatter(obj1, obj2)
+    ax1.plot(obj1_pareto, obj2_pareto)
+    ax1.set_xlabel(name_obj1)
+    ax1.set_ylabel(name_obj2)
+    plt.show()
+    fig.savefig('pareto.png')
 
 if __name__ == '__main__':
     from hyperbox.networks.bnnas.bn_net import BNNet
