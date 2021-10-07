@@ -2,7 +2,7 @@ import functools
 
 from peewee import fn
 from playhouse.shortcuts import model_to_dict
-from .model import Nb201TrialStats, Nb201TrialConfig
+from hyperbox.networks.nasbench201.db_gen.model import Nb201TrialStats, Nb201TrialConfig
 
 
 def query_nb201_trial_stats(arch, num_epochs, dataset, reduction=None, include_intermediates=False):

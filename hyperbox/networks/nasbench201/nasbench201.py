@@ -1,5 +1,4 @@
 import argparse
-from hyperbox.networks.nasbench201.db_gen import query
 import json
 import logging
 import os
@@ -12,9 +11,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-import hyperbox.mutables.spaces as spaces
+from hyperbox.mutables import spaces
 from hyperbox.networks.base_nas_network import BaseNASNetwork
-from .db_gen.constants import PRIMITIVES
+from hyperbox.networks.nasbench201.db_gen import PRIMITIVES, query
 
 
 class Pooling(nn.Module):
@@ -435,17 +434,18 @@ class NASBench201Network(BaseNASNetwork):
 
 if __name__ == "__main__":
     from hyperbox.mutator import RandomMutator
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    net = NASBench201Network(16, 5).cuda()
+    net = NASBench201Network(16, 5).to(device)
     rm = RandomMutator(net)
     rm.reset()
     # print(net)
-    a = torch.rand(2, 3, 64, 64).cuda()
+    a = torch.rand(2, 3, 64, 64).to(device)
     b = net(a)
     print(type(net.stem[0].weight), type(a))
     arch_json = net.arch 
 
     from hyperbox.networks.nasbench201.db_gen import query_nb201_trial_stats
 
-    for t in query_nb201_trial_stats(arch_json, 200, 'cifar100'):
+    for t in query_nb201_trial_stats(arch_json, 200, 'cifar10'):
         pprint.pprint(t)

@@ -1,11 +1,12 @@
 import os
+import functools
+import json
 
 from peewee import CharField, FloatField, ForeignKeyField, IntegerField, Model
 from playhouse.sqlite_ext import JSONField, SqliteExtDatabase
 
-from nni.nas.benchmarks.constants import DATABASE_DIR
-from nni.nas.benchmarks.utils import json_dumps
-
+json_dumps = functools.partial(json.dumps, sort_keys=True)
+DATABASE_DIR = os.environ.get("NASBENCHMARK_DIR", os.path.expanduser("~/.hyperbox/nasbenchmark"))
 db = SqliteExtDatabase(os.path.join(DATABASE_DIR, 'nasbench201.db'), autoconnect=True)
 
 
