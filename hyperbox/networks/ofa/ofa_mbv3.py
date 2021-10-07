@@ -84,9 +84,9 @@ class OFAMobileNetV3(BaseNASNetwork):
                     stride = _stride
                 else:
                     stride = 1
-                kernel_size = spaces.ValueSpace(self.kernel_size_list, key=f'ks_block{_block_index-n_blocks+i}', mask=mask)
+                kernel_size = spaces.ValueSpace(self.kernel_size_list, key=f'ks_block{_block_index-n_blocks+i}', mask=self.mask)
                 # kernel_size = 3
-                expand_ratio = spaces.ValueSpace(self.expand_ratio_list, key=f'er_block{_block_index-n_blocks+i}', mask=mask)
+                expand_ratio = spaces.ValueSpace(self.expand_ratio_list, key=f'er_block{_block_index-n_blocks+i}', mask=self.mask)
                 mobile_inverted_conv = layers.MBConvLayer(
                     feature_dim, output_channel, kernel_size, stride, 1, expand_ratio, act_func, use_se
                 )
@@ -114,7 +114,7 @@ class OFAMobileNetV3(BaseNASNetwork):
         self.runtime_depth = []
         for idx, block_group in enumerate(self.block_group_info):
             self.runtime_depth.append(
-                spaces.ValueSpace(list(range(1, len(block_group)+1)), key=f"depth{idx+1}", mask=mask)
+                spaces.ValueSpace(list(range(1, len(block_group)+1)), key=f"depth{idx+1}", mask=self.mask)
             )
         self.runtime_depth = nn.Sequential(*self.runtime_depth)
 
