@@ -54,6 +54,10 @@ class TorchTensorEncoder(json.JSONEncoder):
         return super().default(o)
 
 
+def save_arch_to_json(arch: dict, filepath):
+    with open(filepath, 'w') as f:
+        json.dump(arch, f, indent=4, sort_keys=True, cls=TorchTensorEncoder)
+
 def load_json(filename):
     if filename is None:
         data = None

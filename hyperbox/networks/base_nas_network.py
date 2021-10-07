@@ -14,6 +14,7 @@ class BaseNASNetwork(nn.Module):
         if mask is None or mask == '':
             self.is_search=True
         elif isinstance(mask, str):
+            self._mask_file = mask
             self._mask = load_json(mask)
             self.is_search = False
         elif isinstance(mask, dict):

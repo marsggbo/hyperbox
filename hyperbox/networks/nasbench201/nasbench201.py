@@ -351,8 +351,8 @@ class ResNetBasicBlock(nn.Module):
 class NASBench201Network(BaseNASNetwork):
     def __init__(
         self,
-        stem_out_channels,
-        num_modules_per_stack,
+        stem_out_channels: int=16,
+        num_modules_per_stack: int=5,
         bn_affine=True,
         bn_momentum=0.1,
         bn_track_running_stats=True,

@@ -16,17 +16,12 @@ class RandomMutator(Mutator):
         super().__init__(model)
 
     def sample_search(self):
-        print("sample search random")
         result = dict()
         for mutable in self.mutables:
             if isinstance(mutable, OperationSpace):
-                print("operation space")
-                print("============"*5)
-                print("length:", mutable.length)
                 gen_index = torch.randint(high=mutable.length, size=(1, ))
                 result[mutable.key] = F.one_hot(gen_index, num_classes=mutable.length).view(-1).bool()
                 mutable.mask = result[mutable.key].detach()
-                print("result", result)
             elif isinstance(mutable, InputSpace):
                 if mutable.n_chosen is None:
                     result[mutable.key] = torch.randint(high=2, size=(mutable.n_candidates,)).view(-1).bool()
