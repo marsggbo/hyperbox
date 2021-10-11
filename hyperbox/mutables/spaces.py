@@ -151,10 +151,11 @@ class CategoricalSpace(Mutable):
         super().__init__(key)
         self.is_search = True
         self.candidates = candidates
+        self.candidates_original = candidates
         self.length = len(candidates)
         self.dtype = type(candidates[0])
         self.index = index
-        
+
         if index is not None:
             if mask is not None and len(mask)!=0:
                 print('You only need to specify the valye of mask or index. Index is used by default.')
@@ -172,6 +173,13 @@ class CategoricalSpace(Mutable):
                 assert len(mask) == len(candidates), \
                     f"The length of the mask ({len(mask)}) should be equal to #candidates ({len(candidates)})"
                 self.mask = torch.tensor(mask)
+            if 'int' in str(self.mask.dtype).lower():
+                if self.mask.sum()==1:
+                    # converting one-hot mask to bool type
+                    self.mask = self.mask.bool()
+                else:
+                    # converting non-one-hot mask to float type
+                    self.mask = self.mask.float()
             self.convert_index_by_mask(self.mask)
         else:
             if isinstance(candidates[0], (int, float)):
@@ -191,19 +199,21 @@ class CategoricalSpace(Mutable):
     @property
     def value(self):
         if self.index is not None:
-            return self.candidates[self.index]
+            return self.candidates_original[self.index]
         else:
-            return [self.candidates[idx] for idx, is_selected in enumerate(self.mask) if is_selected]
+            value = [self.candidates_original[idx] for idx, is_selected in enumerate(self.mask) if is_selected]
+            if len(value) == 1: value=value[0]
+            return value
 
     @property
     def max_value(self):
         try:
-            value = max(self.candidates)
+            value = max(self.candidates_original)
             return value
         except Expection as e:
             print(str(e))
             print("The candidates cannot be compared to get max value, return the first item instead.")
-            return self.candidates[0]
+            return self.candidates_original[0]
 
     def forward(self):
         warnings.warn(f'You should not run forward of {self.__class__.__name__} directly.')
@@ -233,7 +243,7 @@ class CategoricalSpace(Mutable):
     def __deepcopy__(self, memo):
         if self.hparams['key'] is None:
             global_mutable_counting._counter -= 1
-        new_instance = self.__class__(self.candidates)
+        new_instance = self.__class__(self.candidates_original)
         new_instance._key = self.key
         new_instance.mask = self.mask
         return new_instance
@@ -275,11 +285,11 @@ class OperationSpace(CategoricalSpace):
         self.reduction = reduction
         self.return_mask = return_mask
         if self.is_search:
-            self.choices = nn.ModuleList(candidates)
+            self.candidates = nn.ModuleList(candidates)
         else:
-            self.choices = nn.ModuleList()
+            self.candidates = nn.ModuleList()
             for idx, is_selected in enumerate(self.mask):
-                if is_selected: self.choices.append(candidates[idx])
+                if is_selected: self.candidates.append(candidates[idx])
 
     def __call__(self, *args, **kwargs):
         return super(Mutable, self).__call__(*args, **kwargs)
@@ -294,28 +304,15 @@ class OperationSpace(CategoricalSpace):
 
             mask = self.mask
             if "BoolTensor" in self.mask.type():
-                mask = torch.tensor([True for i in range(len(self.choices))])
-            assert len(mask) == len(self.choices), \
-                "Invalid mask, expected {} to be of length {}.".format(mask, len(self.choices))
-            out = self._select_with_mask(_map_fn, [(choice, *inputs) for choice in self.choices], mask)
+                mask = torch.tensor([True for i in range(len(self.candidates))])
+            assert len(mask) == len(self.candidates), \
+                "Invalid mask, expected {} to be of length {}.".format(mask, len(self.candidates))
+            out = self._select_with_mask(_map_fn, [(choice, *inputs) for choice in self.candidates], mask)
             out = self._tensor_reduction(self.reduction, out)
         if self.return_mask:
             return out, self.mask
         else:
             return out
-
-    def __getitem__(self, index):
-        return self.choices[index]
-
-    def __setitem__(self, index, data):
-        self.choices[index] = data
-
-    def __len__(self):
-        return len(self.choices)
-
-    def __iter__(self):
-        for elem in self.choices:
-            yield elem
 
     def __repr__(self):
         if self.is_search:

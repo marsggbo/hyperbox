@@ -112,14 +112,14 @@ class BaseNASNetwork(nn.Module):
                 'module_used' in key or \
                 'mask' in key:
                 continue
-            if '.choices' in key:
+            if '.candidates' in key:
                 # OperationSpace
-                name = ''.join(key.split('.choices')[0])
+                name = ''.join(key.split('.candidates')[0])
                 module = self.get_module_by_name(name)
                 if isinstance(module, spaces.OperationSpace):
                     index = module.index
-                    prefix, suffix = key.split('.choices.')
-                    prefix += '.choices'
+                    prefix, suffix = key.split('.candidates.')
+                    prefix += '.candidates'
                     suffix = '.'.join(suffix.split('.')[1:])
                     fullname = f"{prefix}.{index}.{suffix}"
                     model_dict[key] = state_dict[fullname]

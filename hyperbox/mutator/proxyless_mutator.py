@@ -142,8 +142,8 @@ class MixedOp(nn.Module):
                     return binary_grads
                 return backward
             output = ArchGradientFunction.apply(
-                x, self.ap_path_wb, run_function(mutable.key, mutable.choices, self.active_index[0]),
-                backward_function(mutable.key, mutable.choices, self.active_index[0], self.ap_path_wb))
+                x, self.ap_path_wb, run_function(mutable.key, mutable.candidates, self.active_index[0]),
+                backward_function(mutable.key, mutable.candidates, self.active_index[0], self.ap_path_wb))
         else:
             output = self.active_op(mutable)(x)
         return output
@@ -186,7 +186,7 @@ class MixedOp(nn.Module):
         PyTorch module
             the chosen operation
         """
-        return mutable.choices[self.active_index[0]]
+        return mutable.candidates[self.active_index[0]]
 
     @property
     def active_op_index(self):
@@ -244,12 +244,12 @@ class MixedOp(nn.Module):
             sample = torch.multinomial(probs, 1)[0].item()
             self.active_index = [sample]
             self.inactive_index = [_i for _i in range(0, sample)] + \
-                                [_i for _i in range(sample + 1, len(mutable.choices))]
+                                [_i for _i in range(sample + 1, len(mutable.candidates))]
             self.log_prob = torch.log(probs[sample])
             self.current_prob_over_ops = probs
             self.ap_path_wb.data[sample] = 1.0
         # avoid over-regularization
-        for choice in mutable.choices:
+        for choice in mutable.candidates:
             for _, param in choice.named_parameters():
                 param.grad = None
 
@@ -452,8 +452,8 @@ class ProxylessMutator(Mutator):
                 involved_index = mixed_op.active_index
             for i in range(mixed_op.n_choices):
                 if i not in involved_index:
-                    unused[i] = mutable.choices[i]
-                    mutable.choices[i] = None
+                    unused[i] = mutable.candidates[i]
+                    mutable.candidates[i] = None
             self._unused_modules.append(unused)
 
     def unused_modules_back(self):
@@ -464,7 +464,7 @@ class ProxylessMutator(Mutator):
             return
         for m, unused in zip(self.mutable_list, self._unused_modules):
             for i in unused:
-                m.choices[i] = unused[i]
+                m.candidates[i] = unused[i]
         self._unused_modules = None
 
     def arch_requires_grad(self):

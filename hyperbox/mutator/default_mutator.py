@@ -131,9 +131,9 @@ class Mutator(BaseMutator):
             return op(*inputs)
 
         mask = self._get_decision(mutable) # 从mutable中获取建议，比如随机采样
-        assert len(mask) == len(mutable.choices), \
-            "Invalid mask, expected {} to be of length {}.".format(mask, len(mutable.choices))
-        out = self._select_with_mask(_map_fn, [(choice, *inputs) for choice in mutable.choices], mask)
+        assert len(mask) == len(mutable.candidates), \
+            "Invalid mask, expected {} to be of length {}.".format(mask, len(mutable.candidates))
+        out = self._select_with_mask(_map_fn, [(choice, *inputs) for choice in mutable.candidates], mask)
         return self._tensor_reduction(mutable.reduction, out), mask
 
     def on_forward_input_space(self, mutable, tensor_list):
