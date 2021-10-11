@@ -20,7 +20,7 @@ from .logger import get_logger
 
 __all__ = [
     '_module_available', 'TorchTensorEncoder', 'load_json', 'extras', 'print_config',
-    'empty', 'log_hyperparameters', 'finish', 'hparams_wrapper'
+    'empty', 'log_hyperparameters', 'finish', 'hparams_wrapper', 'save_arch_to_json'
 ]
 
 
@@ -53,10 +53,9 @@ class TorchTensorEncoder(json.JSONEncoder):
             return olist
         return super().default(o)
 
-
-def save_arch_to_json(arch: dict, filepath):
+def save_arch_to_json(mask: dict, filepath: str):
     with open(filepath, 'w') as f:
-        json.dump(arch, f, indent=4, sort_keys=True, cls=TorchTensorEncoder)
+        json.dump(mask, f, indent=4, sort_keys=True, cls=TorchTensorEncoder)
 
 def load_json(filename):
     if filename is None:
@@ -65,7 +64,7 @@ def load_json(filename):
         with open(filename, 'r') as f:
             data = json.load(f)
         for key, value in data.items():
-            data[key] = torch.tensor(value).int()
+            data[key] = torch.tensor(value)
     elif isinstance(filename, dict):
         data = filename
     else:
