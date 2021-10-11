@@ -172,7 +172,7 @@ class CategoricalSpace(Mutable):
                 assert len(mask) == len(candidates), \
                     f"The length of the mask ({len(mask)}) should be equal to #candidates ({len(candidates)})"
                 self.mask = torch.tensor(mask)
-            self.index = self.mask.int().argmax()
+            self.convert_index_by_mask(self.mask)
         else:
             if isinstance(candidates[0], (int, float)):
                 # random a mask based on biggest value
@@ -183,13 +183,17 @@ class CategoricalSpace(Mutable):
             self.mask[index] = 1
         self.device = 'cpu'
 
+    def convert_index_by_mask(self, mask):
+        '''Only convert index for one-hot mask'''
+        if "BoolTensor" in mask.type() and mask.int().sum()==1:
+            self.index = mask.int().argmax()
+
     @property
     def value(self):
         if self.index is not None:
-            index = self.index
+            return self.candidates[self.index]
         else:
-            index = self.mask.float().argmax()
-        return self.candidates[index]
+            return [self.candidates[idx] for idx, is_selected in enumerate(self.mask) if is_selected]
 
     @property
     def max_value(self):
@@ -273,19 +277,30 @@ class OperationSpace(CategoricalSpace):
         if self.is_search:
             self.choices = nn.ModuleList(candidates)
         else:
-            self.choices = nn.ModuleList([candidates[self.index]])
+            self.choices = nn.ModuleList()
+            for idx, is_selected in enumerate(self.mask):
+                if is_selected: self.choices.append(candidates[idx])
 
     def __call__(self, *args, **kwargs):
         return super(Mutable, self).__call__(*args, **kwargs)
 
-    def forward(self, *inputs):
+    def forward(self, *inputs, reduction='sum'):
         if self.is_search and hasattr(self, "mutator") and self.mutator._cache:
             out, mask = self.mutator.on_forward_operation_space(self, *inputs)
+            self.mask = mask
         else:
-            out = self.choices[0](*inputs)
-            mask = torch.tensor([True])
+            def _map_fn(op, *inputs):
+                return op(*inputs)
+
+            mask = self.mask
+            if "BoolTensor" in self.mask.type():
+                mask = torch.tensor([True for i in range(len(self.choices))])
+            assert len(mask) == len(self.choices), \
+                "Invalid mask, expected {} to be of length {}.".format(mask, len(self.choices))
+            out = self._select_with_mask(_map_fn, [(choice, *inputs) for choice in self.choices], mask)
+            out = self._tensor_reduction(self.reduction, out)
         if self.return_mask:
-            return out, mask
+            return out, self.mask
         else:
             return out
 
@@ -470,3 +485,30 @@ class ValueSpace(CategoricalSpace):
         if isinstance(indices, list):
             indices = torch.tensor(indices)
         self._sortIdx = indices
+
+if __name__ == '__main__':
+    # mask = {'test': torch.tensor([0.5,0.3,0.2,0.1])}
+    mask = {
+        'test1': torch.tensor([True, False, True, False]),
+        'test2': torch.tensor([0.5,0.3,0.2,0.1])
+    }
+    op1 = OperationSpace([
+            nn.Linear(10,1),
+            nn.Linear(10,1),
+            nn.Linear(10,1),
+            nn.Linear(10,1)
+        ], key='test1', mask=mask
+    )
+    op2 = OperationSpace([
+            nn.Linear(10,1),
+            nn.Linear(10,1),
+            nn.Linear(10,1),
+            nn.Linear(10,1)
+        ], key='test2', mask=mask
+    )
+    print(op1,op2)
+    x = torch.rand(2,10)
+    y = op1(x)
+    print(y)
+    y = op2(x)
+    print(y)
