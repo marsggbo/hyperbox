@@ -73,8 +73,10 @@ class ClassifyModel(BaseModel):
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
     def training_epoch_end(self, outputs: List[Any]):
-        acc = np.mean([output['acc'].item() for output in outputs])
-        loss = np.mean([output['loss'].item() for output in outputs])
+        acc_epoch = self.trainer.callback_metrics['train/acc_epoch'].item()
+        loss_epoch = self.trainer.callback_metrics['train/loss_epoch'].item()
+        logger.info(f'Train epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
+
 
     def validation_step(self, batch: Any, batch_idx: int):
         loss, preds, targets = self.step(batch)
@@ -87,10 +89,10 @@ class ClassifyModel(BaseModel):
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
     def validation_epoch_end(self, outputs: List[Any]):
-        acc = np.mean([output['acc'].item() for output in outputs])
-        loss = np.mean([output['loss'].item() for output in outputs])
-        logger.info(f"[rank {self.rank}] Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
-   
+        acc_epoch = self.trainer.callback_metrics['val/acc_epoch'].item()
+        loss_epoch = self.trainer.callback_metrics['val/loss_epoch'].item()
+        logger.info(f'Val epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
+
     def test_step(self, batch: Any, batch_idx: int):
         loss, preds, targets = self.step(batch)
 
@@ -102,15 +104,15 @@ class ClassifyModel(BaseModel):
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def test_epoch_end(self, outputs: List[Any]):
-        acc = np.mean([output['acc'].item() for output in outputs])
-        loss = np.mean([output['loss'].item() for output in outputs])
-        logger.info(f"Test epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        acc = self.trainer.callback_metrics['test/acc'].item()
+        loss = self.trainer.callback_metrics['test/loss'].item()
+        logger.info(f'Test epoch{self.trainer.current_epoch} acc={acc:.4f} loss={loss:.4f}')
 
     def on_fit_start(self):
-        mflops, size = self.arch_size((1,3,32,32), convert=True)
+        mflops, size = self.arch_size((2,3,64,64), convert=True)
         logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
 
     def on_fit_end(self):
-        mflops, size = self.arch_size((1,3,32,32), convert=True)
+        mflops, size = self.arch_size((2,3,64,64), convert=True)
         logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
         

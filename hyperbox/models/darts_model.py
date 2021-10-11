@@ -65,7 +65,7 @@ class DARTSModel(BaseModel):
         # self.trainer.accelerator.barrier()
         # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} Updating archs")
         # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} mutator:{self.mutator._cache['normal_n2_p0']}")
-        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} mutator:{self.mutator.choices['normal_n2_p0']}")
+        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} mutator:{self.mutator.candidates['normal_n2_p0']}")
 
         # phase 2: child network step
         self.network.train()
@@ -81,7 +81,7 @@ class DARTSModel(BaseModel):
         # self.trainer.accelerator.barrier()
         # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} Updating weights")
         # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} mutator:{self.mutator._cache['normal_n2_p0']}")
-        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} mutator:{self.mutator.choices['normal_n2_p0']}")
+        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} mutator:{self.mutator.candidates['normal_n2_p0']}")
         # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} bias={self.network.linear.weight[0][:10]}")
 
         # log train metrics
@@ -193,13 +193,13 @@ class DARTSModel(BaseModel):
         return hessian
 
     def training_epoch_end(self, outputs: List[Any]):
-        acc = np.mean([output['acc'].item() for output in outputs])
-        loss = np.mean([output['loss'].item() for output in outputs])
+        acc_epoch = self.trainer.callback_metrics['train/acc_epoch'].item()
+        loss_epoch = self.trainer.callback_metrics['train/loss_epoch'].item()
+        logger.info(f'Train epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
+
         mflops, size = self.arch_size((1, 3, 32, 32), convert=True)
         logger.info(
             f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
-        logger.info(
-            f"[rank {self.rank}] Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
         logger.info("self.mutator._cache: ", len(self.mutator._cache), self.mutator._cache)
 
         if self.current_epoch % 10 == 0:
@@ -220,13 +220,9 @@ class DARTSModel(BaseModel):
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
     def validation_epoch_end(self, outputs: List[Any]):
-        acc = np.mean([output['acc'].item() for output in outputs])
-        loss = np.mean([output['loss'].item() for output in outputs])
-        mflops, size = self.arch_size((1, 3, 32, 32), convert=True)
-        logger.info(
-            f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
-        logger.info(
-            f"[rank {self.rank}] Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        acc_epoch = self.trainer.callback_metrics['val/acc_epoch'].item()
+        loss_epoch = self.trainer.callback_metrics['val/loss_epoch'].item()
+        logger.info(f'Val epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
 
     def test_step(self, batch: Any, batch_idx: int):
         (X, targets) = batch
@@ -242,10 +238,9 @@ class DARTSModel(BaseModel):
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
     def test_epoch_end(self, outputs: List[Any]):
-        acc = np.mean([output['acc'].item() for output in outputs])
-        loss = np.mean([output['loss'].item() for output in outputs])
-        logger.info(
-            f"[rank {self.rank}] Test epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        acc = self.trainer.callback_metrics['test/acc'].item()
+        loss = self.trainer.callback_metrics['test/loss'].item()
+        logger.info(f'Test epoch{self.trainer.current_epoch} acc={acc:.4f} loss={loss:.4f}')
 
     def configure_optimizers(self):
         """Choose what optimizers and learning-rate schedulers to use in your optimization.
