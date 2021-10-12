@@ -81,9 +81,7 @@ class Mutator(BaseMutator):
         -------
         None
         """
-        # print("reset", "+=="*100)
         if not hasattr(self, 'sample_func'):
-            # print("default mutator: _cache","+++"*100)
             self._cache = self.sample_search()
         else:
             self._cache = self.sample_func(self, *args, **kwargs)

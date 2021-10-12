@@ -425,7 +425,9 @@ class InputSpace(CategoricalSpace):
                 "Length of the input list must be equal to number of candidates."
             out, mask = self.mutator.on_forward_input_space(self, optional_input_list)
         else:
-            mask = self.mask.bool()
+            mask = self.mask
+            if "BoolTensor" in self.mask.type():
+                mask = torch.tensor([True for i in range(len(self.candidates))])
             assert len(mask) == self.n_candidates, \
                 "Invalid mask, expected {} to be of length {}.".format(mask, self.n_candidates)
             out = self._select_with_mask(lambda x: x, [(t,) for t in optional_inputs], mask)
