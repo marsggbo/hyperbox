@@ -93,6 +93,11 @@ class NASBench201Model(BaseModel):
         # remember to always return loss from training_step, or else backpropagation will fail!
         return {"loss": loss, "preds": preds, "targets": targets}
 
+    def training_epoch_end(self, outputs: List[Any]):
+        acc_epoch = self.trainer.callback_metrics['train/acc_epoch'].item()
+        loss_epoch = self.trainer.callback_metrics['train/loss_epoch'].item()
+        logger.info(f'Train epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
+
     def validation_step(self, batch: Any, batch_idx: int):
         loss, preds, targets = self.step(batch)
 
@@ -102,6 +107,11 @@ class NASBench201Model(BaseModel):
         self.log("val/acc", acc, on_step=True, on_epoch=True, prog_bar=False)
 
         return {"loss": loss, "preds": preds, "targets": targets}
+
+    def validation_epoch_end(self, outputs: List[Any]):
+        acc_epoch = self.trainer.callback_metrics['val/acc_epoch'].item()
+        loss_epoch = self.trainer.callback_metrics['val/loss_epoch'].item()
+        logger.info(f'Val epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
 
     def test_step(self, batch: Any, batch_idx: int):
         loss, preds, targets = self.step(batch)
@@ -114,4 +124,7 @@ class NASBench201Model(BaseModel):
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def test_epoch_end(self, outputs: List[Any]):
-        pass
+        acc = self.trainer.callback_metrics['test/acc'].item()
+        loss = self.trainer.callback_metrics['test/loss'].item()
+        logger.info(f'Test epoch{self.trainer.current_epoch} acc={acc:.4f} loss={loss:.4f}')
+

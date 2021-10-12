@@ -7,8 +7,8 @@ import re
 import tqdm
 import torch
 
-from .constants import NONE, SKIP_CONNECT, CONV_1X1, CONV_3X3, AVG_POOL_3X3
-from .model import db, Nb201TrialConfig, Nb201TrialStats, Nb201IntermediateStats
+from hyperbox.networks.nasbench201.db_gen.constants import NONE, SKIP_CONNECT, CONV_1X1, CONV_3X3, AVG_POOL_3X3
+from hyperbox.networks.nasbench201.db_gen.model import db, Nb201TrialConfig, Nb201TrialStats, Nb201IntermediateStats
 
 
 def parse_arch_str(arch_str):

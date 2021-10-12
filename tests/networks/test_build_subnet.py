@@ -123,6 +123,6 @@ if __name__ == '__main__':
         seed_everything(i+999)
         # test_case(Net)
         test_case(OFAMobileNetV3, num_classes=NUM_CLASSES)
-        test_case(DartsNetwork, 3, 16, NUM_CLASSES, 1) # 'cells.0.mutable_ops.0.ops.0.choices.0.bn.running_mean'
-        test_case(ENASMacroGeneralModel, num_classes=NUM_CLASSES) # layers.0.mutable.choices.0.conv.weight
-        # test_case(ENASMicroNetwork, num_classes=NUM_CLASSES) # 'layers.0.nodes.0.cell_x.op_choice.choices.1.conv.depthwise.weight'
+        test_case(DartsNetwork, 3, 16, NUM_CLASSES, 1) # 'cells.0.mutable_ops.0.ops.0.candidates.0.bn.running_mean'
+        test_case(ENASMacroGeneralModel, num_classes=NUM_CLASSES) # layers.0.mutable.candidates.0.conv.weight
+        # test_case(ENASMicroNetwork, num_classes=NUM_CLASSES) # 'layers.0.nodes.0.cell_x.op_choice.candidates.1.conv.depthwise.weight'

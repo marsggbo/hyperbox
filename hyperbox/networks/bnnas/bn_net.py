@@ -27,7 +27,7 @@ class BNNet(BaseNASNetwork):
         is_only_train_bn: bool=True,
         mask: dict=None
     ):
-        super(BNNet, self).__init__()
+        super(BNNet, self).__init__(mask)
         self.num_layers = len(channels_list)
         channels = int(first_channels * width_mult)
         self.first_conv = nn.Sequential(
@@ -51,7 +51,7 @@ class BNNet(BaseNASNetwork):
                     stride = 1
                 op = OperationSpace(
                     [block(c_in, c_out, stride) for block in blocks_dict.values()],
-                    mask=mask, key=key
+                    mask=self.mask, key=key
                 )
                 c_in = c_out
                 ops.add_module(key, op)
@@ -67,7 +67,7 @@ class BNNet(BaseNASNetwork):
         for idx, block_group in enumerate(self.block_group_info):
             self.runtime_depth.append(
                 ValueSpace(
-                    list(range(1, len(block_group)+1)), key=f"depth{idx+1}", mask=mask)
+                    list(range(1, len(block_group)+1)), key=f"depth{idx+1}", mask=self.mask)
             )
         self.runtime_depth = nn.Sequential(*self.runtime_depth)
 

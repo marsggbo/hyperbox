@@ -227,13 +227,9 @@ class OFAModel(BaseModel):
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
     def training_epoch_end(self, outputs: List[Any]):
-        # acc = np.mean([output['acc'].item() for output in outputs])
-        # loss = np.mean([output['loss'].item() for output in outputs])
-        # self.log("train/loss", loss, on_step=False, on_epoch=True, sync_dist=False, prog_bar=False)
-        # self.log("train/acc", acc, on_step=False, on_epoch=True, sync_dist=False, prog_bar=False)
-        # # mflops, size = self.arch_size((1,3,32,32), convert=True)
-        # # logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
-        # logger.info(f"[rank {self.rank}] Train epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+        acc_epoch = self.trainer.callback_metrics['train/acc_epoch'].item()
+        loss_epoch = self.trainer.callback_metrics['train/loss_epoch'].item()
+        logger.info(f'Train epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
 
         # evaluation
         if self.current_epoch < self.supernet_epoch:
@@ -324,17 +320,10 @@ class OFAModel(BaseModel):
         #     logger.info(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
-    # def validation_epoch_end(self, outputs: List[Any]):
-    #     if self.current_epoch > self.supernet_epoch:
-    #         return
-        # acc = np.mean([output['acc'].item() for output in outputs])
-        # loss = np.mean([output['loss'].item() for output in outputs])
-        # mflops, size = self.arch_size((1,3,32,32), convert=True)
-        # sync_dist = not self.is_net_parallel # sync the metrics if all processes train the same sub network
-        # self.log(f"val/loss", loss, on_step=False, on_epoch=True, sync_dist=sync_dist, prog_bar=True)
-        # self.log(f"val/acc", acc, on_step=False, on_epoch=True, sync_dist=sync_dist, prog_bar=True)
-        # logger.info(f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
-        # logger.info(f"[rank {self.rank}] Val epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+    def validation_epoch_end(self, outputs: List[Any]):
+        acc_epoch = self.trainer.callback_metrics['val/acc_epoch'].item()
+        loss_epoch = self.trainer.callback_metrics['val/loss_epoch'].item()
+        logger.info(f'Val epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
 
     def test_step(self, batch: Any, batch_idx: int):
         if isinstance(batch, list) and len(batch)==1:
@@ -349,16 +338,14 @@ class OFAModel(BaseModel):
         # preds = torch.argmax(output, dim=1)
         preds = torch.softmax(output, -1)
         acc = self.val_metric(preds, targets)
-        self.log(f"val/acc", acc, on_step=True, on_epoch=True, prog_bar=False)
+        self.log("test/acc", acc, on_step=True, on_epoch=True)
+        self.log("test/loss", loss, on_step=False, on_epoch=True)
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
-    # def test_epoch_end(self, outputs: List[Any]):
-    #     acc = np.mean([output['acc'].item() for output in outputs])
-    #     loss = np.mean([output['loss'].item() for output in outputs])
-    #     if self.trainer.world_size > 1:
-    #         acc = torch.tensor(self.all_gather(acc)).mean()
-    #         loss = torch.tensor(self.all_gather(loss)).mean()
-    #     logger.info(f"Test epoch{self.current_epoch} final result: loss={loss}, acc={acc}")
+    def test_epoch_end(self, outputs: List[Any]):
+        acc = self.trainer.callback_metrics['test/acc'].item()
+        loss = self.trainer.callback_metrics['test/loss'].item()
+        logger.info(f'Test epoch{self.trainer.current_epoch} acc={acc:.4f} loss={loss:.4f}')
 
     def configure_callbacks(self):
         ofa_callback = OFACallback()

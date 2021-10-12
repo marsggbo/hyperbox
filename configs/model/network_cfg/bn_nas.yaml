@@ -8,3 +8,4 @@ strides_list: [2,2,2,1,2,1]
 num_classes: 10
 search_depth: False
 is_only_train_bn: False
+mask: null

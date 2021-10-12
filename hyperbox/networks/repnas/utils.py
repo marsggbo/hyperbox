@@ -65,4 +65,5 @@ def replace(net):
                 for para in op.parameters():
                     para.detach_()
 
-            setattr(module, name, reparam)
+            module.candidates = torch.nn.ModuleList([reparam])
+            module.mask = torch.tensor([True])

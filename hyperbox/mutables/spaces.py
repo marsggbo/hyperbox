@@ -151,10 +151,11 @@ class CategoricalSpace(Mutable):
         super().__init__(key)
         self.is_search = True
         self.candidates = candidates
+        self.candidates_original = candidates
         self.length = len(candidates)
         self.dtype = type(candidates[0])
         self.index = index
-        
+
         if index is not None:
             if mask is not None and len(mask)!=0:
                 print('You only need to specify the valye of mask or index. Index is used by default.')
@@ -172,7 +173,14 @@ class CategoricalSpace(Mutable):
                 assert len(mask) == len(candidates), \
                     f"The length of the mask ({len(mask)}) should be equal to #candidates ({len(candidates)})"
                 self.mask = torch.tensor(mask)
-            self.index = self.mask.int().argmax()
+            if 'int' in str(self.mask.dtype).lower():
+                if self.mask.sum()==1:
+                    # converting one-hot mask to bool type
+                    self.mask = self.mask.bool()
+                else:
+                    # converting non-one-hot mask to float type
+                    self.mask = self.mask.float()
+            self.convert_index_by_mask(self.mask)
         else:
             if isinstance(candidates[0], (int, float)):
                 # random a mask based on biggest value
@@ -183,23 +191,29 @@ class CategoricalSpace(Mutable):
             self.mask[index] = 1
         self.device = 'cpu'
 
+    def convert_index_by_mask(self, mask):
+        '''Only convert index for one-hot mask'''
+        if "BoolTensor" in mask.type() and mask.int().sum()==1:
+            self.index = mask.int().argmax()
+
     @property
     def value(self):
         if self.index is not None:
-            index = self.index
+            return self.candidates_original[self.index]
         else:
-            index = self.mask.float().argmax()
-        return self.candidates[index]
+            value = [self.candidates_original[idx] for idx, is_selected in enumerate(self.mask) if is_selected]
+            if len(value) == 1: value=value[0]
+            return value
 
     @property
     def max_value(self):
         try:
-            value = max(self.candidates)
+            value = max(self.candidates_original)
             return value
         except Expection as e:
             print(str(e))
             print("The candidates cannot be compared to get max value, return the first item instead.")
-            return self.candidates[0]
+            return self.candidates_original[0]
 
     def forward(self):
         warnings.warn(f'You should not run forward of {self.__class__.__name__} directly.')
@@ -229,7 +243,7 @@ class CategoricalSpace(Mutable):
     def __deepcopy__(self, memo):
         if self.hparams['key'] is None:
             global_mutable_counting._counter -= 1
-        new_instance = self.__class__(self.candidates)
+        new_instance = self.__class__(self.candidates_original)
         new_instance._key = self.key
         new_instance.mask = self.mask
         return new_instance
@@ -271,36 +285,34 @@ class OperationSpace(CategoricalSpace):
         self.reduction = reduction
         self.return_mask = return_mask
         if self.is_search:
-            self.choices = nn.ModuleList(candidates)
+            self.candidates = nn.ModuleList(candidates)
         else:
-            self.choices = nn.ModuleList([candidates[self.index]])
+            self.candidates = nn.ModuleList()
+            for idx, is_selected in enumerate(self.mask):
+                if is_selected: self.candidates.append(candidates[idx])
 
     def __call__(self, *args, **kwargs):
         return super(Mutable, self).__call__(*args, **kwargs)
 
-    def forward(self, *inputs):
+    def forward(self, *inputs, reduction='sum'):
         if self.is_search and hasattr(self, "mutator") and self.mutator._cache:
             out, mask = self.mutator.on_forward_operation_space(self, *inputs)
+            self.mask = mask
         else:
-            out = self.choices[0](*inputs)
-            mask = torch.tensor([True])
+            def _map_fn(op, *inputs):
+                return op(*inputs)
+
+            mask = self.mask
+            if "BoolTensor" in self.mask.type():
+                mask = torch.tensor([True for i in range(len(self.candidates))])
+            assert len(mask) == len(self.candidates), \
+                "Invalid mask, expected {} to be of length {}.".format(mask, len(self.candidates))
+            out = self._select_with_mask(_map_fn, [(choice, *inputs) for choice in self.candidates], mask)
+            out = self._tensor_reduction(self.reduction, out)
         if self.return_mask:
-            return out, mask
+            return out, self.mask
         else:
             return out
-
-    def __getitem__(self, index):
-        return self.choices[index]
-
-    def __setitem__(self, index, data):
-        self.choices[index] = data
-
-    def __len__(self):
-        return len(self.choices)
-
-    def __iter__(self):
-        for elem in self.choices:
-            yield elem
 
     def __repr__(self):
         if self.is_search:
@@ -413,7 +425,9 @@ class InputSpace(CategoricalSpace):
                 "Length of the input list must be equal to number of candidates."
             out, mask = self.mutator.on_forward_input_space(self, optional_input_list)
         else:
-            mask = self.mask.bool()
+            mask = self.mask
+            if "BoolTensor" in self.mask.type():
+                mask = torch.tensor([True for i in range(len(self.candidates))])
             assert len(mask) == self.n_candidates, \
                 "Invalid mask, expected {} to be of length {}.".format(mask, self.n_candidates)
             out = self._select_with_mask(lambda x: x, [(t,) for t in optional_inputs], mask)
@@ -470,3 +484,30 @@ class ValueSpace(CategoricalSpace):
         if isinstance(indices, list):
             indices = torch.tensor(indices)
         self._sortIdx = indices
+
+if __name__ == '__main__':
+    # mask = {'test': torch.tensor([0.5,0.3,0.2,0.1])}
+    mask = {
+        'test1': torch.tensor([True, False, True, False]),
+        'test2': torch.tensor([0.5,0.3,0.2,0.1])
+    }
+    op1 = OperationSpace([
+            nn.Linear(10,1),
+            nn.Linear(10,1),
+            nn.Linear(10,1),
+            nn.Linear(10,1)
+        ], key='test1', mask=mask
+    )
+    op2 = OperationSpace([
+            nn.Linear(10,1),
+            nn.Linear(10,1),
+            nn.Linear(10,1),
+            nn.Linear(10,1)
+        ], key='test2', mask=mask
+    )
+    print(op1,op2)
+    x = torch.rand(2,10)
+    y = op1(x)
+    print(y)
+    y = op2(x)
+    print(y)
