@@ -209,7 +209,9 @@ class ZeroLayer(nn.Module):
         # noinspection PyUnresolvedReferences
         padding = torch.zeros(n, c, h, w, device=device, requires_grad=False)
         return padding'''
-        return x * 0
+        if self.stride == 1:
+            return x.mul(0.)
+        return x[:,:,::self.stride,::self.stride].mul(0.)
 
     @staticmethod
     def is_zero_layer():

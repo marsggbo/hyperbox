@@ -117,7 +117,13 @@ class BaseNASNetwork(nn.Module):
                 name = ''.join(key.split('.candidates')[0])
                 module = self.get_module_by_name(name)
                 if isinstance(module, spaces.OperationSpace):
+                    cand_indices = {}
+                    for idx, cand in enumerate(module.candidates_original):
+                        cand_indices[cand.__class__.__name__] = idx
                     index = module.index
+                    if index is None:
+                        cand_index = int(key.split('.candidates.')[1].split('.')[0])
+                        index = cand_indices[module.candidates[cand_index].__class__.__name__]
                     prefix, suffix = key.split('.candidates.')
                     prefix += '.candidates'
                     suffix = '.'.join(suffix.split('.')[1:])

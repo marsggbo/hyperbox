@@ -180,8 +180,9 @@ class DBB1x1kxk(nn.Module):
                                                            kernel_size=1, stride=1, padding=0, groups=groups, bias=False))
         self.dbb_1x1_kxk.add_module('bn1', BNAndPadLayer(
             pad_pixels=padding, num_features=internal_channels_1x1_3x3, affine=True))
+        padding = self.padding - 1
         self.dbb_1x1_kxk.add_module('conv2', nn.Conv2d(in_channels=internal_channels_1x1_3x3, out_channels=out_channels,
-                                                       kernel_size=kernel_size, stride=stride, padding=0, groups=groups, bias=False))
+                                                       kernel_size=kernel_size, stride=stride, padding=padding, groups=groups, bias=False))
         self.dbb_1x1_kxk.add_module('bn2', nn.BatchNorm2d(out_channels))
 
     def forward(self, input):  # input: [5, 16, 32, 32]

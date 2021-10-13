@@ -6,12 +6,13 @@ import torch.nn as nn
 from hyperbox.networks.repnas.rep_ops import *
 
 
-def fuse(candidates, kernel_size=3):
+def fuse(candidates, weights, kernel_size=3):
     k_list = []
     b_list = []
 
     for i in range(len(candidates)):
         op = candidates[i]
+        weight = weights[i].float()
         if op.__class__.__name__ == "DBB1x1kxk":
             if hasattr(op.dbb_1x1_kxk, 'idconv1'):
                 k1 = op.dbb_1x1_kxk.idconv1.get_actual_kernel()
@@ -38,8 +39,8 @@ def fuse(candidates, kernel_size=3):
                 k, b = k2, b2
         else:
             raise "TypeError: Not In DBBAVG DBB1x1kxk DBB1x1 DBBORIGIN."
-        k_list.append(k)
-        b_list.append(b)
+        k_list.append(k.detach() * weight)
+        b_list.append(b.detach() * weight)
 
     return transII_addbranch(k_list, b_list)
 
@@ -47,23 +48,25 @@ def fuse(candidates, kernel_size=3):
 def replace(net):
     for name, module in net.named_modules():
         if isinstance(module, OperationSpace):
-            k, b = fuse(module.candidates)
-            first = module.candidates[0]
+            candidates = []
+            weights = []
+            for idx, weight in enumerate(module.mask):
+                if weight:
+                    candidates.append(module.candidates_original[idx])
+                    weights.append(weight)
+            ks = max([c_.kernel_size for c_ in candidates])
+            k, b = fuse(candidates, weights, ks)
+            first = module.candidates_original[0]
             inc = first.in_channels
             ouc = first.out_channels
-            ks = first.kernel_size
             s = first.stride
-            p = first.padding
+            p = ks//2
             g = first.groups
             reparam = nn.Conv2d(in_channels=inc, out_channels=ouc, kernel_size=ks,
                                 stride=s, padding=p, dilation=1, groups=g)
             reparam.weight.data = k
             reparam.bias.data = b
 
-            for i in range(len(module.candidates)):
-                op = module.candidates[i]
-                for para in op.parameters():
-                    para.detach_()
-
+            module.candidates_original = [reparam]
             module.candidates = torch.nn.ModuleList([reparam])
             module.mask = torch.tensor([True])

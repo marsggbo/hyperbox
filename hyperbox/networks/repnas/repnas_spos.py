@@ -14,17 +14,17 @@ from hyperbox.utils.utils import load_json
 
 
 class RepBlock(nn.Module):
-    def __init__(self, idx, i_block, inp, outp, stride, mask):
+    def __init__(self, idx, i_block, inp, outp, stride, mask, ks=3):
         super(RepBlock, self).__init__()
         self.stride = stride
         self.use_skip_connect = stride==1 and inp==outp
 
         self.block = OperationSpace(
             [
-                DBBORIGIN(inp, outp, kernel_size=3, stride=stride),
-                DBBAVG(inp, outp, kernel_size=3, stride=stride),
+                DBBORIGIN(inp, outp, kernel_size=ks, stride=stride),
+                DBBAVG(inp, outp, kernel_size=ks, stride=stride),
                 DBB1x1(inp, outp, stride=stride),
-                DBB1x1kxk(inp, outp, kernel_size=3, stride=stride),
+                DBB1x1kxk(inp, outp, kernel_size=ks, stride=stride),
             ],
             return_mask=False,
             mask=mask,
@@ -92,14 +92,14 @@ class RepNAS(BaseNASNetwork):
 
         self._initialize_weights()
 
-    def _make_blocks(self, idx, blocks, in_channels, channels, stride):
+    def _make_blocks(self, idx, blocks, in_channels, channels, stride, kernel_size=5):
         result = []
         for i_block in range(blocks):
             stride = stride if i_block == 0 else 1
             inp = in_channels if i_block == 0 else channels
             outp = channels
 
-            result.append(RepBlock(idx, i_block, inp, outp, stride, self.mask))
+            result.append(RepBlock(idx, i_block, inp, outp, stride, self.mask, kernel_size))
 
         return result
 
@@ -148,19 +148,39 @@ if __name__ == "__main__":
     DBB1x1
     DBB1x1kxk
     """
+    from copy import deepcopy
     import numpy as np
     from hyperbox.mutator import RandomMutator, DartsMutator
 
-    net = RepNAS()
-    net.eval()
-    rm = DartsMutator(net)
-    rm.reset()
-    net = RepNAS(mask=rm._cache)
+    for i in range(10):
+        supernet = RepNAS()
+        rm = DartsMutator(supernet)
+        rm.reset()
+        if i < 5:
+            # Bool mask
+            mask_type = 'bool'
+            mask = {}
+            threshold = 0.25
+            for key, value in rm._cache.items():
+                mask[key] = value.detach()>threshold
+        elif i < 10:
+            # float mask
+            mask_type = 'float'
+            mask = rm._cache
+        if i % 2 == 0:
+            net_type = 'RepNAS(mask=mask)'
+            net = RepNAS(mask=mask)
+        else:
+            net_type = 'supernet.build_subnet(mask=mask)'
+            net = supernet.build_subnet(mask=mask)
+        net.eval()
+        print(f"{i} {mask_type} {net_type}")
 
-    x = torch.zeros(2, 3, 32, 32)
-    y1 = net(x)
-    replace(net)
-    net.eval()
-    y2 = net(x)
-    print(y1,y2)
-    print(np.allclose(y1.detach().numpy(), y2.detach().numpy(), atol=1e-5))
+        x = torch.zeros(8, 3, 32, 32)
+        y1 = net(x).abs().sum()
+        replace(net)
+        net.eval()
+        y2 = net(x).abs().sum()
+        print(f"{y1.abs().sum():.8f} \n{y2.abs().sum():.8f}")
+        # print(y1.softmax(-1),'\n',y2.softmax(-1))
+        print(np.allclose(y1.detach().numpy(), y2.detach().numpy(), atol=1e-5))
