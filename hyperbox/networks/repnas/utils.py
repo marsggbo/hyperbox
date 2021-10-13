@@ -50,12 +50,12 @@ def replace(net):
             candidates = []
             for idx, is_selected in enumerate(module.mask):
                 if is_selected:
-                    candidates.append(module.candidates[idx])
+                    candidates.append(module.candidates_original[idx])
             k, b = fuse(candidates)
-            first = module.candidates[0]
+            first = module.candidates_original[0]
             inc = first.in_channels
             ouc = first.out_channels
-            ks = first.kernel_size
+            ks = max([c_.kernel_size for c_ in candidates])
             s = first.stride
             p = first.padding
             g = first.groups

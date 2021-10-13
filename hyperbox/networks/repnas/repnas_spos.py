@@ -148,15 +148,17 @@ if __name__ == "__main__":
     DBB1x1
     DBB1x1kxk
     """
+    from copy import deepcopy
     import numpy as np
     from hyperbox.mutator import RandomMutator, DartsMutator
 
     net = RepNAS()
     rm = DartsMutator(net)
     rm.reset()
-    mask = rm._cache
-    for key, value in mask.items():
-        mask[key] = value>-1
+    mask = {}
+    threshold = 0.25
+    for key, value in rm._cache.items():
+        mask[key] = value.detach()>threshold
     net = RepNAS(mask=mask)
     net.eval()
 
