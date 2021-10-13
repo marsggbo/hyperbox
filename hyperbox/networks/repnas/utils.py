@@ -60,7 +60,7 @@ def replace(net):
             inc = first.in_channels
             ouc = first.out_channels
             s = first.stride
-            p = first.padding
+            p = ks//2
             g = first.groups
             reparam = nn.Conv2d(in_channels=inc, out_channels=ouc, kernel_size=ks,
                                 stride=s, padding=p, dilation=1, groups=g)

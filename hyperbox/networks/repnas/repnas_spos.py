@@ -156,7 +156,7 @@ if __name__ == "__main__":
         supernet = RepNAS()
         rm = DartsMutator(supernet)
         rm.reset()
-        if i < 0:
+        if i < 5:
             # Bool mask
             mask_type = 'bool'
             mask = {}
