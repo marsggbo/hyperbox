@@ -23,7 +23,10 @@ trainer:
   gpus: 1
   
 datamodule:
-  is_customized: False
+  is_customized: True
+  batch_size: 64
+# True during training 
+# False when reference
 
 # model:
 #   mutator_cfg:
