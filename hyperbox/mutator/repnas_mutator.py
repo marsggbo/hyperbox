@@ -83,8 +83,9 @@ class RepnasMutator(Mutator):
                 threshold = 0.1
                 # key is key value is mask 
                 for key, value in self._cache.items():
-                    result[key] = 0 if value.detach() < threshold else value.detach()
-                    
+                    zero_tensor = torch.zeros_like(value)
+                    result[key] = torch.where(value < threshold, zero_tensor, value)
+
                 mutable.mask = torch.zeros_like(result[mutable.key])
                 mutable.mask.data = result[mutable.key].data
 
