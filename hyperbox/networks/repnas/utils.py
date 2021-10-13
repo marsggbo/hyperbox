@@ -6,12 +6,13 @@ import torch.nn as nn
 from hyperbox.networks.repnas.rep_ops import *
 
 
-def fuse(candidates, kernel_size=3):
+def fuse(candidates, weights, kernel_size=3):
     k_list = []
     b_list = []
 
     for i in range(len(candidates)):
         op = candidates[i]
+        weight = weights[i].float()
         if op.__class__.__name__ == "DBB1x1kxk":
             if hasattr(op.dbb_1x1_kxk, 'idconv1'):
                 k1 = op.dbb_1x1_kxk.idconv1.get_actual_kernel()
@@ -38,8 +39,8 @@ def fuse(candidates, kernel_size=3):
                 k, b = k2, b2
         else:
             raise "TypeError: Not In DBBAVG DBB1x1kxk DBB1x1 DBBORIGIN."
-        k_list.append(k.detach())
-        b_list.append(b.detach())
+        k_list.append(k.detach() * weight)
+        b_list.append(b.detach() * weight)
 
     return transII_addbranch(k_list, b_list)
 
@@ -48,14 +49,16 @@ def replace(net):
     for name, module in net.named_modules():
         if isinstance(module, OperationSpace):
             candidates = []
-            for idx, is_selected in enumerate(module.mask):
-                if is_selected:
+            weights = []
+            for idx, weight in enumerate(module.mask):
+                if weight:
                     candidates.append(module.candidates_original[idx])
-            k, b = fuse(candidates)
+                    weights.append(weight)
+            ks = max([c_.kernel_size for c_ in candidates])
+            k, b = fuse(candidates, weights, ks)
             first = module.candidates_original[0]
             inc = first.in_channels
             ouc = first.out_channels
-            ks = max([c_.kernel_size for c_ in candidates])
             s = first.stride
             p = first.padding
             g = first.groups
