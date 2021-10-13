@@ -152,10 +152,13 @@ if __name__ == "__main__":
     from hyperbox.mutator import RandomMutator, DartsMutator
 
     net = RepNAS()
-    net.eval()
     rm = DartsMutator(net)
     rm.reset()
-    net = RepNAS(mask=rm._cache)
+    mask = rm._cache
+    for key, value in mask.items():
+        mask[key] = value>-1
+    net = RepNAS(mask=mask)
+    net.eval()
 
     x = torch.zeros(2, 3, 32, 32)
     y1 = net(x)
