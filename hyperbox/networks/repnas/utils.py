@@ -38,8 +38,8 @@ def fuse(candidates, kernel_size=3):
                 k, b = k2, b2
         else:
             raise "TypeError: Not In DBBAVG DBB1x1kxk DBB1x1 DBBORIGIN."
-        k_list.append(k)
-        b_list.append(b)
+        k_list.append(k.detach())
+        b_list.append(b.detach())
 
     return transII_addbranch(k_list, b_list)
 
@@ -47,7 +47,11 @@ def fuse(candidates, kernel_size=3):
 def replace(net):
     for name, module in net.named_modules():
         if isinstance(module, OperationSpace):
-            k, b = fuse(module.candidates)
+            candidates = []
+            for idx, is_selected in enumerate(module.mask):
+                if is_selected:
+                    candidates.append(module.candidates[idx])
+            k, b = fuse(candidates)
             first = module.candidates[0]
             inc = first.in_channels
             ouc = first.out_channels
@@ -60,10 +64,6 @@ def replace(net):
             reparam.weight.data = k
             reparam.bias.data = b
 
-            for i in range(len(module.candidates)):
-                op = module.candidates[i]
-                for para in op.parameters():
-                    para.detach_()
-
+            module.candidates_original = [reparam]
             module.candidates = torch.nn.ModuleList([reparam])
             module.mask = torch.tensor([True])
