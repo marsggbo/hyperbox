@@ -177,10 +177,10 @@ if __name__ == "__main__":
         print(f"{i} {mask_type} {net_type}")
 
         x = torch.zeros(8, 3, 32, 32)
-        y1 = net(x).abs().sum()
+        y1 = net(x)
         replace(net)
         net.eval()
-        y2 = net(x).abs().sum()
+        y2 = net(x)
         print(f"{y1.abs().sum():.8f} \n{y2.abs().sum():.8f}")
         # print(y1.softmax(-1),'\n',y2.softmax(-1))
         print(np.allclose(y1.detach().numpy(), y2.detach().numpy(), atol=1e-5))
