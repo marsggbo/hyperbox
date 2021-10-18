@@ -8,3 +8,5 @@ from .random_mutator import RandomMutator
 from .sequential_mutator import SequentialMutator
 from .proxyless_mutator import ProxylessMutator
 from .fixed_mutator import apply_fixed_architecture, FixedArchitecture
+from .random_multiple_mutator import RandomMultipleMutator
+from .darts_multiple_mutator import DartsMultipleMutator
