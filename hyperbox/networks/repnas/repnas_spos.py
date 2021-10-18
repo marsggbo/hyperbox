@@ -21,10 +21,16 @@ class RepBlock(nn.Module):
 
         self.block = OperationSpace(
             [
-                DBBORIGIN(inp, outp, kernel_size=ks, stride=stride),
-                DBBAVG(inp, outp, kernel_size=ks, stride=stride),
+                DBBORIGIN(inp, outp, kernel_size=3, stride=stride),
+                DBBAVG(inp, outp, kernel_size=3, stride=stride),
                 DBB1x1(inp, outp, stride=stride),
-                DBB1x1kxk(inp, outp, kernel_size=ks, stride=stride),
+                DBB1x1kxk(inp, outp, kernel_size=3, stride=stride),
+                DBBORIGIN(inp, outp, kernel_size=5, stride=stride),
+                DBBAVG(inp, outp, kernel_size=5, stride=stride),
+                DBB1x1kxk(inp, outp, kernel_size=5, stride=stride),
+                DBBORIGIN(inp, outp, kernel_size=7, stride=stride),
+                DBBAVG(inp, outp, kernel_size=7, stride=stride),
+                DBB1x1kxk(inp, outp, kernel_size=7, stride=stride),
             ],
             return_mask=False,
             mask=mask,
@@ -104,7 +110,7 @@ class RepNAS(BaseNASNetwork):
         return result
 
     def forward(self, x):
-        bs = x.size(0)
+        bs = x.shape[0]
         x = self.first_conv(x)
         x = self.features(x)
         x = self.conv_last(x)
