@@ -4,11 +4,13 @@
 # python run.py experiment=example_simple.yaml
 
 defaults:
-  - override /trainer: debug.yaml # choose trainer from 'configs/trainer/'
-  - override /model: nasbench_model.yaml
+  - override /trainer: default.yaml # choose trainer from 'configs/trainer/'
+  - override /model: darts_model.yaml
   - override /datamodule: cifar10_datamodule.yaml
   - override /callbacks: default.yaml
-  - override /logger: tensorboard.yaml
+  - override /logger: wandb.yaml
+  - override /model/scheduler_cfg: CosineAnnealingLR.yaml
+
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
@@ -17,5 +19,20 @@ seed: 12345
 
 trainer:
   min_epochs: 1
-  max_epochs: 20
+  max_epochs: 200
   gpus: 1
+
+datamodule:
+  is_customized: True
+  # is_customized: False
+
+model:
+  mutator_cfg:
+    _target_: hyperbox.mutator.DartsMultipleMutator
+    # _target_: hyperbox.mutator.RandomMultipleMutator
+  optimizer_cfg:
+    lr: 0.001
+
+logger:
+  wandb:
+    offline: True
