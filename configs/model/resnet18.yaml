@@ -4,6 +4,7 @@ defaults:
     - metric_cfg: accuracy
     - loss_cfg: cross_entropy
     - optimizer_cfg: sgd
+    - scheduler_cfg: null
 
 network_cfg:
     _target_: torchvision.models.resnet18

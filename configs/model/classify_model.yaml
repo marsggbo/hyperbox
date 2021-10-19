@@ -5,6 +5,7 @@ defaults:
     - loss_cfg: cross_entropy
     - optimizer_cfg: sgd
     - network_cfg: darts_network
+    - scheduler_cfg: null
 
 optimizer_cfg:
     lr: 0.025

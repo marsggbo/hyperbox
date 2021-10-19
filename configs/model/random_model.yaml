@@ -6,3 +6,4 @@ defaults:
     - optimizer_cfg: adam
     - metric_cfg: accuracy
     - loss_cfg: cross_entropy
+    - scheduler_cfg: null
