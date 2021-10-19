@@ -10,3 +10,5 @@ from .proxyless_mutator import ProxylessMutator
 from .fixed_mutator import apply_fixed_architecture, FixedArchitecture
 from .random_multiple_mutator import RandomMultipleMutator
 from .darts_multiple_mutator import DartsMultipleMutator
+from .repnas_mutator import RepnasMutator
+
