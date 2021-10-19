@@ -209,11 +209,11 @@ class DARTSModel(BaseModel):
         # if batch_idx % 10 == 0:
         # if True:
         # logger.info(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
-        return {"loss": loss, "preds": preds, "targets": targets, 'acc_epoch': acc}
+        return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
     def validation_epoch_end(self, outputs: List[Any]):
-        acc_epoch = self.trainer.callback_metrics['val/acc'].item()
-        loss_epoch = self.trainer.callback_metrics['val/loss'].item()
+        acc_epoch = self.trainer.callback_metrics['val/acc_epoch'].item()
+        loss_epoch = self.trainer.callback_metrics['val/loss_epoch'].item()
         logger.info(f'Val epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
 
         mflops, size = self.arch_size((2, 3, 32, 32), convert=True)
@@ -224,7 +224,7 @@ class DARTSModel(BaseModel):
             logger.info(f"{key}: {value.detach()}")
 
         if self.current_epoch % 10 == 0:
-            self.export("/home/xihe/xinhe/hyperbox/mask_json/mask_epoch_%d.json" % self.current_epoch,
+            self.export("mask_epoch_%d.json" % self.current_epoch,
             True, {'val_acc': acc_epoch, 'val_loss': loss_epoch})
 
     def test_step(self, batch: Any, batch_idx: int):
