@@ -1,5 +1,6 @@
 from typing import Any, List, Optional, Union, Tuple
 
+import os
 import json
 import random
 import hydra
@@ -64,6 +65,7 @@ class BaseModel(LightningModule):
         self.build_loss(self.hparams.loss_cfg)
         self.build_metric(self.hparams.metric_cfg)
         self.reset_seed_flag = 2
+        self.history = {} # save architectures performance
 
     def build_network(self, cfg):
         # build network
@@ -160,15 +162,31 @@ class BaseModel(LightningModule):
         mflops, mb_size = list(result.values())
         return mflops, mb_size   
 
-    def export(self, file: str):
+    def export(self, file: str, save_history: bool=False, metric: dict=None):
         """Call ``mutator.export()`` and dump the architecture to ``file``.
         Args:
             file : str
                 A file path. Expected to be a JSON.
+            save_history: bool
+                save history performance of the current arch
         """
         mutator_export = self.mutator.export()
+        filename = os.path.basename(file)
+        cwd = os.getcwd()
+        filepath = os.path.join(cwd, 'mask_json')
+        if not os.path.exists(filepath):
+            os.makedirs(filepath)
+        file = os.path.join(filepath, filename)
         with open(file, "w") as f:
             json.dump(mutator_export, f, indent=4, sort_keys=True, cls=TorchTensorEncoder)
+        if save_history:
+            history_file = os.path.join(cwd, 'history.json')
+            self.history[filename] = {
+                'filepath': file,
+                'metric': metric if metric is not None else {}
+            }
+            with open(history_file, 'w') as f:
+                json.dump(self.history, f)
 
     def reset_seed(self, seed=None):
         random.seed(seed)
