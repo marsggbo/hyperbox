@@ -23,15 +23,17 @@ trainer:
   gpus: 1
 
 datamodule:
-  is_customized: True
-  # is_customized: False
+  # is_customized: True
+  is_customized: False
 
 model:
+  _target_: hyperbox_app.multiple_path_nas.model.MultiplePathModel
   mutator_cfg:
-    _target_: hyperbox.mutator.DartsMultipleMutator
-    # _target_: hyperbox.mutator.RandomMultipleMutator
+    _target_: hyperbox_app.multiple_path_nas.mutator.RandomMultipleMutator
   optimizer_cfg:
     lr: 0.001
+  network_cfg:
+    _target_: hyperbox_app.multiple_path_nas.net.resnet18
 
 logger:
   wandb:

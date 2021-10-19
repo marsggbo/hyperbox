@@ -203,7 +203,7 @@ class DARTSModel(BaseModel):
         logger.info("self.mutator._cache: ", len(self.mutator._cache), self.mutator._cache)
 
         if self.current_epoch % 10 == 0:
-            self.export("/home/pdluser/mask_json/mask_epoch_%d.json" % self.current_epoch)
+            self.export("/home/xihe/xinhe/hyperbox/mask_json/mask_epoch_%d.json" % self.current_epoch)
 
     def validation_step(self, batch: Any, batch_idx: int):
         (X, targets) = batch
@@ -212,8 +212,8 @@ class DARTSModel(BaseModel):
 
         # log val metrics
         acc = self.val_metric(preds, targets)
-        self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
-        self.log("val/acc", acc, on_step=False, on_epoch=True, prog_bar=False)
+        self.log("val/loss", loss, on_step=True, on_epoch=True, prog_bar=False)
+        self.log("val/acc", acc, on_step=True, on_epoch=True, prog_bar=False)
         # if batch_idx % 10 == 0:
         # if True:
         # logger.info(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")

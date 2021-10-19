@@ -24,6 +24,8 @@ __all__ = [
     'SEModule',
     'ShuffleLayer',
     'ResidualBlock',
+    'topk_gumbel_softmax',
+    'TopKGumbelSoftmax'
 ]
 
 
@@ -396,3 +398,45 @@ class ResidualBlock(nn.Module):
             res = self.conv(x) + self.shortcut(x)
         return res
 
+
+class TopKGumbelSoftmax(nn.Module):
+    def __init__(
+        self,
+        tau: float=1,
+        hard: bool=False,
+        topk: int=3,
+        eps: float=1e-10,
+        dim: int=-1
+    ):
+        super(TopKGumbelSoftmax, self).__init__()
+        self.tau = tau
+        self.hard = hard
+        self.topk = topk
+        self.eps = eps
+        self.dim = dim
+
+    def forward(self, x):
+        return topk_gumbel_softmax(x, self.tau, self.hard, self.topk, self.eps, self.dim)
+
+def topk_gumbel_softmax(logits: torch.Tensor, tau: float = 1, hard: bool = False,
+        topk: int = None, eps: float = 1e-10, dim: int = -1):
+    gumbels = (
+        -torch.empty_like(
+            logits, memory_format=torch.legacy_contiguous_format
+        ).exponential_().log()
+    )
+    gumbels = (logits + gumbels) / tau
+    y_soft = gumbels.softmax(dim)
+    if topk is None:
+        low = 1
+        high = logits.shape[-1]
+        topk = torch.randint(low, high, (1,))[0]
+    if hard:
+        # Straight through.
+        indices = y_soft.topk(topk)[1]
+        y_hard = torch.zeros_like(logits, memory_format=torch.legacy_contiguous_format).scatter_(dim, indices, 1.0)
+        ret = y_hard - y_soft.detach() + y_soft
+    else:
+        # Reparametrization trick.
+        ret = y_soft
+    return ret

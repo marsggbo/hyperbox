@@ -21,10 +21,16 @@ class RepBlock(nn.Module):
 
         self.block = OperationSpace(
             [
-                DBBORIGIN(inp, outp, kernel_size=ks, stride=stride),
-                DBBAVG(inp, outp, kernel_size=ks, stride=stride),
+                DBBORIGIN(inp, outp, kernel_size=3, stride=stride),
+                DBBAVG(inp, outp, kernel_size=3, stride=stride),
                 DBB1x1(inp, outp, stride=stride),
-                DBB1x1kxk(inp, outp, kernel_size=ks, stride=stride),
+                DBB1x1kxk(inp, outp, kernel_size=3, stride=stride),
+                DBBORIGIN(inp, outp, kernel_size=5, stride=stride),
+                DBBAVG(inp, outp, kernel_size=5, stride=stride),
+                DBB1x1kxk(inp, outp, kernel_size=5, stride=stride),
+                DBBORIGIN(inp, outp, kernel_size=7, stride=stride),
+                DBBAVG(inp, outp, kernel_size=7, stride=stride),
+                DBB1x1kxk(inp, outp, kernel_size=7, stride=stride),
             ],
             return_mask=False,
             mask=mask,
@@ -104,7 +110,7 @@ class RepNAS(BaseNASNetwork):
         return result
 
     def forward(self, x):
-        bs = x.size(0)
+        bs = x.shape[0]
         x = self.first_conv(x)
         x = self.features(x)
         x = self.conv_last(x)
@@ -177,10 +183,10 @@ if __name__ == "__main__":
         print(f"{i} {mask_type} {net_type}")
 
         x = torch.zeros(8, 3, 32, 32)
-        y1 = net(x).abs().sum()
+        y1 = net(x)
         replace(net)
         net.eval()
-        y2 = net(x).abs().sum()
+        y2 = net(x)
         print(f"{y1.abs().sum():.8f} \n{y2.abs().sum():.8f}")
         # print(y1.softmax(-1),'\n',y2.softmax(-1))
         print(np.allclose(y1.detach().numpy(), y2.detach().numpy(), atol=1e-5))

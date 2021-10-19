@@ -83,8 +83,8 @@ class ClassifyModel(BaseModel):
 
         # log val metrics
         acc = self.val_metric(preds, targets)
-        self.log("val/loss", loss, on_step=False, on_epoch=True, sync_dist=True, prog_bar=False)
-        self.log("val/acc", acc, on_step=False, on_epoch=True, sync_dist=True, prog_bar=False)
+        self.log("val/loss", loss, on_step=True, on_epoch=True, prog_bar=False)
+        self.log("val/acc", acc, on_step=True, on_epoch=True, prog_bar=False)
 
         return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
