@@ -217,11 +217,11 @@ class DARTSModel(BaseModel):
         # if batch_idx % 10 == 0:
         # if True:
         # logger.info(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
-        return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
+        return {"loss": loss, "preds": preds, "targets": targets, 'acc_epoch': acc}
 
     def validation_epoch_end(self, outputs: List[Any]):
-        acc_epoch = self.trainer.callback_metrics['val/acc_epoch'].item()
-        loss_epoch = self.trainer.callback_metrics['val/loss_epoch'].item()
+        acc_epoch = self.trainer.callback_metrics['val/acc'].item()
+        loss_epoch = self.trainer.callback_metrics['val/loss'].item()
         logger.info(f'Val epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
 
     def test_step(self, batch: Any, batch_idx: int):

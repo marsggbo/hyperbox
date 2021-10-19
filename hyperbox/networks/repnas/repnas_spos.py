@@ -190,3 +190,4 @@ if __name__ == "__main__":
         print(f"{y1.abs().sum():.8f} \n{y2.abs().sum():.8f}")
         # print(y1.softmax(-1),'\n',y2.softmax(-1))
         print(np.allclose(y1.detach().numpy(), y2.detach().numpy(), atol=1e-5))
+        

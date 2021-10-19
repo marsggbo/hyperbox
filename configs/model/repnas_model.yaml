@@ -4,12 +4,12 @@ _target_: hyperbox.models.darts_model.DARTSModel
 
 defaults:
     - network_cfg: repnas_network.yaml
-    - mutator_cfg: darts_mutator
+    - mutator_cfg: repnas_mutator.yaml
     - optimizer_cfg: sgd
     - metric_cfg: accuracy
     - scheduler_cfg: warmup_scheduler
     - loss_cfg: cross_entropy
 
-network_cfg:
-    # mask: '/home/pdluser/mask_json/mask_epoch_60.json'
-    mask: null
+# network_cfg:
+#     mask: '/home/pdluser/mask_json/mask_epoch_60.json'
+

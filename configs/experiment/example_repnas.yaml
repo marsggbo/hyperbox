@@ -27,6 +27,7 @@ datamodule:
   is_customized: True    # for darts mutator
   # is_customized: False # for other mutators
 
+
 model:
   mutator_cfg:
     _target_: hyperbox.mutator.DartsMultipleMutator
