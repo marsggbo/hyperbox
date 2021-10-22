@@ -10,6 +10,7 @@ defaults:
   - override /datamodule: cifar10_datamodule.yaml
   - override /callbacks: default.yaml
   - override /logger: wandb.yaml
+  - override /model/scheduler_cfg: CosineAnnealingLR.yaml
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters

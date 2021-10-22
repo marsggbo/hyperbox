@@ -16,7 +16,8 @@ if __name__ == '__main__':
     # ckpt = '/home/xihe/xinhe/hyperbox/logs/runs/bnnas_c10_bn_depth_adam0.001_sync_hete/2021-10-02_23-05-51/checkpoints/epoch=390_val/acc=27.8100.ckpt'
     # ckpt = '/home/xihe/xinhe/hyperbox/logs/runs/bnnas_c10_all_depth_adam0.001_sync_hete/2021-10-02_23-05-43/checkpoints/epoch=339_val/acc=43.1300.ckpt'
     # ckpt = '/home/xihe/xinhe/hyperbox/logs/runs/bnnas_c10_bn_adam0.001_sync_hete/2021-10-06_06-29-41/checkpoints/epoch=392_val/acc=28.8200.ckpt'
-    ckpt = '/home/xihe/xinhe/hyperbox/logs/runs/bnnas_c10_all_adam0.001_sync_hete/2021-10-06_06-31-00/checkpoints/epoch=302_val/acc=44.0300.ckpt'
+    # ckpt = '/home/xihe/xinhe/hyperbox/logs/runs/bnnas_c10_all_adam0.001_sync_hete/2021-10-06_06-31-00/checkpoints/epoch=302_val/acc=44.0300.ckpt'
+    ckpt = '/datasets/xinhe/xinhe/hyperbox/logs/runs/bnnas_c10_all_bn/2021-10-22_04-03-29/checkpoints/epoch=14_val/acc=25.1800.ckpt'
     ckpt = torch.load(ckpt, map_location='cpu')
     weights = {}
     for key in ckpt['state_dict']:
@@ -26,8 +27,8 @@ if __name__ == '__main__':
     net = net.to(device)
 
     # method 1
-    mode = 'all'
-    search_algorithm = 'cars'
+    mode = 'all_bn'
+    search_algorithm = 'top'
     ea = EAMutator(net, num_population=50, algorithm=search_algorithm)
     # ea.load_ckpt('epoch2.pth')
     eval_func = lambda arch, net: net.bn_metrics().item()

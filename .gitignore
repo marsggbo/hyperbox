@@ -148,3 +148,4 @@ wandb/
 
 outputs
 logs
+hyperbox_app/*
