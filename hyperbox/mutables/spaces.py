@@ -415,7 +415,7 @@ class InputSpace(CategoricalSpace):
         -------
         tuple of torch.Tensor and torch.Tensor or torch.Tensor
         """
-        if self.is_search:
+        if self.is_search and hasattr(self, "mutator") and self.mutator._cache:
             optional_input_list = optional_inputs
             if isinstance(optional_inputs, dict):
                 optional_input_list = [optional_inputs[tag] for tag in self.choose_from]
