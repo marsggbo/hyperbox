@@ -163,7 +163,7 @@ class BaseModel(LightningModule):
         mflops, mb_size = list(result.values())
         return mflops, mb_size   
 
-    def export(self, file: str, save_history: bool=False, metric: dict=None):
+    def export(self, file: str, save_history: bool=False, metric: dict=None, is_parse: bool=True):
         """Call ``mutator.export()`` and dump the architecture to ``file``.
         Args:
             file : str
@@ -171,7 +171,12 @@ class BaseModel(LightningModule):
             save_history: bool
                 save history performance of the current arch
         """
-        mutator_export = self.mutator.export()
+        if self.rank!=0:
+             return
+        if is_parse:
+            mutator_export = self.mutator.export() # export parsed arch
+        else:
+            mutator_export = self.mutator._cache # export current arch
         filename = os.path.basename(file)
         cwd = os.getcwd()
         filepath = os.path.join(cwd, 'mask_json')
