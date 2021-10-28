@@ -291,9 +291,6 @@ class OperationSpace(CategoricalSpace):
             for idx, is_selected in enumerate(self.mask):
                 if is_selected: self.candidates.append(candidates[idx])
 
-    def __call__(self, *args, **kwargs):
-        return super(Mutable, self).__call__(*args, **kwargs)
-
     def forward(self, *inputs, reduction='sum'):
         if self.is_search and hasattr(self, "mutator") and self.mutator._cache:
             out, mask = self.mutator.on_forward_operation_space(self, *inputs)
