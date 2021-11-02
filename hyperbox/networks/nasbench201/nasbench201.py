@@ -175,6 +175,7 @@ class NASBench201Cell(nn.Module):
         bn_affine=True,
         bn_momentum=0.1,
         bn_track_running_stats=True,
+        mask=None
     ):
         super(NASBench201Cell, self).__init__()
 
@@ -325,11 +326,13 @@ class NASBench201Network(BaseNASNetwork):
         bn_affine=True,
         bn_momentum=0.1,
         bn_track_running_stats=True,
+        num_classes=10,
+        mask=None
     ):
-        super(NASBench201Network, self).__init__()
+        super(NASBench201Network, self).__init__(mask=mask)
         self.channels = C = stem_out_channels
         self.num_modules = N = num_modules_per_stack
-        self.num_labels = 10
+        self.num_classes = num_classes
 
         self.bn_momentum = bn_momentum
         self.bn_affine = bn_affine
@@ -365,6 +368,7 @@ class NASBench201Network(BaseNASNetwork):
                     self.bn_affine,
                     self.bn_momentum,
                     self.bn_track_running_stats,
+                    mask=self.mask
                 )
 
             self.cells.append(cell)
@@ -374,19 +378,22 @@ class NASBench201Network(BaseNASNetwork):
             nn.BatchNorm2d(C_prev, momentum=self.bn_momentum), nn.ReLU(inplace=True)
         )
         self.global_pooling = nn.AdaptiveAvgPool2d(1)
-        self.classifier = nn.Linear(C_prev, self.num_labels)
+        self.classifier = nn.Linear(C_prev, self.num_classes)
+        self.init_weights()
 
     def forward(self, inputs):
-        feature = self.stem(inputs)
-        for cell in self.cells:
-            feature = cell(feature)
+        verbose = self.verbose
+        out = self.stem(inputs)
+        bs = inputs.shape[0]
+        for idx, cell in enumerate(self.cells):
+            out = cell(out)
 
-        out = self.lastact(feature)
+        out = self.lastact(out)
         out = self.global_pooling(out)
         out = out.view(out.size(0), -1)
-        logits = self.classifier(out)
+        out = self.classifier(out)
 
-        return logits
+        return out
 
     @property
     def arch(self):
@@ -421,14 +428,27 @@ if __name__ == "__main__":
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     net = NASBench201Network(16, 5).to(device)
+    net.verbose = 0
     rm = RandomMutator(net)
-    for i in range(3):
+    num = 3
+    for i in range(5):
         rm.reset()
-        net.sync_mask_for_all_cells(rm._cache)
-        net.print_cell_mask_by_idx(2)
-        a = torch.rand(2, 3, 64, 64).to(device)
-        b = net(a)
-        arch_json = net.arch 
+        x = torch.randn(num,3,64,64).to(device)
+        preds = net(x)
+        print(preds.argmax(-1))
+    net = net.eval()
+    for i in range(5):
+        # rm.reset()
+        x = torch.randn(num,3,64,64).to(device)
+        preds = net(x)
+        print(preds.argmax(-1))
+    # for i in range(3):
+    #     rm.reset()
+    #     net.sync_mask_for_all_cells(rm._cache)
+    #     net.print_cell_mask_by_idx(2)
+    #     a = torch.rand(2, 3, 64, 64).to(device)
+    #     b = net(a)
+    #     arch_json = net.arch 
 
-        for t in query_nb201_trial_stats(arch_json, 200, 'cifar10'):
-            pprint.pprint(t)
+    #     for t in query_nb201_trial_stats(arch_json, 200, 'cifar10'):
+    #         pprint.pprint(t)
