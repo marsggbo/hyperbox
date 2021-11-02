@@ -167,5 +167,5 @@ class BaseNASNetwork(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
             elif isinstance(m, nn.Linear):
-                m.weight.data.normal_(0, 0.01)
+                nn.init.kaiming_normal_(m.weight.data)
                 m.bias.data.zero_()
