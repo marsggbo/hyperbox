@@ -151,7 +151,7 @@ class DartsNetwork(BaseNASNetwork):
             channels multiply coefficient when passing a cell
     """
 
-    def __init__(self, in_channels, channels, n_classes, n_layers, factory_func=DartsCell, n_nodes=4,
+    def __init__(self, in_channels=3, channels=16, n_classes=10, n_layers=8, factory_func=DartsCell, n_nodes=4,
                  stem_multiplier=3, mask=None):
         super(DartsNetwork, self).__init__(mask)
         self.in_channels = in_channels
