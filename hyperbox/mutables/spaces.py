@@ -423,11 +423,10 @@ class InputSpace(CategoricalSpace):
             out, mask = self.mutator.on_forward_input_space(self, optional_input_list)
         else:
             mask = self.mask
+            valid_num = len([x for x in optional_inputs if x is not None])
             if "BoolTensor" in self.mask.type():
-                mask = torch.tensor([True for i in range(len(self.candidates))])
-            assert len(mask) == self.n_candidates, \
-                "Invalid mask, expected {} to be of length {}.".format(mask, self.n_candidates)
-            out = self._select_with_mask(lambda x: x, [(t,) for t in optional_inputs], mask)
+                mask = torch.tensor([True for i in range(valid_num)])
+            out = self._select_with_mask(lambda x: x, [(t,) for t in optional_inputs if t is not None], mask)
             out = self._tensor_reduction(self.reduction, out)
         if self.return_mask:
             return out, mask
