@@ -36,4 +36,5 @@ scikit-learn
 seaborn
 pudb
 colorlog
+graphviz
 # dvc

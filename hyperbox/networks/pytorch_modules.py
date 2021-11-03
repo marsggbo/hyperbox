@@ -420,21 +420,27 @@ class TopKGumbelSoftmax(nn.Module):
 
 def topk_gumbel_softmax(logits: torch.Tensor, tau: float = 1, hard: bool = False,
         topk: int = None, eps: float = 1e-10, dim: int = -1):
-    gumbels = (
-        -torch.empty_like(
-            logits, memory_format=torch.legacy_contiguous_format
-        ).exponential_().log()
-    )
+    # gumbels = (
+    #     -torch.empty_like(
+    #         logits, memory_format=torch.legacy_contiguous_format
+    #     ).exponential_().log()
+    # )
+    gumbels = torch.empty_like(logits, memory_format=torch.legacy_contiguous_format).uniform_()
+    gumbels = -torch.log(eps - torch.log(gumbels+eps))
     gumbels = (logits + gumbels) / tau
     y_soft = gumbels.softmax(dim)
     if topk is None:
-        low = 1
-        high = logits.shape[-1]
-        topk = torch.randint(low, high, (1,))[0]
+        topk = (gumbels>gumbels.mean(dim, keepdim=True)).int().sum(dim)
     if hard:
         # Straight through.
-        indices = y_soft.topk(topk)[1]
-        y_hard = torch.zeros_like(logits, memory_format=torch.legacy_contiguous_format).scatter_(dim, indices, 1.0)
+        if len(torch.tensor(topk).view(-1)) == 1:
+            indices = y_soft.topk(topk)[1]
+            y_hard = torch.zeros_like(logits, memory_format=torch.legacy_contiguous_format).scatter_(dim, indices, 1.0)
+        else:
+            y_hard = torch.zeros_like(logits, memory_format=torch.legacy_contiguous_format)
+            for i, k in enumerate(topk):
+                indices = y_soft[i].topk(k)[1]
+                y_hard[i].scatter_(dim, indices, 1.0)
         ret = y_hard - y_soft.detach() + y_soft
     else:
         # Reparametrization trick.

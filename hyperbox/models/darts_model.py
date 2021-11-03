@@ -197,14 +197,6 @@ class DARTSModel(BaseModel):
         loss_epoch = self.trainer.callback_metrics['train/loss_epoch'].item()
         logger.info(f'Train epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
 
-        mflops, size = self.arch_size((1, 3, 32, 32), convert=True)
-        logger.info(
-            f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
-        logger.info("self.mutator._cache: ", len(self.mutator._cache), self.mutator._cache)
-
-        if self.current_epoch % 10 == 0:
-            self.export("/home/xihe/xinhe/hyperbox/mask_json/mask_epoch_%d.json" % self.current_epoch)
-
     def validation_step(self, batch: Any, batch_idx: int):
         (X, targets) = batch
         preds, loss = self._logits_and_loss(X, targets)
@@ -217,12 +209,23 @@ class DARTSModel(BaseModel):
         # if batch_idx % 10 == 0:
         # if True:
         # logger.info(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
-        return {"loss": loss, "preds": preds, "targets": targets, 'acc_epoch': acc}
+        return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
 
     def validation_epoch_end(self, outputs: List[Any]):
-        acc_epoch = self.trainer.callback_metrics['val/acc'].item()
-        loss_epoch = self.trainer.callback_metrics['val/loss'].item()
+        acc_epoch = self.trainer.callback_metrics['val/acc_epoch'].item()
+        loss_epoch = self.trainer.callback_metrics['val/loss_epoch'].item()
         logger.info(f'Val epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
+
+        mflops, size = self.arch_size((2, 3, 32, 32), convert=True)
+        logger.info(
+            f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
+        logger.info(f"self.mutator._cache: {len(self.mutator._cache)} choices")
+        for key, value in self.mutator._cache.items():
+            logger.info(f"{key}: {value.detach()}")
+
+        if self.current_epoch % 10 == 0:
+            self.export("mask_epoch_%d.json" % self.current_epoch,
+            True, {'val_acc': acc_epoch, 'val_loss': loss_epoch})
 
     def test_step(self, batch: Any, batch_idx: int):
         (X, targets) = batch

@@ -291,9 +291,6 @@ class OperationSpace(CategoricalSpace):
             for idx, is_selected in enumerate(self.mask):
                 if is_selected: self.candidates.append(candidates[idx])
 
-    def __call__(self, *args, **kwargs):
-        return super(Mutable, self).__call__(*args, **kwargs)
-
     def forward(self, *inputs, reduction='sum'):
         if self.is_search and hasattr(self, "mutator") and self.mutator._cache:
             out, mask = self.mutator.on_forward_operation_space(self, *inputs)
@@ -415,7 +412,7 @@ class InputSpace(CategoricalSpace):
         -------
         tuple of torch.Tensor and torch.Tensor or torch.Tensor
         """
-        if self.is_search:
+        if self.is_search and hasattr(self, "mutator") and self.mutator._cache:
             optional_input_list = optional_inputs
             if isinstance(optional_inputs, dict):
                 optional_input_list = [optional_inputs[tag] for tag in self.choose_from]
@@ -426,10 +423,6 @@ class InputSpace(CategoricalSpace):
             out, mask = self.mutator.on_forward_input_space(self, optional_input_list)
         else:
             mask = self.mask
-            if "BoolTensor" in self.mask.type():
-                mask = torch.tensor([True for i in range(len(self.candidates))])
-            assert len(mask) == self.n_candidates, \
-                "Invalid mask, expected {} to be of length {}.".format(mask, self.n_candidates)
             out = self._select_with_mask(lambda x: x, [(t,) for t in optional_inputs], mask)
             out = self._tensor_reduction(self.reduction, out)
         if self.return_mask:

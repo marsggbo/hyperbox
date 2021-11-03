@@ -1,1 +1,0 @@
-python -m ipdb run.py hydra.searchpath=[file:///home/xihe/xinhe/hyperbox/hyperbox_app/multiple_path_nas/configs] experiment=multiple_path_nas.yaml

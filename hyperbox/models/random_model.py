@@ -106,6 +106,10 @@ class RandomModel(BaseModel):
         loss_epoch = self.trainer.callback_metrics['val/loss_epoch'].item()
         logger.info(f'Val epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
 
+        if self.current_epoch % 10 == 0:
+            self.export("mask_epoch_%d.json" % self.current_epoch,
+            True, {'val_acc': acc_epoch, 'val_loss': loss_epoch})
+
     def test_step(self, batch: Any, batch_idx: int):
         loss, preds, targets = self.step(batch)
 

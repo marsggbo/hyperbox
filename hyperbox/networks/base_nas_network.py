@@ -158,3 +158,14 @@ class BaseNASNetwork(nn.Module):
                         else:
                             model_dict[key].data = state_dict[key].data[:_out, :_in, start:end, start:end, start:end]
         super(BaseNASNetwork, self).load_state_dict(model_dict, **kwargs, strict=False)
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.modules.conv._ConvNd):
+                nn.init.kaiming_normal_(m.weight.data)
+            elif isinstance(m, nn.modules.batchnorm._BatchNorm):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight.data)
+                m.bias.data.zero_()
