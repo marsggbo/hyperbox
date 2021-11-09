@@ -243,6 +243,11 @@ def hparams_wrapper(cls):
         _hparams.update(kwargs)
         self = origin__new__(cls)
         self._hparams = _hparams
+        for key, value in self._hparams.items():
+            try:
+                setattr(self, key, value)
+            except Exception as e:
+                print(f'Error occurs when setting value for {key} due to {e}')
         cls.hparams = property(lambda self: self._hparams) # generate a `hparams` property function
         return self
 
