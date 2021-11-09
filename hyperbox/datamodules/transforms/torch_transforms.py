@@ -20,10 +20,10 @@ class TorchTransforms(BaseTransforms):
         random_horizontal_flip: Union[dict, DictConfig] = {'enable': 0, 'p': 0.5},
         random_vertical_flip: Union[dict, DictConfig] = {'enable': 0, 'p': 0.5},
         random_rotation: Union[dict, DictConfig] = {'enable': 0, 'degrees': 20},
-        cutout: Union[dict, DictConfig] = {'enable': 0, 'n_holes': 8, 'length':4},
+        cutout: Union[dict, DictConfig] = {'enable': 0, 'n_holes': 8, 'length': 4},
         to_tensor: Union[dict, DictConfig] = {'enable': 1},
         normalize: Union[dict, DictConfig] = {
-            'enable': 1, 'mean': [0.5,0.5,0.5], 'std': [0.5,0.5,0.5]},
+            'enable': 1, 'mean': [0.4914, 0.4822, 0.4465], 'std': [0.2023, 0.1994, 0.2010]},
     ):
         super(TorchTransforms, self).__init__()
         self.min_edge_size = min(input_size)
@@ -59,15 +59,15 @@ class TorchTransforms(BaseTransforms):
 
         # ColorJitter
         if self.color_jitter.enable:
-            params = {key: self.color_jitter[key] for key in self.color_jitter 
-                            if key != 'enable'}
+            params = {key: self.color_jitter[key] for key in self.color_jitter
+                      if key != 'enable'}
             transform_list.append(transforms.ColorJitter(**params))
 
         # horizontal flip
         if self.random_horizontal_flip.enable:
             p = self.random_horizontal_flip.p
             transform_list.append(transforms.RandomHorizontalFlip(p))
-        
+
         # vertical flip
         if self.random_vertical_flip.enable:
             p = self.random_vertical_flip.p
