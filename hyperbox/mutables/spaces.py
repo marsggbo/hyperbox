@@ -98,7 +98,8 @@ class Mutable(nn.Module):
             if getattr(self, 'verbose_freeze', False):
                 print(f"{attribute} has been forzen, you should call `defrost` function before you modify it.")
         elif attribute == 'key':
-            print(f"'key' attribute assigned, so the operation has been ignored.")
+            pass
+            # print(f"'key' attribute assigned, so the operation has been ignored.")
         else:
             super(Mutable, self).__setattr__(attribute, value)
 
