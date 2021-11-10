@@ -401,7 +401,10 @@ class NASBench201Network(BaseNASNetwork):
         for name, module in self.named_modules():
             if isinstance(module, spaces.Mutable):
                 key = module.key
-                mask = module.mask
+                if self.mask is not None:
+                    mask = self.mask[key]
+                else:
+                    mask = module.mask
                 idx = torch.argmax(mask.float())
                 op_name = PRIMITIVES[idx]
                 arch_json[key] = op_name
