@@ -198,7 +198,7 @@ class NASBench201Cell(nn.Module):
         for i in range(self.NUM_NODES):
             node_ops = nn.ModuleList()
             for j in range(0, i):
-                node_ops.append(spaces.OperationSpace(OPS(j), key="%d_%d" % (j, i)))
+                node_ops.append(spaces.OperationSpace(OPS(j), key="%d_%d" % (j, i), mask=mask))
 
             self.layers.append(node_ops)
 
