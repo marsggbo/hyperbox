@@ -37,4 +37,4 @@ class OnehotMutator(DartsMutator):
         return result
 
     def sample_final(self):
-        super().sample_final()
+        return super().sample_final()
