@@ -382,7 +382,6 @@ class NASBench201Network(BaseNASNetwork):
         self.init_weights()
 
     def forward(self, inputs):
-        verbose = self.verbose
         out = self.stem(inputs)
         bs = inputs.shape[0]
         for idx, cell in enumerate(self.cells):
@@ -411,6 +410,14 @@ class NASBench201Network(BaseNASNetwork):
         return arch_json
 
     def sync_mask_for_all_cells(self, mask):
+        '''
+        Should be called after mutator.reset().
+        For example:
+        net = NASBench201Network()
+        rm = RandomMutator(net)
+        mutator.reset()
+        net.sync_mask_for_all_cells(rm._cache)
+        '''
         for cell in self.cells:
             if not hasattr(cell, 'layers'):
                 continue
