@@ -4,7 +4,7 @@
 # python run.py experiment=example_simple.yaml
 
 defaults:
-  - override /trainer: default.yaml # choose trainer from 'configs/trainer/'
+  - override /trainer: default.yaml
   - override /model: darts_model.yaml
   - override /datamodule: cifar10_datamodule.yaml
   - override /callbacks: default.yaml
@@ -19,20 +19,32 @@ seed: 12345
 
 trainer:
   min_epochs: 1
-  max_epochs: 200
+  max_epochs: 2
   gpus: 1
 
 datamodule:
+  # is_customized: True
   is_customized: True
-  # is_customized: False
+  batch_size: 64
 
 model:
+  _target_: hyperbox.models.darts_model.DARTSModel
   mutator_cfg:
-    _target_: hyperbox.mutator.DartsMultipleMutator
-    # _target_: hyperbox.mutator.RandomMultipleMutator
+    _target_: hyperbox.mutator.darts_mutator.DartsMutator
   optimizer_cfg:
     lr: 0.001
+  scheduler_cfg:
+    T_max: 20
+  network_cfg:
+    _target_: hyperbox.networks.nasbench301.nasbench301_network.NB301Network
+    in_channels: 3
+    channels: 16
+    n_layers: 8
+    stem_multiplier: 3
+    n_nodes: 4 
+    n_classes: 10
 
 logger:
   wandb:
+    name: nb301
     offline: True

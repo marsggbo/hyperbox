@@ -43,7 +43,7 @@ class DARTSModel(BaseModel):
     def sample_search(self):
         super().sample_search(self.is_sync, self.is_net_parallel)
 
-    def training_step(self, batch: Any, batch_idx: int, optimizer_idx: int):
+    def training_step(self, batch: Any, batch_idx: int):
         # debug info
         # self.trainer.accelerator.barrier()
         # print(f"[rank {self.rank}] seed={np.random.get_state()[1][0]}")

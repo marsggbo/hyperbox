@@ -49,6 +49,7 @@ class DARTSModel(BaseModel):
         self.automatic_optimization = False
         self.is_net_parallel = is_net_parallel
         self.is_sync = is_sync
+        self.automatic_optimization = True
 
     def on_fit_start(self):
         # self.logger.experiment[0].watch(self.network, log='all', log_freq=100)
