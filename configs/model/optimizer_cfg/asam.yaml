@@ -1,0 +1,3 @@
+_target_: hyperbox.optimizers.ASAM
+rho: 0.5
+eta: 0.01

@@ -1,0 +1,10 @@
+_target_: hyperbox_app.medmnist.networks.Mobile3DNet
+c_in: 1
+width_stages: [24,40,80,96,192,320]
+n_cell_stages: [4,4,4,4,4,1]
+stride_stages: [1,1,2,2,2,1]
+width_mult: 1
+num_classes: 10
+dropout_rate: 0
+bn_param: [0.1,1e-3]
+mask: null

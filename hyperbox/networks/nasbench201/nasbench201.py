@@ -198,7 +198,7 @@ class NASBench201Cell(nn.Module):
         for i in range(self.NUM_NODES):
             node_ops = nn.ModuleList()
             for j in range(0, i):
-                node_ops.append(spaces.OperationSpace(OPS(j), key="%d_%d" % (j, i)))
+                node_ops.append(spaces.OperationSpace(OPS(j), key="%d_%d" % (j, i), mask=mask))
 
             self.layers.append(node_ops)
 
@@ -401,7 +401,10 @@ class NASBench201Network(BaseNASNetwork):
         for name, module in self.named_modules():
             if isinstance(module, spaces.Mutable):
                 key = module.key
-                mask = module.mask
+                if self.mask is not None:
+                    mask = self.mask[key]
+                else:
+                    mask = module.mask
                 idx = torch.argmax(mask.float())
                 op_name = PRIMITIVES[idx]
                 arch_json[key] = op_name

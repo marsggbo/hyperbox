@@ -4,7 +4,7 @@ from .torch_transforms import TorchTransforms
 from .cutout import Cutout
 
 import importlib
-alb = importlib.find_loader('albumentations')
+alb = importlib.util.find_spec('albumentations')
 if alb is not None:
     from .albumentation_transforms import AlbumentationsTransforms
 
