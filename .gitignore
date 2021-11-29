@@ -151,3 +151,4 @@ logs
 hyperbox_app/*
 !hyperbox_app/empty_app_template
 !hyperbox_app/medmnist
+lightning_logs/*
