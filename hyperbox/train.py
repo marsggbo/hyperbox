@@ -2,6 +2,7 @@ from typing import List, Optional
 
 import hydra
 from omegaconf import DictConfig
+from omegaconf.omegaconf import open_dict
 from pytorch_lightning import (
     Callback,
     LightningDataModule,
@@ -37,6 +38,8 @@ def train(config: DictConfig) -> Optional[float]:
 
     # Init Lightning model
     log.info(f"Instantiating model <{config.model._target_}>")
+    with open_dict(config.model):
+        config.model.datamodule_cfg = config.datamodule
     model: LightningModule = hydra.utils.instantiate(config.model, _recursive_=False)
     if config.get('pretrained_weight'):
         import torch
