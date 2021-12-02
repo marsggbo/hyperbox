@@ -71,6 +71,7 @@ class CIFAR10DataModule(bolt_cifar10):
         return transforms.Compose([
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(0.5),
+            transforms.RandomRotation(15),
             transforms.ToTensor(),
             Cutout(1, 16),
             transforms.Normalize(self.MEAN, self.STD)
@@ -132,6 +133,8 @@ class CIFAR100DataModule(CIFAR10DataModule):
     
     name = "cifar100"
     dataset_cls = CIFAR100
+    MEAN = [0.5070751592371323, 0.48654887331495095, 0.4409178433670343]
+    STD = [0.2673342858792401, 0.2564384629170883, 0.27615047132568404]
 
     def __init__(
         self,
