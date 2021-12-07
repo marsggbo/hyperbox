@@ -9,9 +9,9 @@ from torch.nn.common_types import _size_1_t, _size_2_t, _size_3_t
 from torch.nn.modules.utils import _single, _pair, _triple
 from torch.nn.parameter import Parameter
 
-from ..spaces import ValueSpace
-from .base_module import FinegrainedModule
-from .utils import sub_filter_start_end, is_searchable
+from hyperbox.mutables.spaces import ValueSpace
+from hyperbox.mutables.ops.base_module import FinegrainedModule
+from hyperbox.mutables.ops.utils import sub_filter_start_end, is_searchable
 
 
 __all__ = [
@@ -23,6 +23,8 @@ __all__ = [
 
 
 class BaseConvNd(_ConvNd, FinegrainedModule):
+    KERNEL_TRANSFORM_MODE = 1 # None or 1 or other settings
+
     def __init__(
         self,
         in_channels: int,
@@ -63,6 +65,20 @@ class BaseConvNd(_ConvNd, FinegrainedModule):
             self.register_parameter('bias', None)
         self.is_search = self.isSearchConv()
 
+        if isinstance(kernel_size, ValueSpace) and \
+            self.KERNEL_TRANSFORM_MODE is not None:
+            # register scaling parameters
+            # 7to5_matrix, 5to3_matrix
+            scale_params = {}
+            for i in range(len(kernel_size) - 1):
+                ks_small = kernel_size[i]
+                ks_larger = kernel_size[i + 1]
+                param_name = '%dto%d' % (ks_larger, ks_small)
+                # noinspection PyArgumentList
+                scale_params['%s_matrix' % param_name] = Parameter(torch.eye(ks_small ** 2))
+            for name, param in scale_params.items():
+                self.register_parameter(name, param)
+
     def init_ops(self, *args, **kwargs):
         '''Generate Conv operation'''
         raise NotImplementedError
@@ -96,8 +112,6 @@ class BaseConvNd(_ConvNd, FinegrainedModule):
             kernel_candidates = self.value_spaces['kernel_size'].candidates
             max_k = self.kernel_size
             # Todo: 与`transform_kernel_size`搭配使用，目前未使用
-            # for i, k in enumerate(sorted(kernel_candidates)[:-1]):
-            #     self.register_parameter(f'{max_k}to{k}_kernelMatrix', Parameter(torch.rand(max_k**2, k**2)))
             self.search_kernel_size = True
         if  is_searchable(getattr(self.value_spaces, 'stride', None)):
             self.search_stride = True
@@ -241,11 +255,12 @@ class Conv1d(BaseConvNd):
         groups: Union[int, ValueSpace] = 1,
         bias: bool = True,
         padding_mode: str = 'zeros',
-        auto_padding: bool = False
+        auto_padding: bool = False,
+        *args, **kwargs
     ):
         super(Conv1d, self).__init__(
-            in_channels, out_channels, kernel_size, stride,
-            padding, dilation, groups, bias, padding_mode)
+            in_channels, out_channels, kernel_size, stride, padding,
+            dilation, groups, bias, padding_mode, auto_padding)
 
     def init_ops(
         self,
@@ -279,11 +294,29 @@ class Conv2d(BaseConvNd):
         groups: int = 1,
         bias: bool = True,
         padding_mode: str = 'zeros',
-        auto_padding: bool = False
+        auto_padding: bool = False,
+        *args, **kwargs
         ):
         super(Conv2d, self).__init__(
-            in_channels, out_channels, kernel_size, stride,
-            padding, dilation, groups, bias, padding_mode)
+            in_channels, out_channels, kernel_size, stride, padding,
+            dilation, groups, bias, padding_mode, auto_padding)
+
+        if self.search_kernel_size and self.KERNEL_TRANSFORM_MODE is not None:
+            self.init_kernel_transform_matrix()
+
+    def init_kernel_transform_matrix(self):
+        kernel_size = self.value_spaces['kernel_size'].candidates
+        # register scaling parameters
+        # 7to5_matrix, 5to3_matrix
+        scale_params = {}
+        for i in range(len(kernel_size) - 1):
+            ks_small = kernel_size[i]
+            ks_larger = kernel_size[i + 1]
+            param_name = '%dto%d' % (ks_larger, ks_small)
+            # noinspection PyArgumentList
+            scale_params['%s_matrix' % param_name] = Parameter(torch.eye(ks_small ** 2))
+        for name, param in scale_params.items():
+            self.register_parameter(name, param)
 
     def init_ops(
         self,
@@ -304,6 +337,36 @@ class Conv2d(BaseConvNd):
         self.output_padding = _pair(0)
         self.conv = F.conv2d
 
+    def transform_kernel_size(self, filters):
+        if self.KERNEL_TRANSFORM_MODE is None:
+            return super(Conv2d, self).transform_kernel_size(filters)
+        else:
+            max_kernel_size = self.kernel_size
+            if isinstance(max_kernel_size, (tuple, list)):
+                max_kernel_size = max(max_kernel_size)
+            sub_kernel_size = self.value_spaces['kernel_size'].value
+            ks_set = self.value_spaces['kernel_size'].candidates
+            if sub_kernel_size < max_kernel_size:
+                start_filter = filters
+                for i in range(len(ks_set)-1, 0, -1):
+                    src_ks = ks_set[i]
+                    if src_ks <= sub_kernel_size:
+                        break
+                    target_ks = ks_set[i - 1]
+                    start, end = sub_filter_start_end(src_ks, target_ks)
+                    _input_filter = start_filter[:, :, start:end, start:end]
+                    _input_filter = _input_filter.contiguous()
+                    _input_filter = _input_filter.view(_input_filter.size(0), _input_filter.size(1), -1)
+                    _input_filter = _input_filter.view(-1, _input_filter.size(2))
+                    _input_filter = F.linear(
+                        _input_filter, self.__getattr__('%dto%d_matrix' % (src_ks, target_ks)),
+                    )
+                    _input_filter = _input_filter.view(filters.size(0), filters.size(1), target_ks ** 2)
+                    _input_filter = _input_filter.view(filters.size(0), filters.size(1), target_ks, target_ks)
+                    start_filter = _input_filter
+                filters = start_filter
+            return filters
+
 
 class Conv3d(BaseConvNd):
     def __init__(
@@ -317,11 +380,12 @@ class Conv3d(BaseConvNd):
         groups: int = 1,
         bias: bool = True,
         padding_mode: str = 'zeros',
-        auto_padding: bool = False
+        auto_padding: bool = False,
+        *args, **kwargs
     ):
         super(Conv3d, self).__init__(
-            in_channels, out_channels, kernel_size, stride,
-            padding, dilation, groups, bias, padding_mode)
+            in_channels, out_channels, kernel_size, stride, padding,
+            dilation, groups, bias, padding_mode, auto_padding)
 
     def init_ops(
         self, 
@@ -341,3 +405,17 @@ class Conv3d(BaseConvNd):
         self.dilation = _triple(dilation)
         self.output_padding = _triple(0)
         self.conv = F.conv3d
+
+
+if __name__ == '__main__':
+    import torch
+    from hyperbox.mutator import RandomMutator
+    oc = ValueSpace(candidates=[3,10])
+    ks = ValueSpace(candidates=[3,5,7])
+    op = Conv2d(in_channels=3, out_channels=oc, kernel_size=ks)
+    rm = RandomMutator(op)
+    for i in range(10):
+        rm.reset()
+        x = torch.rand(2,3,8,8)
+        y = op(x)
+        print(y.shape)
