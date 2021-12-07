@@ -76,8 +76,10 @@ class BaseNASNetwork(nn.Module):
             new_cls.load_from_supernet(self.state_dict())
         return new_cls
 
-    def copy(self):
-        new_net = self.build_subnet(None, False)
+    def copy(self, mask=None):
+        if mask is None and self.mask is not None:
+            mask = self.mask
+        new_net = self.build_subnet(mask, False)
         new_net.load_state_dict(self.state_dict())
         return new_net
 
