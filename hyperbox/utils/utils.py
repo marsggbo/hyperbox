@@ -1,22 +1,22 @@
-import json
 import inspect
+import json
 import logging
 import warnings
-from typing import List, Sequence
+from copy import deepcopy
 from importlib.util import find_spec
+from typing import List, Sequence
 
+import numpy as np
 import pytorch_lightning as pl
 import rich.syntax
 import rich.tree
-import wandb
 import torch
-import numpy as np
+import wandb
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.loggers.wandb import WandbLogger
 from pytorch_lightning.utilities import rank_zero_only
 
 from .logger import get_logger
-
 
 __all__ = [
     '_module_available', 'TorchTensorEncoder', 'load_json', 'extras', 'print_config',
@@ -229,7 +229,7 @@ def hparams_wrapper(cls):
         >>> a = A(2,4,5,8)
         >>> output: {'c': 5, 'd': 8, 'a': 2, 'b': 4}
     '''
-    origin__new__ = cls.__new__
+    origin__new__ = deepcopy(cls.__new__)
 
     def __new__(cls, *args, **kwargs):
         signature = inspect.signature(cls.__init__)
@@ -247,7 +247,8 @@ def hparams_wrapper(cls):
             try:
                 setattr(self, key, value)
             except Exception as e:
-                print(f'Error occurs when setting value for {key} due to {e}')
+                pass
+                # print(f'{cls} `__new__` fails to set {key} to {value} due to {e}')
         cls.hparams = property(lambda self: self._hparams) # generate a `hparams` property function
         return self
 
