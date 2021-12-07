@@ -3,7 +3,7 @@ import scipy.stats as stats
 
 class Accuracy:
     def __call__(self, output, target, topk=(1,)):
-        return accuracy(output, target, topk=(1,))
+        return accuracy(output, target, topk)
 
 
 def accuracy(output, target, topk=(1,)):
