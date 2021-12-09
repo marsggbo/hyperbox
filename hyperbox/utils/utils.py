@@ -20,8 +20,15 @@ from .logger import get_logger
 
 __all__ = [
     '_module_available', 'TorchTensorEncoder', 'load_json', 'extras', 'print_config',
-    'empty', 'log_hyperparameters', 'finish', 'hparams_wrapper', 'save_arch_to_json'
+    'empty', 'log_hyperparameters', 'finish', 'hparams_wrapper', 'save_arch_to_json', 'DotDict'
 ]
+
+
+class DotDict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
 
 
 def _module_available(module_path: str) -> bool:
@@ -249,7 +256,7 @@ def hparams_wrapper(cls):
             except Exception as e:
                 pass
                 # print(f'{cls} `__new__` fails to set {key} to {value} due to {e}')
-        cls.hparams = property(lambda self: DictConfig(self._hparams)) # generate a `hparams` property function
+        cls.hparams = property(lambda self: DotDict(self._hparams)) # generate a `hparams` property function
         return self
 
     cls.__new__ = __new__
