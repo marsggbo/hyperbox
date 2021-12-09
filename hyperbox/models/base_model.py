@@ -12,7 +12,7 @@ from pytorch_lightning import LightningModule
 from torchmetrics.classification.accuracy import Accuracy
 
 from hyperbox.utils.logger import get_logger
-from hyperbox.utils.utils import TorchTensorEncoder
+from hyperbox.utils.utils import TorchTensorEncoder, hparams_wrapper
 from hyperbox.utils.calc_model_size import flops_size_counter
 logger = get_logger(__name__)
 
@@ -21,6 +21,7 @@ def instantiate(*args, **kwargs):
     return hydra.utils.instantiate(*args, **kwargs)
 
 
+@hparams_wrapper
 class BaseModel(LightningModule):
     """NAS Model Template
         Example of LightningModule for MNIST classification.
@@ -60,7 +61,7 @@ class BaseModel(LightningModule):
         # it also allows to access params with 'self.hparams' attribute, such as
         # self.hparams.network_cfg
         # self.hparams.mutator_cfg
-        self.save_hyperparameters()
+        # self.save_hyperparameters() # same as @hparams_wrapper
         self.build_network(self.hparams.network_cfg)
         self.build_mutator(self.hparams.mutator_cfg)
         self.build_loss(self.hparams.loss_cfg)

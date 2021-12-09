@@ -249,7 +249,7 @@ def hparams_wrapper(cls):
             except Exception as e:
                 pass
                 # print(f'{cls} `__new__` fails to set {key} to {value} due to {e}')
-        cls.hparams = property(lambda self: self._hparams) # generate a `hparams` property function
+        cls.hparams = property(lambda self: DictConfig(self._hparams)) # generate a `hparams` property function
         return self
 
     cls.__new__ = __new__
