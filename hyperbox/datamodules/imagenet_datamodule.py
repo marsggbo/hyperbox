@@ -95,26 +95,29 @@ class ImagenetDataModule(bolt_imagenet):
         return preprocessing
 
     def setup(self, stage: Optional[str] = None):
-        transform_train = self.train_transform() if self.train_transforms is None else self.train_transforms
-        data_train = ImageFolder(
-            root=os.path.join(self.data_dir, 'train'),
-            transform=transform_train
-        )
+        if stage=='train' or stage is None:
+            transform_train = self.train_transform() if self.train_transforms is None else self.train_transforms
+            data_train = ImageFolder(
+                root=os.path.join(self.data_dir, 'train'),
+                transform=transform_train
+            )
 
-        transform_test = self.val_transform() if self.test_transforms is None else self.test_transforms
-        self.data_test = ImageFolder(
-            root=os.path.join(self.data_dir, 'val'),
-            transform=transform_test
-        )
+        if stage=='test' or stage is None:
+            transform_test = self.val_transform() if self.test_transforms is None else self.test_transforms
+            self.data_test = ImageFolder(
+                root=os.path.join(self.data_dir, 'val'),
+                transform=transform_test
+            )
 
-        if self.valid_image_size is not None:
-            transform_valid = self.train_transform(self.valid_image_size)
-            validation_size = self.num_imgs_per_val_class * self.num_classes
-            train_size = len(data_train) - validation_size
-            self.data_train, self.data_valid = random_split(data_train, [train_size, validation_size])
-        else:
-            self.data_valid = self.data_test
-            self.data_train = data_train
+        if stage is None:
+            if self.valid_image_size is not None:
+                transform_valid = self.train_transform(self.valid_image_size)
+                validation_size = self.num_imgs_per_val_class * self.num_classes
+                train_size = len(data_train) - validation_size
+                self.data_train, self.data_valid = random_split(data_train, [train_size, validation_size])
+            else:
+                self.data_valid = self.data_test
+                self.data_train = data_train
 
     def train_dataloader(self):
         return DataLoader(
