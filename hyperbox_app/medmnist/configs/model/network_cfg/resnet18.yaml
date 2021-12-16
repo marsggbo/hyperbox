@@ -1,0 +1,5 @@
+_target_: hyperbox_app.medmnist.networks.resnet.ResNet18_3D
+in_channels: 3
+num_classes: 2
+pretrained: True
+i3d_repeat_axis: -3

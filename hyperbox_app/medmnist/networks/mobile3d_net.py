@@ -6,9 +6,9 @@ from hyperbox.mutables.spaces import OperationSpace
 from hyperbox.utils.utils import load_json
 
 from hyperbox.networks.base_nas_network import BaseNASNetwork
-from hyperbox_app.covid19.networks.kornia_transform import DataAugmentation
-from hyperbox_app.covid19.networks.mobile3d_ops import *
-from hyperbox_app.covid19.networks.mobile_utils import *
+from hyperbox_app.medmnist.networks.kornia_transform import DataAugmentation
+from hyperbox_app.medmnist.networks.mobile3d_ops import *
+from hyperbox_app.medmnist.networks.mobile_utils import *
 
 
 __all__ = [
@@ -75,8 +75,7 @@ class Mobile3DNet(BaseNASNetwork):
                 if stride == 1 and input_channel == width:
                     # if it is not the first one
                     op_candidates += [OPS['Zero'](input_channel, width, stride)]
-                if self.mask: op_candidates = [op_candidates[self.mask[f"s{stage_cnt}_c{i}"].argmax()]]
-                conv_op = OperationSpace(op_candidates, return_mask=True, key="s{}_c{}".format(stage_cnt, i))
+                conv_op = OperationSpace(op_candidates, mask=self.mask, return_mask=True, key="s{}_c{}".format(stage_cnt, i))
                 # shortcut
                 if stride == 1 and input_channel == width:
                     # if not first cell
@@ -175,9 +174,9 @@ class DAMobile3DNet(BaseNASNetwork):
         super(DAMobile3DNet, self).__init__(mask)
         self.network = Mobile3DNet(
             c_in, width_stages, n_cell_stages, stride_stages, width_mult,
-            num_classes, dropout_rate, bn_param)
+            num_classes, dropout_rate, bn_param, mask)
         self.augmentation = DataAugmentation(
-            rotate_degree, crop_size, affine_degree, affine_scale, affine_shears)
+            rotate_degree, crop_size, affine_degree, affine_scale, affine_shears, mask)
 
     def forward(self, x, to_aug=False):
         if to_aug:

@@ -8,6 +8,7 @@ from kornia import image_to_tensor, tensor_to_image
 from kornia.augmentation import *
 
 from hyperbox.mutables import OperationSpace
+from hyperbox.networks.base_nas_network import BaseNASNetwork
 
 __all__ = [
     'DataAugmentation',
@@ -44,7 +45,7 @@ def DAOperation3D(affine_degree=30, affine_scale=(1.1, 1.5), affine_shears=20, r
     return ops
 
 
-class DataAugmentation(nn.Module):
+class DataAugmentation(BaseNASNetwork):
     """Module to perform data augmentation using Kornia on torch tensors."""
 
     def __init__(
@@ -54,11 +55,11 @@ class DataAugmentation(nn.Module):
         # norm_mean=[0.6075, 0.4564, 0.4182], norm_std=[0.2158, 0.1871, 0.1826],
         mask=None
     ):
-        super().__init__()
+        super().__init__(mask)
         self.ops = DAOperation3D(affine_degree, affine_scale, affine_shears, rotate_degree, crop_size)
         transforms = []
         for key, value in self.ops.items():
-            transforms.append(OperationSpace(candidates=value, key=key, mask=mask))
+            transforms.append(OperationSpace(candidates=value, key=key, mask=self.mask))
         self.transforms = nn.Sequential(*transforms)
 
     @torch.no_grad()  # disable gradients for effiency

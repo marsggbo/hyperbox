@@ -6,7 +6,7 @@
 defaults:
   - override /trainer: default.yaml # choose trainer from 'configs/trainer/'
   - override /model: medmnist_darts.yaml
-  - override /datamodule: vesselmnist3d.yaml
+  - override /datamodule: fracturemnist3d.yaml
   - override /callbacks: default.yaml
   - override /logger: wandb.yaml
   - override /model/scheduler_cfg: CosineAnnealingLR.yaml
@@ -38,7 +38,7 @@ model:
   #   _target_: hyperbox_app.multiple_path_nas.mutator.DartsMultipleMutator
   #   topk: null
   optimizer_cfg:
-    lr: 0.05
+    lr: 0.01
   scheduler_cfg:
     T_max: 200
   is_sync: True
@@ -48,9 +48,9 @@ model:
 logger:
   wandb:
     project: medmnist
-    name: medmnist_gdas_vessel
+    name: medmnist_gdas_fracture
     offline: True
 
 hydra:
   job:
-    name: medmnist_gdas_vessel
+    name: medmnist_gdas_fracture
