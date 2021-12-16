@@ -5,7 +5,7 @@ import logging
 
 import torch.nn as nn
 
-from hyperbox.mutables import Mutable, MutableScope, InputSpace
+from hyperbox.mutables.spaces import Mutable, MutableScope, InputSpace
 
 
 class StructuredMutableTreeNode:

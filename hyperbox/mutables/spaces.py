@@ -374,12 +374,12 @@ class InputSpace(CategoricalSpace):
                 >>>    # first example
                 >>>    inputs = [out1, out2, out3]
                 >>>    input_choice = InputSpace(n_candidates=3, n_chosen=1)
-                >>>    out, mask = InputSpace(inputs, return_mask=True)
+                >>>    out, mask = input_choice(inputs, return_mask=True)
                 >>>    #
                 >>>    # second example
                 >>>    inputs = {'key1':out1, 'key2':out2, 'key3':out3}
                 >>>    input_choice = InputSpace(choose_from=['key1', 'key2', 'key3'], n_chosen=1)
-                >>>    out, mask = InputSpace(inputs, return_mask=True)
+                >>>    out, mask = input_choice(inputs, return_mask=True)
         """
         # precondition check
         assert n_candidates is not None or choose_from is not None, "At least one of `n_candidates` and `choose_from`" \
@@ -440,6 +440,7 @@ class InputSpace(CategoricalSpace):
             name = self.__class__.__name__
             _repr = f'{name}({self.choose_from}, key={repr(self.key)}, value={self.value})'
             return _repr
+
 
 class ValueSpace(CategoricalSpace):
     def __init__(self,

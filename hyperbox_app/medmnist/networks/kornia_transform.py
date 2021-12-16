@@ -7,7 +7,7 @@ from omegaconf.listconfig import ListConfig
 from kornia import image_to_tensor, tensor_to_image
 from kornia.augmentation import *
 
-from hyperbox.mutables import OperationSpace
+from hyperbox.mutables.spaces import OperationSpace
 from hyperbox.networks.base_nas_network import BaseNASNetwork
 
 __all__ = [
