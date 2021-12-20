@@ -240,7 +240,6 @@ class MedMNISTDataModule(LightningDataModule):
                     batch_size=self.batch_size,
                     num_workers=self.num_workers,
                     pin_memory=self.pin_memory,
-                    shuffle=self.shuffle,
                 )
             train_val_loader = {
                 'train': train_loader,
