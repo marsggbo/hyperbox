@@ -13,23 +13,9 @@ from kornia.augmentation import RandomMixUp
 from hyperbox.utils.logger import get_logger
 from hyperbox.models.base_model import BaseModel
 from hyperbox_app.medmnist.utils import getAUC
+from hyperbox_app.medmnist.losses import MixupLoss, MutualLoss
 
 logger = get_logger(__name__, rank_zero=True)
-
-
-class MixupLoss(nn.Module):
-    def __init__(self, criterion):
-        super(MixupLoss, self).__init__()
-        self.criterion = criterion
-        self.training = False
-
-    def forward(self, logits, y, *args, **kwargs):
-        if self.training:
-            loss_a = self.criterion(logits, y[:, 0].long(), *args, **kwargs)
-            loss_b = self.criterion(logits, y[:, 1].long(), *args, **kwargs)
-            return ((1 - y[:, 2]) * loss_a + y[:, 2] * loss_b).mean()
-        else:
-            return self.criterion(logits, y, *args, **kwargs)
 
 
 class DARTSModel(BaseModel):
@@ -120,6 +106,25 @@ class DARTSModel(BaseModel):
         with torch.no_grad():
             self.sample_search()
         preds, loss = self._logits_and_loss(trn_X, trn_y, to_aug=self.to_aug)
+        if getattr(self.network, 'num_branches', None):
+            loss_mutual = 0.
+            num_branches = self.network.num_branches
+            num_features = len(self.network.branches[0].features)
+            # ensemble_features = []
+            for idx in range(num_features):
+                en_feat = torch.stack([self.network.branches[i].features[idx] for i in range(num_branches)]).mean(0)
+                sub_loss_mutual = 0.
+                for i in range(num_branches):
+                    sub_loss = MutualLoss('kl')(self.network.branches[i].features[idx], en_feat)
+                    sub_loss_mutual += sub_loss
+                sub_loss_mutual /= num_branches
+                loss_mutual += sub_loss_mutual
+                # ensemble_features.append(en_feat)
+            loss_mutual /= num_features
+            if self.current_epoch < 6:
+                loss = loss + 0.1 * loss_mutual
+            else:
+                loss = loss + 0.8 * loss_mutual
         if self.trainer.world_size > 1:
             preds_en = torch.tensor(self.all_gather(preds.detach())).mean(dim=0)
         self.manual_backward(loss)
@@ -138,7 +143,7 @@ class DARTSModel(BaseModel):
             self.log("train/acc_ensemble", acc_ensemble, on_step=True, on_epoch=True, prog_bar=False)
         if batch_idx % 50 == 0:
             logger.info(
-                f"Train epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}, acc_en={acc_ensemble}")
+                f"Train epoch{self.current_epoch} batch{batch_idx}: loss={loss} (mutual={loss_mutual} ce{loss-loss_mutual}), acc={acc}, acc_en={acc_ensemble}")
         return {"loss": loss, "preds": preds, "targets": trn_y, 'acc': acc}
 
     def _logits_and_loss(self, X, y, to_aug):
@@ -154,7 +159,7 @@ class DARTSModel(BaseModel):
             X, y = self.random_mixup(X, y)
             if is_squeeze:
                 X = X.unsqueeze(1)
-        output = self.network(X, to_aug)
+        output = self.network(X, to_aug=to_aug)
         if isinstance(output, tuple):
             output, aux_output = output
             aux_loss = self.criterion(aux_output, y)
@@ -164,9 +169,15 @@ class DARTSModel(BaseModel):
         # if self.trainer.world_size > 1:
         #     output_list = self.all_gather(output)
         #     output_en = torch.tensor(output_list).mean(dim=0)
-        loss = self.criterion(output_en, y)
+        loss = 0
+        if getattr(self.network, 'num_branches', None):
+            for i in range(self.network.num_branches):
+                loss += self.criterion(output_en[i], y)
+            output_en = output_en.mean(0)
+        else:
+            loss = self.criterion(output_en, y)
         loss = loss + self.aux_weight * aux_loss
-        return output, loss
+        return output_en, loss
 
     def _backward(self, val_X, val_y):
         """

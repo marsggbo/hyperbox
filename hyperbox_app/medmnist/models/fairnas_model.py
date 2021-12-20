@@ -17,7 +17,7 @@ from hyperbox_app.medmnist.losses import MixupLoss, MutualLoss
 logger = get_logger(__name__)
 
 
-class FinetuneModel(BaseModel):
+class FairNASModel(BaseModel):
     def __init__(
         self,
         network_cfg: Optional[Union[DictConfig, dict]] = None,
@@ -28,6 +28,8 @@ class FinetuneModel(BaseModel):
         scheduler_cfg: Optional[Union[DictConfig, dict]] = None,
         use_mixup: bool = False,
         input_size= (2,3,28,28,28),
+        is_sync: bool = True,
+        is_net_parallel: bool = True,
         **kwargs
     ):
         r'''Finetune model
@@ -55,6 +57,7 @@ class FinetuneModel(BaseModel):
 
     def on_fit_start(self):
         self.dataset_info = self.trainer.datamodule.data_train.info
+        self.mutator.sample_set()
         self.task = self.dataset_info['task']
         if self.task == 'multi-label, binary-class':
             self.criterion = nn.BCEWithLogitsLoss()
@@ -103,26 +106,35 @@ class FinetuneModel(BaseModel):
         self.network.train()
         trn_X, trn_y = batch
         self.y_true_trn = torch.cat((self.y_true_trn, trn_y), 0)
-        loss, preds, targets = self.step(batch)
-        if getattr(self.network, 'num_branches', None):
-            loss_mutual = 0.
-            num_branches = self.network.num_branches
-            num_features = len(self.network.branches[0].features)
-            # ensemble_features = []
-            for idx in range(num_features):
-                en_feat = torch.stack([self.network.branches[i].features[idx] for i in range(num_branches)]).mean(0)
-                sub_loss_mutual = 0.
-                for i in range(num_branches):
-                    sub_loss = MutualLoss('kl')(self.network.branches[i].features[idx], en_feat)
-                    sub_loss_mutual += sub_loss
-                sub_loss_mutual /= num_branches
-                loss_mutual += sub_loss_mutual
-                # ensemble_features.append(en_feat)
-            loss_mutual /= num_features
-            if self.current_epoch < 6:
-                loss = loss + 0.5 * loss_mutual
-            else:
-                loss = loss + 1000 * loss_mutual
+        if 'fairnas' in self.mutator.__class__.__name__.lower():
+            loss = 0
+            for i in range(self.mutator.num_mask):
+                self.mutator.reset()
+                subloss, preds, targets = self.step(batch)
+                loss += subloss
+
+                if getattr(self.network, 'num_branches', None):
+                    loss_mutual = 0.
+                    num_branches = self.network.num_branches
+                    num_features = len(self.network.branches[0].features)
+                    # ensemble_features = []
+                    for idx in range(num_features):
+                        en_feat = torch.stack([self.network.branches[i].features[idx] for i in range(num_branches)]).mean(0)
+                        sub_loss_mutual = 0.
+                        for i in range(num_branches):
+                            sub_loss = MutualLoss('kl')(self.network.branches[i].features[idx], en_feat)
+                            sub_loss_mutual += sub_loss
+                        sub_loss_mutual /= num_branches
+                        loss_mutual += sub_loss_mutual
+                        # ensemble_features.append(en_feat)
+                    loss_mutual /= num_features
+                    if self.current_epoch < 6:
+                        loss = loss + 0.5 * loss_mutual
+                    else:
+                        loss = loss + 100 * loss_mutual
+            loss /= (i+1)
+        else:
+            loss, preds, targets = self.step(batch)
 
         # log train metrics
         acc = self.train_metric(preds, trn_y)
