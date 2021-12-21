@@ -13,7 +13,7 @@ import torch.optim as optim
 
 from hyperbox.mutables import spaces
 from hyperbox.networks.base_nas_network import BaseNASNetwork
-from hyperbox.networks.nasbench201.db_gen import PRIMITIVES, query
+from hyperbox.networks.nasbench201.db_gen import PRIMITIVES, query, query_nb201_trial_stats
 
 
 class Pooling(nn.Module):
@@ -432,6 +432,13 @@ class NASBench201Network(BaseNASNetwork):
                 for op in op_list:
                     print(op.key, op.mask)
 
+    def query_by_key(self, key='test_acc', arch=None, num_epochs=200, dataset='cifar10', reduction='mean'):
+        if arch is None:
+            arch = self.arch
+        self.arch_info = next(query_nb201_trial_stats(arch, num_epochs, dataset, reduction))
+        return self.arch_info.get(key, '-1')
+
+
 if __name__ == "__main__":
     from hyperbox.mutator import RandomMutator
     from hyperbox.networks.nasbench201.db_gen import query_nb201_trial_stats
@@ -459,6 +466,6 @@ if __name__ == "__main__":
     #     a = torch.rand(2, 3, 64, 64).to(device)
     #     b = net(a)
     #     arch_json = net.arch 
-
+    #     acc = net.query_by_key()
     #     for t in query_nb201_trial_stats(arch_json, 200, 'cifar10'):
     #         pprint.pprint(t)
