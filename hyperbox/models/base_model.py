@@ -263,7 +263,10 @@ class BaseModel(LightningModule):
         if net is None:
             net = self.network
         if dataloader is None:
-            dataset = self.datamodule.train_dataloader().dataset
+            try:
+                dataset = self.datamodule.train_dataloader().dataset
+            except:
+                dataset = self.datamodule.test_dataloader().dataset
             indices = np.random.choice(np.arange(len(dataset)), size=subset_size, replace=False)
             sub_sampler = torch.utils.data.sampler.SubsetRandomSampler(indices)
             dataloader = torch.utils.data.DataLoader(dataset, batch_size=subset_batch_size,
