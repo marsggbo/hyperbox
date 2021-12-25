@@ -248,7 +248,10 @@ def hparams_wrapper(cls):
         for i, arg in enumerate(args):
             _hparams[_args_name[i]] = arg
         _hparams.update(kwargs)
-        self = origin__new__(cls)
+        if not isinstance(cls, type):
+            self = origin__new__(type(cls))
+        else:
+            self = origin__new__(cls)
         self._hparams = _hparams
         for key, value in self._hparams.items():
             try:
@@ -256,6 +259,8 @@ def hparams_wrapper(cls):
             except Exception as e:
                 pass
                 # print(f'{cls} `__new__` fails to set {key} to {value} due to {e}')
+        if not isinstance(cls, type):
+            cls = type(cls)
         cls.hparams = property(lambda self: DotDict(self._hparams)) # generate a `hparams` property function
         return self
 
