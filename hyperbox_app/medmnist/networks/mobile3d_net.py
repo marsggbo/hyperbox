@@ -19,7 +19,7 @@ __all__ = [
 
 class Mobile3DNet(BaseNASNetwork):
     def __init__(
-        self, c_in=3,
+        self, in_channels=3,
         width_stages=[24,40,80,96,192,320],
         n_cell_stages=[4,4,4,4,4,1],
         stride_stages=[2,2,2,1,2,1],
@@ -44,7 +44,7 @@ class Mobile3DNet(BaseNASNetwork):
         for i in range(len(width_stages)):
             width_stages[i] = make_divisible(width_stages[i] * width_mult, 8)
         # first conv
-        first_conv = ConvLayer(c_in, input_channel, kernel_size=3, stride=2, use_bn=True, act_func='relu6', ops_order='weight_bn_act')
+        first_conv = ConvLayer(in_channels, input_channel, kernel_size=3, stride=2, use_bn=True, act_func='relu6', ops_order='weight_bn_act')
         # first block
         first_block_conv = OPS['3x3_MBConv1'](input_channel, first_cell_width, 1)
         first_block = first_block_conv
@@ -66,15 +66,15 @@ class Mobile3DNet(BaseNASNetwork):
                                  OPS['3x3_MBConv4'](width, width, 1),
                                  OPS['3x3_MBConv6'](width, width, 1),
                                  OPS['5x5_MBConv3'](width, width, 1),
-                                 OPS['5x5_MBConv4'](width, width, 1),
+                                #  OPS['5x5_MBConv4'](width, width, 1),
                                  OPS['7x7_MBConv3'](width, width, 1),
-                                 OPS['7x7_MBConv4'](width, width, 1),
+                                #  OPS['7x7_MBConv4'](width, width, 1),
                                  OPS['Identity'](width, width, 1),
-                                 OPS['Zero'](width, width, 1),
+                                #  OPS['Zero'](width, width, 1),
                                  ]
-                if stride == 1 and input_channel == width:
-                    # if it is not the first one
-                    op_candidates += [OPS['Zero'](input_channel, width, stride)]
+                # if stride == 1 and input_channel == width:
+                #     # if it is not the first one
+                #     op_candidates += [OPS['Zero'](input_channel, width, stride)]
                 conv_op = OperationSpace(op_candidates, mask=self.mask, return_mask=True, key="s{}_c{}".format(stage_cnt, i))
                 # shortcut
                 if stride == 1 and input_channel == width:
@@ -143,9 +143,9 @@ class Mobile3DNet(BaseNASNetwork):
                 if m.bias is not None:
                     m.bias.data.zero_()
 
-    def reset_first_block(self, c_in):
+    def reset_first_block(self, in_channels):
         self.first_conv = ConvLayer(
-            c_in, input_channel, kernel_size=3, stride=2,
+            in_channels, input_channel, kernel_size=3, stride=2,
             use_bn=True, act_func='relu6', ops_order='weight_bn_act')
 
     @property
@@ -161,7 +161,7 @@ class Mobile3DNet(BaseNASNetwork):
 class DAMobile3DNet(BaseNASNetwork):
     def __init__(
         self,
-        c_in=3, width_stages=[24,40,80,96,192,320],
+        in_channels=3, width_stages=[24,40,80,96,192,320],
         n_cell_stages=[4,4,4,4,4,1],
         stride_stages=[2,2,2,1,2,1],
         width_mult=1, num_classes=1000,
@@ -173,7 +173,7 @@ class DAMobile3DNet(BaseNASNetwork):
     ):
         super(DAMobile3DNet, self).__init__(mask)
         self.network = Mobile3DNet(
-            c_in, width_stages, n_cell_stages, stride_stages, width_mult,
+            in_channels, width_stages, n_cell_stages, stride_stages, width_mult,
             num_classes, dropout_rate, bn_param, mask)
         self.augmentation = DataAugmentation(
             rotate_degree, crop_size, affine_degree, affine_scale, affine_shears, mask)
