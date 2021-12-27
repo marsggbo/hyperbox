@@ -1,0 +1,17 @@
+_target_: hyperbox_app.medmnist.datamodules.CTDatamodule
+root_dir: '/home/datasets/CCCCI_cleaned/dataset_cleaned/'
+data_list_train: '/home/comp/18481086/code/hyperbox/hyperbox_app/covid19/datasets/ccccii/ct_train.json'
+data_list_val: '/home/comp/18481086/code/hyperbox/hyperbox_app/covid19/datasets/ccccii/ct_test.json'
+data_list_test: '/home/comp/18481086/code/hyperbox/hyperbox_app/covid19/datasets/ccccii/ct_test.json'
+is_color: False
+is_3d: True
+img_size: [512, 512]
+center_size: [320, 320]
+batch_size: 16
+slice_num: 64
+seed: 6666
+is_customized: True
+num_workers: 8
+shuffle: True
+pin_memory: True
+drop_last: False
