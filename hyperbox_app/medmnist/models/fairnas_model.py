@@ -29,7 +29,7 @@ class FairNASModel(BaseModel):
         use_mixup: bool = False,
         input_size= (2,3,28,28,28),
         is_sync: bool = True,
-        is_net_parallel: bool = True,
+        is_net_parallel: bool = False,
         **kwargs
     ):
         r'''Finetune model
@@ -106,6 +106,7 @@ class FairNASModel(BaseModel):
         self.network.train()
         trn_X, trn_y = batch
         self.y_true_trn = torch.cat((self.y_true_trn, trn_y), 0)
+        loss_mutual = 0
         if 'fairnas' in self.mutator.__class__.__name__.lower():
             loss = 0
             for i in range(self.mutator.num_mask):
@@ -150,7 +151,7 @@ class FairNASModel(BaseModel):
 
     def training_epoch_end(self, outputs: List[Any]):
         self.y_true_trn = self.y_true_trn.detach().cpu().numpy()
-        print('Train class 0', sum(self.y_true_trn==0), 'class 1', sum(self.y_true_trn==1), 'all', len(self.y_true_trn))
+        logger.info(f'Train class 0:{sum(self.y_true_trn==0)} class 1:{sum(self.y_true_trn==1)} all:{len(self.y_true_trn)}')
         acc_epoch = self.trainer.callback_metrics['train/acc_epoch'].item()
         loss_epoch = self.trainer.callback_metrics['train/loss_epoch'].item()
         logger.info(f'Train epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
@@ -194,7 +195,7 @@ class FairNASModel(BaseModel):
     def validation_epoch_end(self, outputs: List[Any]):
         self.y_true = self.y_true.detach().cpu().numpy()
         self.y_score = self.y_score.detach().cpu().numpy()
-        print('class 0', sum(self.y_true==0), 'class 1', sum(self.y_true==1), 'all', len(self.y_true))
+        logger.info(f'class 0:{sum(self.y_true==0)} class 1:{sum(self.y_true==1)} all:{len(self.y_true)}')
         try:
             auc = getAUC(self.y_true, self.y_score, self.task)
             self.log("val/auc", auc, on_step=False, on_epoch=True, prog_bar=False)
@@ -203,6 +204,10 @@ class FairNASModel(BaseModel):
         acc_epoch = self.trainer.callback_metrics['val/acc_epoch'].item()
         loss_epoch = self.trainer.callback_metrics['val/loss_epoch'].item()
         logger.info(f'Val epoch{self.trainer.current_epoch} auc={auc:.4f} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
+
+        if self.current_epoch % 1 == 0:
+            self.export("mask_epoch_%d.json" % self.current_epoch,
+            True, {'val_acc': acc_epoch, 'val_loss': loss_epoch})
 
     def on_test_epoch_start(self):
         self.y_true = torch.tensor([]).to(self.device)

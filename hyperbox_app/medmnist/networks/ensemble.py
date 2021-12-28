@@ -67,17 +67,17 @@ class SharePart3D(BaseNASNetwork):
                 # blocks.append(calibrate_op)
                 op_candidates = [OPS['3x3_MBConv3'](width, width, 1),
                                  OPS['3x3_MBConv4'](width, width, 1),
-                                 OPS['3x3_MBConv6'](width, width, 1),
+                                #  OPS['3x3_MBConv6'](width, width, 1),
                                  OPS['5x5_MBConv3'](width, width, 1),
-                                 OPS['5x5_MBConv4'](width, width, 1),
+                                #  OPS['5x5_MBConv4'](width, width, 1),
                                  OPS['7x7_MBConv3'](width, width, 1),
-                                 OPS['7x7_MBConv4'](width, width, 1),
+                                #  OPS['7x7_MBConv4'](width, width, 1),
                                  OPS['Identity'](width, width, 1),
-                                 OPS['Zero'](width, width, 1),
+                                #  OPS['Zero'](width, width, 1),
                                  ]
-                if stride == 1 and input_channel == width:
-                    # if it is not the first one
-                    op_candidates += [OPS['Zero'](input_channel, width, stride)]
+                # if stride == 1 and input_channel == width:
+                #     # if it is not the first one
+                #     op_candidates += [OPS['Zero'](input_channel, width, stride)]
                 conv_op = OperationSpace(op_candidates, mask=self.mask, return_mask=True, key="{}_stage{}_cell{}".format(suffix, stage_cnt, i))
                 # shortcut
                 if stride == 1 and input_channel == width:

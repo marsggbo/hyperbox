@@ -6,7 +6,7 @@ data_list_test: '/home/comp/18481086/code/hyperbox/hyperbox_app/covid19/datasets
 is_color: False
 is_3d: True
 img_size: [512, 512]
-center_size: [320, 320]
+center_size: [360, 360]
 batch_size: 16
 slice_num: 64
 seed: 6666

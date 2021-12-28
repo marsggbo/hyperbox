@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader, Dataset, random_split
 from kornia import image_to_tensor, tensor_to_image
 from pytorch_lightning import LightningDataModule
 from hyperbox.utils.utils import hparams_wrapper
-from hyperbox_app.medmnist.datasets.utils import RandomResampler, SymmetricalResampler, pil_loader
+from hyperbox_app.medmnist.datamodules.utils import RandomResampler, SymmetricalResampler, pil_loader
 
 
 __all__ = [
@@ -32,7 +32,7 @@ class CTDataset(torch.utils.data.Dataset):
         is_color: bool=False,
         is_3d: bool=True,
         img_size: Union[List, int]=[512,512],
-        center_size: Union[List, int]=[320,320],
+        center_size: Union[List, int]=[360,360],
         slice_num: int=64,
         loader=pil_loader,
         transforms=None,
@@ -156,8 +156,8 @@ class CTDatamodule(LightningDataModule):
         data_list_test: str,
         is_color: bool=True,
         is_3d: bool=True,
-        img_size: Union[List, int]=[300, 300],
-        center_size: Union[List, int]=[224, 224],
+        img_size: Union[List, int]=[512, 512],
+        center_size: Union[List, int]=[360, 360],
         batch_size: int=16,
         slice_num: int=64,
         seed: int = 666,
@@ -229,6 +229,8 @@ class CTDatamodule(LightningDataModule):
 
 
 if __name__ == '__main__':
+    import logging
+    logging.getLogger().setLevel(logging.INFO)
     # dataset_cccci = CTDataset(
     #     root_dir='/home/datasets/CCCCI_cleaned/dataset_cleaned/',
     #     data_list='/home/comp/18481086/code/hyperbox/hyperbox_app/covid19/datasets/ccccii/ct_train.json',
@@ -246,27 +248,34 @@ if __name__ == '__main__':
     # )
     # for dataset in [dataset_cccci, dataset_nii, dataset_ct]:
     #     data = dataset[0]
-    #     print(data[0].shape)
+    #     logging.info(data[0].shape)
 
     # datamodule = CTDatamodule(
     #     root_dir='/home/datasets/CCCCI_cleaned/dataset_cleaned/',
     #     is_color=False,
     #     num_workers=0,
-    #     data_list_train='/home/comp/18481086/code/hyperbox/hyperbox_app/covid19/datasets/ccccii/ct_train.json',
-    #     data_list_val='/home/comp/18481086/code/hyperbox/hyperbox_app/covid19/datasets/ccccii/ct_test.json',
-    #     data_list_test='/home/comp/18481086/code/hyperbox/hyperbox_app/covid19/datasets/ccccii/ct_test.json',
+    #     data_list_train='/home/comp/18481086/code/hyperbox/hyperbox_app/covid19/datamodules/ccccii/ct_train.json',
+    #     data_list_val='/home/comp/18481086/code/hyperbox/hyperbox_app/covid19/datamodules/ccccii/ct_test.json',
+    #     data_list_test='/home/comp/18481086/code/hyperbox/hyperbox_app/covid19/datamodules/ccccii/ct_test.json',
     # )
+    print('start')
+    logging.info('start')
     datamodule = CTDatamodule(
         root_dir='/home/datasets/COVID-CTset_visual',
         is_color=False,
         num_workers=0,
-        data_list_train='/home/comp/18481086/code/hyperbox/hyperbox_app/medmnist/datasets/iran/train.json',
-        data_list_val='/home/comp/18481086/code/hyperbox/hyperbox_app/medmnist/datasets/iran/test.json',
-        data_list_test='/home/comp/18481086/code/hyperbox/hyperbox_app/medmnist/datasets/iran/test.json',
+        data_list_train='/home/comp/18481086/code/hyperbox/hyperbox_app/medmnist/datamodules/iran/train.json',
+        data_list_val='/home/comp/18481086/code/hyperbox/hyperbox_app/medmnist/datamodules/iran/test.json',
+        data_list_test='/home/comp/18481086/code/hyperbox/hyperbox_app/medmnist/datamodules/iran/test.json',
     )
-    for idx, data in datamodule.train_dataloader():
-        if idx > 1:
+    logging.info('dataset done')
+    from time import time
+    start = time()
+    for idx, data in enumerate(datamodule.train_dataloader()):
+        if idx > 20:
             break
         img, label = data
-        print(img.shape)
-    print('end')
+        logging.info(img.shape)
+    cost = time() - start
+    logging.info(f"cost {cost/(idx+1)} sec")
+    logging.info('end')

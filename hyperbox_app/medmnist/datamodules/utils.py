@@ -7,8 +7,8 @@ def pil_loader(path):
     bands = img.getbands()
     if len(bands) >= 3:
         img = img.convert('RGB')
-    # else:
-    #     img = img.convert('L')
+    else:
+        img = img.convert('L')
     return img
 
 
