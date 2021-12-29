@@ -206,9 +206,9 @@ class DARTSModel(BaseModel):
         loss_epoch = self.trainer.callback_metrics['val/loss_epoch'].item()
         logger.info(f'Val epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
 
-        mflops, size = self.arch_size((2, 1, 32, 64, 64), convert=True)
-        logger.info(
-            f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
+        # mflops, size = self.arch_size((2, 1, 32, 64, 64), convert=True)
+        # logger.info(
+        #     f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
         logger.info(f"self.mutator._cache: {len(self.mutator._cache)} choices")
         for key, value in self.mutator.choices.items():
             logger.info(f"{key}: {value.detach().softmax(-1)}")
