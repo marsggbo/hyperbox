@@ -10,9 +10,10 @@ defaults:
   - override /callbacks: default.yaml
   - override /logger: wandb.yaml
   - override /model/scheduler_cfg: CosineAnnealingLR.yaml
-  - override /model/optimizer_cfg: sgd.yaml
+  - override /model/optimizer_cfg: adam.yaml
   - override /model/network_cfg: da_mbv3_covid19.yaml
   - override /model/mutator_cfg: onehot_mutator.yaml
+  - override /model/loss_cfg: cross_entropy_labelsmooth.yaml
 
 
 # all parameters below will be merged with parameters from default configurations set above
@@ -23,10 +24,10 @@ seed: 12345
 trainer:
   min_epochs: 1
   max_epochs: 200
-  gpus: 1
+  gpus: 2
   # accelerator: horovod
-  accelerator: dp
-  replace_sampler_ddp: False
+  accelerator: ddp
+  # replace_sampler_ddp: False # customized if False
 
 datamodule:
   is_customized: True
@@ -38,7 +39,7 @@ model:
   #   _target_: hyperbox_app.multiple_path_nas.mutator.DartsMultipleMutator
   #   topk: null
   optimizer_cfg:
-    lr: 0.05
+    lr: 0.001
   scheduler_cfg:
     T_max: 200
   is_sync: True
@@ -48,9 +49,9 @@ model:
 logger:
   wandb:
     project: covid
-    name: covid_gdas_ctset
+    name: covid_gdas_ctset_dambv3
     offline: True
 
 hydra:
   job:
-    name: covid_gdas_ctset
+    name: covid_gdas_ctset_dambv3

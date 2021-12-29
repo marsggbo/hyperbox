@@ -13,6 +13,7 @@ defaults:
   - override /model/optimizer_cfg: adam.yaml
   - override /model/network_cfg: da_mbv3_covid19.yaml
   - override /model/mutator_cfg: onehot_mutator.yaml
+  - override /model/loss_cfg: cross_entropy_labelsmooth.yaml
 
 
 # all parameters below will be merged with parameters from default configurations set above
@@ -27,7 +28,7 @@ trainer:
   # accelerator: horovod
   # accelerator: dp
   accelerator: ddp
-  replace_sampler_ddp: False
+  # replace_sampler_ddp: False # customized if False
 
 datamodule:
   is_customized: True

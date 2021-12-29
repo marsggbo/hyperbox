@@ -159,7 +159,7 @@ class CTDatamodule(LightningDataModule):
         img_size: Union[List, int]=[512, 512],
         center_size: Union[List, int]=[360, 360],
         batch_size: int=16,
-        slice_num: int=64,
+        slice_num: int=32,
         seed: int = 666,
         is_customized: bool = False,
         num_workers: int = 4,
@@ -263,7 +263,8 @@ if __name__ == '__main__':
     datamodule = CTDatamodule(
         root_dir='/home/datasets/COVID-CTset_visual',
         is_color=False,
-        num_workers=0,
+        batch_size=16,
+        num_workers=4,
         data_list_train='/home/comp/18481086/code/hyperbox/hyperbox_app/medmnist/datamodules/iran/train.json',
         data_list_val='/home/comp/18481086/code/hyperbox/hyperbox_app/medmnist/datamodules/iran/test.json',
         data_list_test='/home/comp/18481086/code/hyperbox/hyperbox_app/medmnist/datamodules/iran/test.json',

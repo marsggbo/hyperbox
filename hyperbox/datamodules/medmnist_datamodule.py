@@ -270,7 +270,7 @@ class MedMNISTDataModule(LightningDataModule):
 
 
 if __name__ == '__main__':
-    data_dir = '/home/datasets/Flythings3D/medmnist/'
+    data_dir = '~/datasets/medmnist/'
     data_flag = 'vesselmnist3d'
     # data_flag = 'synapsemnist3d'
     # data_flag = 'chestmnist'
