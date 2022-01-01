@@ -10,6 +10,7 @@ from hyperbox.utils.average_meter import AverageMeter
 from hyperbox.mutables.ops import BaseConvNd, BaseBatchNorm, Linear, FinegrainedModule
 from hyperbox.mutables.masker import __MASKERS__
 from hyperbox.mutables.spaces import ValueSpace
+from hyperbox.mutator.fixed_mutator import FixedArchitecture
 
 from hyperbox.networks.pytorch_modules import Hsigmoid, Hswish
 
@@ -66,7 +67,7 @@ def sortChannels(net, masker=None):
             elif isinstance(module, (BatchNorm2d, BatchNorm1d)):
                 setSortIdx(module, 'num_features', name, 'bn')
 
-def set_running_statistics(model, data_loader):
+def set_running_statistics(model, data_loader, mutator=None, mask=None):
     bn_mean = {}
     bn_var = {}
 
@@ -76,16 +77,32 @@ def set_running_statistics(model, data_loader):
     except:
         forward_model = copy.deepcopy(model) # normal `nn.Module`
     forward_model.to(device)
+    if mutator is not None:
+        try:
+            new_mutator = FixedArchitecture(model, mask)
+            new_mutator.sample_by_mask(mask)
+        except:
+            new_mutator = mutator.__class__(forward_model)
+            new_mutator.sample_by_mask(mutator._cache)
     for name, m in forward_model.named_modules():
-        if isinstance(m, nn.BatchNorm2d):
+        if isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)):
             bn_mean[name] = AverageMeter(name)
             bn_var[name] = AverageMeter(name)
 
             def new_forward(bn, mean_est, var_est):
                 def lambda_forward(x):
-                    batch_mean = x.mean(0, keepdim=True).mean(2, keepdim=True).mean(3, keepdim=True)  # 1, C, 1, 1
-                    batch_var = (x - batch_mean) * (x - batch_mean)
-                    batch_var = batch_var.mean(0, keepdim=True).mean(2, keepdim=True).mean(3, keepdim=True)
+                    if len(x.shape)==3:
+                        batch_mean = x.mean(0, keepdim=True).mean(2, keepdim=True)  # 1, C, 1
+                        batch_var = (x - batch_mean) * (x - batch_mean)
+                        batch_var = batch_var.mean(0, keepdim=True).mean(2, keepdim=True)
+                    elif len(x.shape)==4:
+                        batch_mean = x.mean(0, keepdim=True).mean(2, keepdim=True).mean(3, keepdim=True)  # 1, C, 1, 1
+                        batch_var = (x - batch_mean) * (x - batch_mean)
+                        batch_var = batch_var.mean(0, keepdim=True).mean(2, keepdim=True).mean(3, keepdim=True)
+                    elif len(x.shape)==5:
+                        batch_mean = x.mean(0, keepdim=True).mean(2, keepdim=True).mean(3, keepdim=True).mean(4, keepdim=True)  # 1, C, 1, 1, 1
+                        batch_var = (x - batch_mean) * (x - batch_mean)
+                        batch_var = batch_var.mean(0, keepdim=True).mean(2, keepdim=True).mean(3, keepdim=True).mean(4, keepdim=True)
 
                     batch_mean = torch.squeeze(batch_mean)
                     batch_var = torch.squeeze(batch_var)
@@ -117,7 +134,7 @@ def set_running_statistics(model, data_loader):
     for name, m in model.named_modules():
         if name in bn_mean and bn_mean[name].count > 0:
             feature_dim = bn_mean[name].avg.size(0)
-            assert isinstance(m, nn.BatchNorm2d)
+            assert isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d))
             m.running_mean.data[:feature_dim].copy_(bn_mean[name].avg)
             m.running_var.data[:feature_dim].copy_(bn_var[name].avg)
 

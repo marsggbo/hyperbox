@@ -240,7 +240,6 @@ class MedMNISTDataModule(LightningDataModule):
                     batch_size=self.batch_size,
                     num_workers=self.num_workers,
                     pin_memory=self.pin_memory,
-                    shuffle=self.shuffle,
                 )
             train_val_loader = {
                 'train': train_loader,
@@ -271,7 +270,7 @@ class MedMNISTDataModule(LightningDataModule):
 
 
 if __name__ == '__main__':
-    data_dir = '/home/datasets/Flythings3D/medmnist/'
+    data_dir = '~/datasets/medmnist/'
     data_flag = 'vesselmnist3d'
     # data_flag = 'synapsemnist3d'
     # data_flag = 'chestmnist'
