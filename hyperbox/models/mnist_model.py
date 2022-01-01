@@ -5,6 +5,9 @@ from pytorch_lightning import LightningModule
 from torchmetrics.classification.accuracy import Accuracy
 
 from hyperbox.networks.simple_dense_net import SimpleDenseNet
+from hyperbox.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class MNISTLitModel(LightningModule):
@@ -65,8 +68,8 @@ class MNISTLitModel(LightningModule):
 
         # log train metrics
         acc = self.train_accuracy(preds, targets)
-        self.log("train/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
-        self.log("train/acc", acc, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=False)
+        self.log("train/acc", acc, on_step=True, on_epoch=True, prog_bar=True)
 
         # we can return here dict with any tensors
         # and then read it in some callback or in training_epoch_end() below
@@ -83,8 +86,8 @@ class MNISTLitModel(LightningModule):
 
         # log val metrics
         acc = self.val_accuracy(preds, targets)
-        self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
-        self.log("val/acc", acc, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val/loss", loss, on_step=True, on_epoch=True, prog_bar=False)
+        self.log("val/acc", acc, on_step=True, on_epoch=True, prog_bar=True)
 
         return {"loss": loss, "preds": preds, "targets": targets}
 
