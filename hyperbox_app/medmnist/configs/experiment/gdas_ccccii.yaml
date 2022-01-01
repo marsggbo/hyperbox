@@ -39,6 +39,8 @@ model:
   # mutator_cfg:
   #   _target_: hyperbox_app.multiple_path_nas.mutator.DartsMultipleMutator
   #   topk: null
+  network_cfg:
+    num_classes: 3
   optimizer_cfg:
     lr: 0.001
   scheduler_cfg:
