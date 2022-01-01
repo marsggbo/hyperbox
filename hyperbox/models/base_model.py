@@ -258,14 +258,22 @@ class BaseModel(LightningModule):
     def datamodule(self):
         return self.trainer.datamodule
 
-    def reset_running_statistics(self, net=None, subset_size=2000, subset_batch_size=200, dataloader=None):
+    def reset_running_statistics(self, net=None, subset_size=160, subset_batch_size=32, dataloader=None):
         from hyperbox.networks.utils import set_running_statistics
         if net is None:
             net = self.network
         if dataloader is None:
-            dataset = self.datamodule.train_dataloader().dataset
-            indices = np.random.choice(np.arange(len(dataset)), size=subset_size, replace=False)
+            try:
+                if getattr(self.datamodule, 'is_customized', False):
+                    dataset = self.datamodule.train_dataloader()['train'].dataset
+                else:
+                    dataset = self.datamodule.train_dataloader().dataset
+            except:
+                dataset = self.datamodule.test_dataloader().dataset
+            size = min(subset_size, len(dataset))
+            indices = np.random.choice(np.arange(len(dataset)), size=size, replace=False)
             sub_sampler = torch.utils.data.sampler.SubsetRandomSampler(indices)
+            subset_batch_size = min(subset_batch_size, len(dataset))
             dataloader = torch.utils.data.DataLoader(dataset, batch_size=subset_batch_size,
-                num_workers=8, sampler=sub_sampler)
-        set_running_statistics(net, dataloader)
+                num_workers=4, sampler=sub_sampler)
+        set_running_statistics(net, dataloader, self.mutator)
