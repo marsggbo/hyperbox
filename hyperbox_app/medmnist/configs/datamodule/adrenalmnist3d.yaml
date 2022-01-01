@@ -1,8 +1,0 @@
-_target_: hyperbox.datamodules.medmnist_datamodule.MedMNISTDataModule
-data_dir: '~/datasets/medmnist/'
-data_flag: 'adrenalmnist3d'
-batch_size: 128
-num_workers: 8
-as_rgb: True
-num_classes: 2
-shape_transform: True

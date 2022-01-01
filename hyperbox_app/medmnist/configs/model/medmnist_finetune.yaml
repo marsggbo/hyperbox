@@ -1,9 +1,0 @@
-_target_: hyperbox_app.medmnist.models.finetune_model.FinetuneModel
-
-defaults:
-    - network_cfg: mobile3dnet
-    - mutator_cfg: onehot_mutator
-    - optimizer_cfg: adam
-    - metric_cfg: accuracy
-    - loss_cfg: cross_entropy
-    - scheduler_cfg: null

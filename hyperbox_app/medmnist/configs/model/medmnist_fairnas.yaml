@@ -1,9 +1,0 @@
-_target_: hyperbox_app.medmnist.models.fairnas_model.FairNASModel
-
-defaults:
-    - network_cfg: mobile3dnet
-    - mutator_cfg: fairnas_mutator
-    - optimizer_cfg: adam
-    - metric_cfg: accuracy
-    - loss_cfg: cross_entropy_labelsmooth
-    - scheduler_cfg: null
