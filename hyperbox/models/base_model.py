@@ -114,10 +114,17 @@ class BaseModel(LightningModule):
         self.val_metric = self.metric
         self.test_metric = self.metric
 
+    # def on_train_epoch_start(self):
     # def training_step(self, batch: Any, batch_idx: int):
     # def training_epoch_end(self, outputs: List[Any]):
+    def on_validation_epoch_start(self):
+        if getattr(self.network, 'mask', False):
+            self.reset_running_statistics(subset_size=64, subset_batch_size=32)
     # def validation_step(self, batch: Any, batch_idx: int):
     # def validation_epoch_end(self, outputs: List[Any]):
+    def on_test_epoch_start(self):
+        if getattr(self.network, 'mask', False):
+            self.reset_running_statistics(subset_size=64, subset_batch_size=32)
     # def test_step(self, batch: Any, batch_idx: int):
     # def test_epoch_end(self, outputs: List[Any]):
 
