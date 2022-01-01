@@ -1,0 +1,17 @@
+_target_: hyperbox_app.medmnist.datamodules.CTDatamodule
+root_dir: '/home/datasets/COVID-CTset_visual'
+data_list_train: '/home/comp/18481086/code/hyperbox/hyperbox_app/covid19/datasets/iran/train.json'
+data_list_val: '/home/comp/18481086/code/hyperbox/hyperbox_app/covid19/datasets/iran/test.json'
+data_list_test: '/home/comp/18481086/code/hyperbox/hyperbox_app/covid19/datasets/iran/test.json'
+is_color: False
+is_3d: True
+img_size: [512, 512]
+center_size: [360, 360]
+batch_size: 16
+slice_num: 64
+seed: 6666
+is_customized: True
+num_workers: 8
+shuffle: True
+pin_memory: True
+drop_last: False

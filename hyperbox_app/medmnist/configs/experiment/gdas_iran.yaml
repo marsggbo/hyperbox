@@ -1,0 +1,59 @@
+# @package _global_
+
+# to execute this experiment run:
+# python run.py experiment=example_simple.yaml
+
+defaults:
+  - override /trainer: default.yaml # choose trainer from 'configs/trainer/'
+  - override /model: covid19_model.yaml
+  - override /datamodule: ctset_datamodule.yaml
+  - override /callbacks: default.yaml
+  - override /logger: wandb.yaml
+  - override /model/scheduler_cfg: CosineAnnealingLR.yaml
+  - override /model/optimizer_cfg: adam.yaml
+  - override /model/network_cfg: da_mbv3_covid19.yaml
+  - override /model/mutator_cfg: onehot_mutator.yaml
+  - override /model/loss_cfg: cross_entropy_labelsmooth.yaml
+
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+seed: 12345
+
+trainer:
+  min_epochs: 1
+  max_epochs: 200
+  gpus: 2
+  # accelerator: horovod
+  accelerator: ddp
+  # replace_sampler_ddp: False # customized if False
+
+datamodule:
+  is_customized: True
+  # is_customized: False
+  batch_size: 8
+
+model:
+  # mutator_cfg:
+  #   _target_: hyperbox_app.multiple_path_nas.mutator.DartsMultipleMutator
+  #   topk: null
+  network_cfg:
+    num_classes: 2
+  optimizer_cfg:
+    lr: 0.001
+  scheduler_cfg:
+    T_max: 200
+  is_sync: True
+  is_net_parallel: False
+  arc_lr: 0.0003
+
+logger:
+  wandb:
+    project: covid
+    name: covid_gdas_ctset_dambv3
+    offline: True
+
+hydra:
+  job:
+    name: covid_gdas_ctset_dambv3

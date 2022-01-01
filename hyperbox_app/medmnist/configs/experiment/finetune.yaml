@@ -59,3 +59,6 @@ logger:
 hydra:
   job:
     name: medmnist_gdas_adrenal
+callbacks:
+  model_checkpoint:
+    monitor: 'val/auc'

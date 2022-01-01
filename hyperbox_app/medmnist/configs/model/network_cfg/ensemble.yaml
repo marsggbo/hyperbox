@@ -1,0 +1,16 @@
+_target_: hyperbox_app.medmnist.networks.ensemble.Mobile3DEnsemble
+in_channels: 3
+share_width_stages: [32,64,96]
+share_n_cell_stages: [4,4,4]
+share_stride_stages: [1,1,2]
+share_width_mult: 1
+share_bn_param: [0.1,1e-3]
+branch_width_stages: [128,256,320]
+branch_n_cell_stages: [4,4,4]
+branch_stride_stages: [2,2,2]
+branch_width_mult: 1
+branch_bn_param: [0.1,1e-3]
+dropout_rate:  0
+num_branches:  3
+num_classes: 10
+mask: null
