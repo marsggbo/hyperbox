@@ -49,7 +49,7 @@ class Mutator(BaseMutator):
             archs_to_valid = [self.default_mask]
         self.archs_to_valid = archs_to_valid
 
-    def sample_search(self):
+    def sample_search(self, *args, **kwargs):
         """
         Override to implement this method to iterate over mutables and make decisions.
 
@@ -60,7 +60,7 @@ class Mutator(BaseMutator):
         """
         raise NotImplementedError
 
-    def sample_final(self):
+    def sample_final(self, *args, **kwargs):
         """
         Override to implement this method to iterate over mutables and make decisions that is final
         for export and retraining.
@@ -82,7 +82,7 @@ class Mutator(BaseMutator):
         None
         """
         if not hasattr(self, 'sample_func'):
-            self._cache = self.sample_search()
+            self._cache = self.sample_search(*args, **kwargs)
         else:
             self._cache = self.sample_func(self, *args, **kwargs)
             del self.sample_func
@@ -94,7 +94,7 @@ class Mutator(BaseMutator):
                 mask[mutable.key] = mutable.mask
         return mask
 
-    def export(self):
+    def export(self, *args, **kwargs):
         """
         Resample (for final) and return results.
 
@@ -102,7 +102,7 @@ class Mutator(BaseMutator):
         -------
         dict
         """
-        return self.sample_final()
+        return self.sample_final(*args, **kwargs)
 
     def save_arch(self, file_path):
         mask = self._cache
