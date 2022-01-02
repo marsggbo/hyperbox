@@ -32,7 +32,9 @@ def main(config: DictConfig):
         utils.print_config(config, resolve=True)
 
     # Train model
-    if config.debug:
+    if config.ipdb_debug:
+        config.trainer.accelerator='dp'
+        config.trainer.gpus=1
         set_trace()
     return train(config)
 

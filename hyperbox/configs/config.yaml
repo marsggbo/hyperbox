@@ -48,3 +48,4 @@ only_test: False
 # only load pretrained weights for network (exclude optimizer and scheduler)
 # e.g., 'logs/run/exp_name/checkpoint/epoch=66/acc=66.66.ckpt'
 pretrained_weight: null
+ipdb_debug: False
