@@ -325,8 +325,8 @@ class CalibrationLayer(nn.Module):
 
 
 class ZeroLayer(nn.Module):
-
-    def __init__(self, stride):
+    
+    def __init__(self, stride=None):
         super(ZeroLayer, self).__init__()
         self.stride = stride
 
@@ -338,7 +338,12 @@ class ZeroLayer(nn.Module):
         # noinspection PyUnresolvedReferences
         padding = torch.zeros(n, c, h, w, device=device, requires_grad=False)
         return padding'''
-        return x * 0
+        if self.stride == 1:
+            return x.mul(0.)
+        if len(x.shape)==4:
+            return x[:,:,::self.stride,::self.stride].mul(0.)
+        elif len(x.shape)==5:
+            return x[:,:,::self.stride,::self.stride,::self.stride].mul(0.)
 
     @staticmethod
     def is_zero_layer():
