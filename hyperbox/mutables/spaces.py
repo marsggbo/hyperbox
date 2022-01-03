@@ -303,7 +303,8 @@ class OperationSpace(CategoricalSpace):
                 return op(*inputs)
 
             mask = self.mask
-            if "BoolTensor" in self.mask.type():
+            if "BoolTensor" in self.mask.type() or \
+                set(mask.cpu().detach().numpy())=={0,1}:
                 mask = torch.tensor([True for i in range(len(self.candidates))])
             assert len(mask) == len(self.candidates), \
                 "Invalid mask, expected {} to be of length {}.".format(mask, len(self.candidates))
