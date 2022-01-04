@@ -1,11 +1,10 @@
 
-
+import numpy as np
 import torch
 import torch.nn as nn
 
 from hyperbox.mutables.spaces import ValueSpace
 from hyperbox.utils.utils import hparams_wrapper
-
 
 __all__ = [
     'FinegrainedModule'
@@ -29,9 +28,9 @@ class FinegrainedModule(nn.Module):
                     _v = value.candidates[value.index]
                 elif len(value.mask) != 0:
                     if isinstance(value.mask, torch.Tensor):
-                        index = value.mask.clone().detach().argmax()
+                        index = value.mask.clone().detach().cpu().numpy().argmax()
                     else:
-                        index = torch.tensor(value.mask).argmax()
+                        index = np.array(value.mask).argmax()
                     _v = value.candidates[index]
                 else:
                     _v = value.max_value
