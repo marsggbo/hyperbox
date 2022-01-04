@@ -110,7 +110,7 @@ class MBConvLayer(Base2DLayer):
             middle_channels = []
             for c in in_channels.candidates:
                 middle_channels.append(
-                    make_divisible(round(self.in_channels * self.expand_ratio), self.CHANNEL_DIVISIBLE)
+                    make_divisible(round(c * self.expand_ratio), self.CHANNEL_DIVISIBLE)
                 )
             if prefix is None:
                 key = in_channels.key + '_subMB_mc'
