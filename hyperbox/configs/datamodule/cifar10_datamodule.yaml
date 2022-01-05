@@ -4,8 +4,8 @@ defaults:
   - transforms: cifar
 
 data_dir: ~/datasets/cifar10
-val_split: 0.1
-num_workers: 2
+val_split: 0.5
+num_workers: 4
 normalize: True
 batch_size: 64
 seed: 666
