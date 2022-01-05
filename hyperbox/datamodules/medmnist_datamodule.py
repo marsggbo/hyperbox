@@ -1,3 +1,4 @@
+import os
 from typing import List, Optional, Tuple
 
 import medmnist
@@ -69,7 +70,8 @@ class MedMNISTDataModule(LightningDataModule):
         **kwargs,
     ):
         super().__init__()
-
+        if '~' in data_dir:
+            data_dir = os.path.expanduser(data_dir)
         self.data_dir = data_dir
         self.data_flag = data_flag
         self.as_rgb = as_rgb
