@@ -210,13 +210,14 @@ class DartsNetwork(BaseNASNetwork):
     """
 
     def __init__(self, in_channels=3, channels=16, n_classes=10, n_layers=8, factory_func=DartsCell, n_nodes=4,
-                 stem_multiplier=3, auxiliary: str='', mask=None):
+                 stem_multiplier=3, auxiliary: str='', path_drop_prob=0, mask=None):
         super(DartsNetwork, self).__init__(mask)
         self.in_channels = in_channels
         self.channels = channels
         self.n_classes = n_classes
         self.n_layers = n_layers
         self.aux_pos = 2 * n_layers // 3 if auxiliary else -1
+        self.path_drop_prob = path_drop_prob
 
         c_cur = stem_multiplier * self.channels
         self.stem = nn.Sequential(
@@ -250,6 +251,7 @@ class DartsNetwork(BaseNASNetwork):
 
         self.gap = nn.AdaptiveAvgPool2d(1)
         self.linear = nn.Linear(channels_p, n_classes)
+        self.drop_path_prob(path_drop_prob)
 
     def forward(self, x):
         s0 = s1 = self.stem(x)
@@ -302,7 +304,7 @@ if __name__ == '__main__':
     from hyperbox.mutator import RandomMutator
     darts1 = DartsNetwork()
     darts2 = DartsNetwork(auxiliary='cifar')
-    darts3 = DartsNetwork(auxiliary='imagenet')
+    darts3 = DartsNetwork(auxiliary='imagenet', path_drop_prob=0.5)
 
     for idx, net in enumerate([darts1, darts2, darts3]):
         rm = RandomMutator(net)
