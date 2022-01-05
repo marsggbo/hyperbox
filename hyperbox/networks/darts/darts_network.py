@@ -7,10 +7,15 @@ import torch
 import torch.nn as nn
 
 import hyperbox.mutables.spaces as spaces
-
-from .darts_ops import PoolBN, SepConv, DilConv, FactorizedReduce, DropPath, StdConv
-
-from ..base_nas_network import BaseNASNetwork
+from hyperbox.networks.base_nas_network import BaseNASNetwork
+from hyperbox.networks.darts.darts_ops import (
+    DilConv,
+    DropPath,
+    FactorizedReduce,
+    PoolBN,
+    SepConv,
+    StdConv,
+)
 
 __all__ = [
     'Node',

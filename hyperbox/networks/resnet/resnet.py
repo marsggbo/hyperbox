@@ -8,7 +8,7 @@ from hyperbox.mutables.ops import Conv2d, Linear, BatchNorm2d
 from hyperbox.mutables.spaces import ValueSpace
 from hyperbox.utils.utils import load_json, hparams_wrapper
 
-from ..base_nas_network import BaseNASNetwork
+from hyperbox.networks.base_nas_network import BaseNASNetwork
 
 __all__ = [
     "ResNet",
