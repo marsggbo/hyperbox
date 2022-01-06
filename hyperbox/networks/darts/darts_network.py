@@ -290,7 +290,8 @@ class DartsNetwork(BaseNASNetwork):
             return arch
         # reduce
         arch += '-reduce-'
-        cell_ops = self.cells[2].mutable_ops
+        reduce_index = self.n_layers // 3
+        cell_ops = self.cells[reduce_index].mutable_ops
         for node_ops in cell_ops:
             sub_arch = ''
             for op in node_ops.ops:
