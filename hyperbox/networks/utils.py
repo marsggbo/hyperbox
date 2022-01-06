@@ -77,7 +77,11 @@ def set_running_statistics(model, data_loader, mutator=None, mask=None):
     except:
         forward_model = copy.deepcopy(model) # normal `nn.Module`
     forward_model.to(device)
-    if mutator is not None:
+    if mutator is not None and model.mask is None:
+        '''
+        if the model needs to be seached (model.mask is None),
+        then we need to build a mutator to get the same subnet by setting the same mask
+        '''
         try:
             new_mutator = FixedArchitecture(model, mask)
             new_mutator.sample_by_mask(mask)
