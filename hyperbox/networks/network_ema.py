@@ -30,7 +30,7 @@ class ModelEma(nn.Module):
     This class is sensitive where it is initialized in the sequence of model init,
     GPU assignment and distributed training wrappers.
     """
-    def __init__(self, model, decay=0.9999, device=None):
+    def __init__(self, model, decay=0.7, final_decay=0.999, device=None):
         super(ModelEma, self).__init__()
         # make a copy of the model for accumulating moving average of weights
         if isinstance(model, BaseNASNetwork):
@@ -39,6 +39,8 @@ class ModelEma(nn.Module):
             self.module = deepcopy(model)
         self.module.eval()
         self.decay = decay
+        self.init_decay = decay
+        self.final_decay = final_decay
         self.device = device  # perform ema on different device from model if set
         if self.device is not None:
             self.module.to(device=device)
@@ -55,6 +57,9 @@ class ModelEma(nn.Module):
 
     def set(self, model):
         self._update(model, update_fn=lambda e, m: m)
+
+    def update_decay(self, epoch, all_epoch=100):
+        self.decay = self.init_decay + (epoch/all_epoch)*(self.final_decay-self.init_decay)
 
     def forward(self, *args, **kwargs):
         return self.module(*args, **kwargs)
