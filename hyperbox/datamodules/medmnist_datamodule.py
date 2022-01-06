@@ -216,8 +216,8 @@ class MedMNISTDataModule(LightningDataModule):
                 sampler = BatchBalanceClassSampler(
                     labels.tolist(), num_classes=num_classes, num_samples=num_samples, num_batches=num_batches)
                 # sampler = DistributedSamplerWrapper(sampler)
-                train_loader = DataLoader(
-                    dataset=dataset,
+                val_dataloader = DataLoader(
+                    dataset=self.data_val,
                     num_workers=self.num_workers,
                     pin_memory=self.pin_memory,
                     batch_sampler=sampler,
