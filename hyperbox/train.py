@@ -42,15 +42,33 @@ def train(config: DictConfig) -> Optional[float]:
         config.model.datamodule_cfg = config.datamodule
     model: LightningModule = hydra.utils.instantiate(config.model, _recursive_=False)
     if config.get('pretrained_weight'):
+        # loading pretrained weight to network and mutator
         import torch
         from hydra.utils import to_absolute_path
         ckpt_path = to_absolute_path(config.get("pretrained_weight"))
         ckpt = torch.load(ckpt_path, map_location='cpu')
         if 'epoch' in ckpt:
+            ckpt = ckpt['state_dict']
+        try:
+            # load state_dict of network, mutator, and etc,.
+            # model.load_state_dict(ckpt)
             model = model.load_from_checkpoint(ckpt_path, **config.model)
-        else:
-            model.network.load_state_dict(ckpt)
-        log.info(f"Loading pretrained weight from {ckpt_path}")
+            del ckpt
+            log.info(f"Loading pretrained weight from {ckpt_path}, including network, mutator")
+        except Exception as e:
+            try:
+                # only load network weight
+                model.network.load_state_dict(ckpt)
+                log.info(f"Loading pretrained network weight from {ckpt_path}")
+            except Exception as e:
+                try:
+                    # load subnet weight from a supernet weight
+                    from hyperbox.networks.utils import extract_net_from_ckpt
+                    weight_supernet = extract_net_from_ckpt(ckpt_path)
+                    model.network.load_from_supernet(weight_supernet)
+                    log.info(f"Loading subnet weight from supernet weight: {ckpt_path}")
+                except Exception as e:
+                    raise Exception(f'failed to load pretrained weight from {ckpt_path}')
 
     # Init Lightning callbacks
     callbacks: List[Callback] = []
