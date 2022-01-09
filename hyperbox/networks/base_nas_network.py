@@ -1,7 +1,9 @@
 from typing import Optional, Union, Tuple, List
+import torch
 import torch.nn as nn
 
 from hyperbox.mutables import spaces, ops
+from hyperbox.networks.utils import extract_net_from_ckpt
 from hyperbox.utils.utils import load_json, hparams_wrapper
 from hyperbox.utils.calc_model_size import flops_size_counter
 
@@ -67,7 +69,7 @@ class BaseNASNetwork(nn.Module):
                 model_dict[key] = state_dict[key]
         super(BaseNASNetwork, self).load_state_dict(model_dict, **kwargs)
 
-    def build_subnet(self, mask, preserve_weight=True):
+    def build_subnet(self, mask: str, preserve_weight: bool=True):
         '''build subnet by the given mask'''
         hparams = self.hparams
         hparams['mask'] = mask
@@ -171,3 +173,10 @@ class BaseNASNetwork(nn.Module):
             elif isinstance(m, nn.Linear):
                 nn.init.kaiming_normal_(m.weight.data)
                 m.bias.data.zero_()
+
+    def load_from_ckpt(self, ckpt):
+        '''load from the checkpoint of model
+        ckpt includes `state_dict` of network, optimizer, and mutator in `BaseModel`.
+        '''
+        to_copy_weight = extract_net_from_ckpt(ckpt)
+        self.load_state_dict(to_copy_weight)
