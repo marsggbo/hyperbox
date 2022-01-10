@@ -68,7 +68,7 @@ def train(config: DictConfig) -> Optional[float]:
                     model.network.load_from_supernet(weight_supernet)
                     log.info(f"Loading subnet weight from supernet weight: {ckpt_path}")
                 except Exception as e:
-                    raise Exception(f'failed to load pretrained weight from {ckpt_path}')
+                    raise Exception(f'failed to load pretrained weight from {ckpt_path}.\n{e}')
 
     # Init Lightning callbacks
     callbacks: List[Callback] = []
