@@ -14,6 +14,8 @@ from torchmetrics.classification.accuracy import Accuracy
 from hyperbox.utils.logger import get_logger
 from hyperbox.utils.utils import TorchTensorEncoder, hparams_wrapper
 from hyperbox.utils.calc_model_size import flops_size_counter
+from hyperbox.networks.utils import set_running_statistics
+
 logger = get_logger(__name__)
 
 
@@ -126,14 +128,16 @@ class BaseModel(LightningModule):
     # def on_train_epoch_start(self):
     # def training_step(self, batch: Any, batch_idx: int):
     # def training_epoch_end(self, outputs: List[Any]):
-    def on_validation_epoch_start(self):
-        if self.is_network_search:
-            self.reset_running_statistics(subset_size=64, subset_batch_size=32)
+    # def on_validation_epoch_start(self):
+    #     if self.is_network_search:
+    #         if not self.mutator._cache:
+    #             self.mutator.reset()
+    #         self.reset_running_statistics(subset_size=64, subset_batch_size=32)
     # def validation_step(self, batch: Any, batch_idx: int):
     # def validation_epoch_end(self, outputs: List[Any]):
-    def on_test_epoch_start(self):
-        if self.is_network_search:
-            self.reset_running_statistics(subset_size=64, subset_batch_size=32)
+    # def on_test_epoch_start(self):
+    #     if self.is_network_search:
+    #         self.reset_running_statistics(subset_size=64, subset_batch_size=32)
     # def test_step(self, batch: Any, batch_idx: int):
     # def test_epoch_end(self, outputs: List[Any]):
 
@@ -275,7 +279,6 @@ class BaseModel(LightningModule):
         return self.trainer.datamodule
 
     def reset_running_statistics(self, net=None, subset_size=160, subset_batch_size=32, dataloader=None):
-        from hyperbox.networks.utils import set_running_statistics
         if net is None:
             net = self.network
         if dataloader is None:
@@ -292,4 +295,15 @@ class BaseModel(LightningModule):
             subset_batch_size = min(subset_batch_size, len(dataset))
             dataloader = torch.utils.data.DataLoader(dataset, batch_size=subset_batch_size,
                 num_workers=4, sampler=sub_sampler)
-        set_running_statistics(net, dataloader, self.mutator)
+        try:
+            set_running_statistics(net, dataloader, self.mutator)
+        except Exception as e:
+            logger.info(e)
+            raise Exception('''
+            Failed to set running statistics, this is probably because 
+            1) the ``affine`` attribute of the BatchNorm is not set to True
+            2) you use `dp` training strategy 
+            and the data of `BatchNorm` is not copied correctly in `DataParallel` mode due to PyTorch issue.
+            [1] https://github.com/pytorch/pytorch/issues/1051
+            [2] https://github.com/pytorch/pytorch/issues/36035
+            ''')

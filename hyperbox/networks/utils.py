@@ -90,6 +90,8 @@ def set_running_statistics(model, data_loader, mutator=None, mask=None):
             new_mutator.sample_by_mask(mutator._cache)
     for name, m in forward_model.named_modules():
         if isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)):
+            if not m.affine:
+                continue
             bn_mean[name] = AverageMeter(name)
             bn_var[name] = AverageMeter(name)
 
