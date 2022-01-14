@@ -1,0 +1,9 @@
+_target_: hyperbox.models.ofa_model.OFAModel
+
+defaults:
+    - network_cfg: finegrained_resnet
+    - mutator_cfg: random_mutator
+    - optimizer_cfg: adam
+    - metric_cfg: accuracy
+    - loss_cfg: cross_entropy
+    - scheduler_cfg: null

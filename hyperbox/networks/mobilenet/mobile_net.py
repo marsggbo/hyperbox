@@ -5,9 +5,9 @@ import math
 from hyperbox.mutables.spaces import OperationSpace
 from hyperbox.utils.utils import load_json
 
-from ..base_nas_network import BaseNASNetwork
-from .mobile_ops import *
-from .mobile_utils import *
+from hyperbox.networks.base_nas_network import BaseNASNetwork
+from hyperbox.networks.mobilenet.mobile_ops import *
+from hyperbox.networks.mobilenet.mobile_utils import *
 
 
 class MobileNet(BaseNASNetwork):

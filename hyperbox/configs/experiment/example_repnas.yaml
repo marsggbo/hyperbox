@@ -1,0 +1,40 @@
+# @package _global_
+
+# to execute this experiment run:
+# python run.py experiment=example_simple.yaml
+
+# fintune repname_model.yaml -> classify_model
+
+defaults:
+  - override /trainer: default.yaml # choose trainer from 'configs/trainer/'
+  - override /model: repnas_model.yaml
+  - override /datamodule: cifar10_datamodule.yaml
+  - override /callbacks: default.yaml
+  - override /logger: wandb.yaml
+  - override /model/scheduler_cfg: CosineAnnealingLR.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+seed: 12345
+
+trainer:
+  min_epochs: 1
+  max_epochs: 200
+  gpus: 1
+  
+datamodule:
+  is_customized: True    # for darts mutator
+  # is_customized: False # for other mutators
+
+
+model:
+  mutator_cfg:
+    _target_: hyperbox.mutator.DartsMultipleMutator
+    # _target_: hyperbox.mutator.RandomMultipleMutator
+  optimizer_cfg:
+    lr: 0.001
+
+logger:
+  wandb:
+    offline: True

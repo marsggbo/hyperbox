@@ -114,10 +114,24 @@ class BaseModel(LightningModule):
         self.val_metric = self.metric
         self.test_metric = self.metric
 
+    @property
+    def is_network_search(self):
+        '''
+        if a network is initialized by a non-None mask, then it is a network to search
+        '''
+        return getattr(self.network, 'mask', None) is None
+
+    # def on_train_epoch_start(self):
     # def training_step(self, batch: Any, batch_idx: int):
     # def training_epoch_end(self, outputs: List[Any]):
+    def on_validation_epoch_start(self):
+        if self.is_network_search:
+            self.reset_running_statistics(subset_size=64, subset_batch_size=32)
     # def validation_step(self, batch: Any, batch_idx: int):
     # def validation_epoch_end(self, outputs: List[Any]):
+    def on_test_epoch_start(self):
+        if self.is_network_search:
+            self.reset_running_statistics(subset_size=64, subset_batch_size=32)
     # def test_step(self, batch: Any, batch_idx: int):
     # def test_epoch_end(self, outputs: List[Any]):
 
@@ -258,17 +272,22 @@ class BaseModel(LightningModule):
     def datamodule(self):
         return self.trainer.datamodule
 
-    def reset_running_statistics(self, net=None, subset_size=2000, subset_batch_size=200, dataloader=None):
+    def reset_running_statistics(self, net=None, subset_size=160, subset_batch_size=32, dataloader=None):
         from hyperbox.networks.utils import set_running_statistics
         if net is None:
             net = self.network
         if dataloader is None:
             try:
-                dataset = self.datamodule.train_dataloader().dataset
+                if getattr(self.datamodule, 'is_customized', False):
+                    dataset = self.datamodule.train_dataloader()['train'].dataset
+                else:
+                    dataset = self.datamodule.train_dataloader().dataset
             except:
                 dataset = self.datamodule.test_dataloader().dataset
-            indices = np.random.choice(np.arange(len(dataset)), size=subset_size, replace=False)
+            size = min(subset_size, len(dataset))
+            indices = np.random.choice(np.arange(len(dataset)), size=size, replace=False)
             sub_sampler = torch.utils.data.sampler.SubsetRandomSampler(indices)
+            subset_batch_size = min(subset_batch_size, len(dataset))
             dataloader = torch.utils.data.DataLoader(dataset, batch_size=subset_batch_size,
-                num_workers=8, sampler=sub_sampler)
-        set_running_statistics(net, dataloader)
+                num_workers=4, sampler=sub_sampler)
+        set_running_statistics(net, dataloader, self.mutator)

@@ -1,8 +1,0 @@
-_target_: hyperbox.datamodules.medmnist_datamodule.MedMNISTDataModule
-data_dir: '/home/datasets/Flythings3D/medmnist/'
-data_flag: 'organmnist3d'
-batch_size: 128
-num_workers: 8
-as_rgb: True
-shape_transform: False
-

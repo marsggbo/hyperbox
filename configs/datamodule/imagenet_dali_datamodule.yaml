@@ -1,7 +1,0 @@
-_target_: hyperbox.datamodules.imagenet_datamodule.ImagenetDALIDataModule
-dataset_path: /datasets/imagenet100
-batch_size: 4
-num_workers: 8
-dali_cpu: False
-val_size: 256
-crop_size: 224

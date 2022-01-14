@@ -7,16 +7,71 @@ import torch
 import torch.nn as nn
 
 import hyperbox.mutables.spaces as spaces
-
-from .darts_ops import PoolBN, SepConv, DilConv, FactorizedReduce, DropPath, StdConv
-
-from ..base_nas_network import BaseNASNetwork
+from hyperbox.networks.base_nas_network import BaseNASNetwork
+from hyperbox.networks.darts.darts_ops import (
+    DilConv,
+    DropPath,
+    FactorizedReduce,
+    PoolBN,
+    SepConv,
+    StdConv,
+)
 
 __all__ = [
     'Node',
     'DartsCell',
     'DartsNetwork'
 ]
+
+
+class AuxiliaryHeadCIFAR(nn.Module):
+
+  def __init__(self, C, num_classes):
+    """assuming input size 8x8"""
+    super(AuxiliaryHeadCIFAR, self).__init__()
+    self.features = nn.Sequential(
+      nn.ReLU(inplace=True),
+      nn.AvgPool2d(5, stride=3, padding=0, count_include_pad=False), # image size = 2 x 2
+      nn.Conv2d(C, 128, 1, bias=False),
+      nn.BatchNorm2d(128),
+      nn.ReLU(inplace=True),
+      nn.Conv2d(128, 768, 2, bias=False),
+      nn.BatchNorm2d(768),
+      nn.ReLU(inplace=True),
+      nn.AdaptiveAvgPool2d(1)
+    )
+    self.classifier = nn.Linear(768, num_classes)
+
+  def forward(self, x):
+    x = self.features(x)
+    x = self.classifier(x.view(x.size(0),-1))
+    return x
+
+
+class AuxiliaryHeadImageNet(nn.Module):
+
+  def __init__(self, C, num_classes):
+    """assuming input size 14x14"""
+    super(AuxiliaryHeadImageNet, self).__init__()
+    self.features = nn.Sequential(
+      nn.ReLU(inplace=True),
+      nn.AvgPool2d(5, stride=2, padding=0, count_include_pad=False),
+      nn.Conv2d(C, 128, 1, bias=False),
+      nn.BatchNorm2d(128),
+      nn.ReLU(inplace=True),
+      nn.Conv2d(128, 768, 2, bias=False),
+      # NOTE: This batchnorm was omitted in my earlier implementation due to a typo.
+      # Commenting it out for consistency with the experiments in the paper.
+      # nn.BatchNorm2d(768),
+      nn.ReLU(inplace=True),
+      nn.AdaptiveAvgPool2d(1)
+    )
+    self.classifier = nn.Linear(768, num_classes)
+
+  def forward(self, x):
+    x = self.features(x)
+    x = self.classifier(x.view(x.size(0),-1))
+    return x
 
 
 class Node(nn.Module):
@@ -149,15 +204,20 @@ class DartsNetwork(BaseNASNetwork):
             the number of nodes contained in each cell
         stem_multiplier: int
             channels multiply coefficient when passing a cell
+        auxiliary: str
+            'cifar': AuxiliaryHeadCIFAR for cifar10
+            'imagenet': AuxiliaryHeadImageNet for imagenet
     """
 
     def __init__(self, in_channels=3, channels=16, n_classes=10, n_layers=8, factory_func=DartsCell, n_nodes=4,
-                 stem_multiplier=3, mask=None):
+                 stem_multiplier=3, auxiliary: str='', path_drop_prob=0, mask=None):
         super(DartsNetwork, self).__init__(mask)
         self.in_channels = in_channels
         self.channels = channels
         self.n_classes = n_classes
         self.n_layers = n_layers
+        self.aux_pos = 2 * n_layers // 3 if auxiliary else -1
+        self.path_drop_prob = path_drop_prob
 
         c_cur = stem_multiplier * self.channels
         self.stem = nn.Sequential(
@@ -183,19 +243,31 @@ class DartsNetwork(BaseNASNetwork):
             c_cur_out = c_cur * n_nodes
             channels_pp, channels_p = channels_p, c_cur_out
 
+            if i == self.aux_pos:
+                if 'cifar' in self.auxiliary:
+                    self.aux_head = AuxiliaryHeadCIFAR(channels_p, n_classes)
+                elif 'imagenet' in self.auxiliary:
+                    self.aux_head = AuxiliaryHeadImageNet(channels_p, n_classes)
+
         self.gap = nn.AdaptiveAvgPool2d(1)
         self.linear = nn.Linear(channels_p, n_classes)
+        self.drop_path_prob(path_drop_prob)
 
     def forward(self, x):
         s0 = s1 = self.stem(x)
 
+        aux_logits = None
         for idx, cell in enumerate(self.cells):
             s0, s1 = s1, cell(s0, s1)
+            if self.auxiliary and idx == self.aux_pos and self.training:
+                aux_logits = self.aux_head(s1)
 
         out = self.gap(s1)
         out = out.view(out.size(0), -1)  # flatten
         logits = self.linear(out)
 
+        if aux_logits is not None:
+            return logits, aux_logits
         return logits
 
     def drop_path_prob(self, p):
@@ -218,7 +290,8 @@ class DartsNetwork(BaseNASNetwork):
             return arch
         # reduce
         arch += '-reduce-'
-        cell_ops = self.cells[2].mutable_ops
+        reduce_index = self.n_layers // 3
+        cell_ops = self.cells[reduce_index].mutable_ops
         for node_ops in cell_ops:
             sub_arch = ''
             for op in node_ops.ops:
@@ -226,3 +299,18 @@ class DartsNetwork(BaseNASNetwork):
                 sub_arch += f'{index}'
             arch += f'-{sub_arch}'
         return arch
+
+
+if __name__ == '__main__':
+    from hyperbox.mutator import RandomMutator
+    darts1 = DartsNetwork()
+    darts2 = DartsNetwork(auxiliary='cifar')
+    darts3 = DartsNetwork(auxiliary='imagenet', path_drop_prob=0.5)
+
+    for idx, net in enumerate([darts1, darts2, darts3]):
+        rm = RandomMutator(net)
+        for i in range(5):
+            rm.reset()
+            x = torch.rand(2,3,64,64)
+            y = net(x)
+        print(f'test {idx}th network passed')

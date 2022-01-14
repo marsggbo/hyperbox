@@ -9,6 +9,8 @@ from copy import deepcopy
 import torch
 import torch.nn as nn
 
+from hyperbox.networks.base_nas_network import BaseNASNetwork
+
 
 class ModelEma(nn.Module):
     """ Model Exponential Moving Average V2
@@ -28,12 +30,17 @@ class ModelEma(nn.Module):
     This class is sensitive where it is initialized in the sequence of model init,
     GPU assignment and distributed training wrappers.
     """
-    def __init__(self, model, decay=0.9999, device=None):
+    def __init__(self, model, decay=0.7, final_decay=0.999, device=None):
         super(ModelEma, self).__init__()
         # make a copy of the model for accumulating moving average of weights
-        self.module = deepcopy(model)
+        if isinstance(model, BaseNASNetwork):
+            self.module = model.copy()
+        else:
+            self.module = deepcopy(model)
         self.module.eval()
         self.decay = decay
+        self.init_decay = decay
+        self.final_decay = final_decay
         self.device = device  # perform ema on different device from model if set
         if self.device is not None:
             self.module.to(device=device)
@@ -51,8 +58,11 @@ class ModelEma(nn.Module):
     def set(self, model):
         self._update(model, update_fn=lambda e, m: m)
 
-    def forward(self, x):
-        return self.module(x)
+    def update_decay(self, epoch, all_epoch=100):
+        self.decay = self.init_decay + (epoch/all_epoch)*(self.final_decay-self.init_decay)
+
+    def forward(self, *args, **kwargs):
+        return self.module(*args, **kwargs)
 
 
 if __name__ == '__main__':
@@ -60,10 +70,10 @@ if __name__ == '__main__':
     from hyperbox.networks.ofa import OFAMobileNetV3
     from hyperbox.mutator import RandomMutator
 
-    supernet = OFAMobileNetV3(num_classes=10, width_mult=1.0).to(device)
+    supernet = OFAMobileNetV3(num_classes=10, width_mult=1.0).to(device).eval()
     mutator = RandomMutator(supernet)
     # ema = ModelEma(supernet, 0.9)
-    ema = ModelEma(supernet, 0.9)
+    ema = ModelEma(supernet, 0.9).eval()
     print('init\nsupernet', supernet.classifier.weight.data[:2,:8])
     print('ema', ema.module.classifier.weight.data[:2,:8])
     for i in range(10):
@@ -71,6 +81,8 @@ if __name__ == '__main__':
         supernet.init_weights()
         ema.update(supernet)
         x = torch.rand(2,3,64,64).to(device)
-        y = supernet(x)
+        y1 = supernet(x)
+        subnet = ema.module.build_subnet(mutator._cache).cuda().eval()
+        y2 = subnet(x)
         print('supernet', supernet.classifier.weight.data[:2,:8])
         print('ema', ema.module.classifier.weight.data[:2,:8])

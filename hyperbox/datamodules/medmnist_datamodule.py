@@ -1,3 +1,4 @@
+import os
 from typing import List, Optional, Tuple
 
 import medmnist
@@ -69,7 +70,8 @@ class MedMNISTDataModule(LightningDataModule):
         **kwargs,
     ):
         super().__init__()
-
+        if '~' in data_dir:
+            data_dir = os.path.expanduser(data_dir)
         self.data_dir = data_dir
         self.data_flag = data_flag
         self.as_rgb = as_rgb
@@ -214,8 +216,8 @@ class MedMNISTDataModule(LightningDataModule):
                 sampler = BatchBalanceClassSampler(
                     labels.tolist(), num_classes=num_classes, num_samples=num_samples, num_batches=num_batches)
                 # sampler = DistributedSamplerWrapper(sampler)
-                train_loader = DataLoader(
-                    dataset=dataset,
+                val_dataloader = DataLoader(
+                    dataset=self.data_val,
                     num_workers=self.num_workers,
                     pin_memory=self.pin_memory,
                     batch_sampler=sampler,
@@ -240,7 +242,6 @@ class MedMNISTDataModule(LightningDataModule):
                     batch_size=self.batch_size,
                     num_workers=self.num_workers,
                     pin_memory=self.pin_memory,
-                    shuffle=self.shuffle,
                 )
             train_val_loader = {
                 'train': train_loader,
@@ -271,7 +272,7 @@ class MedMNISTDataModule(LightningDataModule):
 
 
 if __name__ == '__main__':
-    data_dir = '/home/datasets/Flythings3D/medmnist/'
+    data_dir = '~/datasets/medmnist/'
     data_flag = 'vesselmnist3d'
     # data_flag = 'synapsemnist3d'
     # data_flag = 'chestmnist'

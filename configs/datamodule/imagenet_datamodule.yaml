@@ -1,9 +1,0 @@
-_target_: hyperbox.datamodules.imagenet_datamodule.ImagenetDataModule
-data_dir: /datasets/imagenet100
-classes: 100
-image_size: 224
-batch_size: 64
-shuffle: True
-pin_memory: True
-drop_last: False
-num_workers: 8

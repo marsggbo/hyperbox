@@ -1,15 +1,15 @@
-from typing import Union, Optional
 from collections import OrderedDict
+from typing import Optional, Union
 
+import numpy as np
 import torch
 import torch.nn as nn
 
-from hyperbox.utils.utils import hparams_wrapper
-from hyperbox.networks.pytorch_modules import Hsigmoid 
-from hyperbox.networks.utils import build_activation, make_divisible
-
 from hyperbox.mutables import ops
 from hyperbox.mutables.spaces import ValueSpace
+from hyperbox.networks.pytorch_modules import Hsigmoid
+from hyperbox.networks.utils import build_activation, make_divisible
+from hyperbox.utils.utils import hparams_wrapper
 
 __all__ = [
     'Base2DLayer', 'SELayer', 'MBConvLayer',
@@ -31,11 +31,11 @@ class Base2DLayer(nn.Module):
                 value_spaces[key] = value
                 if value.index is not None:
                     _v = value.candidates[value.index]
-                elif len(value.mask) != 0:
+                elif value.mask is not None and len(value.mask) != 0:
                     if isinstance(value.mask, torch.Tensor):
-                        index = value.mask.clone().detach().argmax()
+                        index = value.mask.clone().detach().cpu().numpy().argmax()
                     else:
-                        index = torch.tensor(value.mask).argmax()
+                        index = np.array(value.mask).argmax()
                     _v = value.candidates[index]
                 else:
                     _v = value.max_value
@@ -110,7 +110,7 @@ class MBConvLayer(Base2DLayer):
             middle_channels = []
             for c in in_channels.candidates:
                 middle_channels.append(
-                    make_divisible(round(self.in_channels * self.expand_ratio), self.CHANNEL_DIVISIBLE)
+                    make_divisible(round(c * self.expand_ratio), self.CHANNEL_DIVISIBLE)
                 )
             if prefix is None:
                 key = in_channels.key + '_subMB_mc'

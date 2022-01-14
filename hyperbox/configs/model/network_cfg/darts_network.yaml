@@ -1,0 +1,8 @@
+_target_: hyperbox.networks.darts.darts_network.DartsNetwork
+in_channels: 3
+channels: 16
+n_layers: 8
+stem_multiplier: 3
+n_nodes: 4
+n_classes: 10
+# mask: /home/comp/18481086/code/hyperbox/hyperbox/networks/darts/darts_mask.json

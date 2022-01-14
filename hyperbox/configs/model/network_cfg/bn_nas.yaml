@@ -1,0 +1,11 @@
+_target_: hyperbox.networks.bnnas.bn_net.BNNet
+first_stride: 1
+first_channels: 24
+width_mult: 1
+channels_list: [32,40,80,96,192,320]
+num_blocks: [2,2,4,4,4,1]
+strides_list: [2,2,2,1,2,1]
+num_classes: 10
+search_depth: False
+is_only_train_bn: False
+mask: null

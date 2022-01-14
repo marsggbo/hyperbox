@@ -1,3 +1,0 @@
-_target_: hyperbox.optimizers.SAM
-rho: 0.5
-eta: 0.01

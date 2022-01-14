@@ -1,0 +1,15 @@
+_target_: hyperbox.datamodules.cifar_datamodule.CIFAR10DataModule
+
+defaults:
+  - transforms: cifar
+
+data_dir: ~/datasets/cifar10
+val_split: 0.5
+num_workers: 4
+normalize: True
+batch_size: 64
+seed: 666
+shuffle: True
+pin_memory: False
+drop_last: False
+is_customized: False

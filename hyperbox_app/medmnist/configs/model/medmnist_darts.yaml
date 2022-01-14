@@ -1,9 +1,0 @@
-_target_: hyperbox_app.medmnist.models.darts_model.DARTSModel
-
-defaults:
-    - network_cfg: mobile3dnet
-    - mutator_cfg: onehot_mutator
-    - optimizer_cfg: adam
-    - metric_cfg: accuracy
-    - loss_cfg: cross_entropy_labelsmooth
-    - scheduler_cfg: null

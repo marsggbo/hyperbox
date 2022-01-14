@@ -1,0 +1,10 @@
+_target_: hyperbox.networks.ofa.OFAMobileNetV3
+kernel_size_list: [3,5,7]
+expand_ratio_list: [3,4,6]
+depth_list: [2,3,4]
+base_stage_width: [16,16,24,40,80,112,160,960,1280]
+stride_stages: [1,2,2,2,1,2]
+act_stages: ['relu','relu','relu','h_swish','h_swish','h_swish']
+se_stages: [False,False,True,False,True,True]
+width_mult: 1.0
+num_classes: 1000

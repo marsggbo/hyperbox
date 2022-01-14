@@ -1,0 +1,6 @@
+_target_: hyperbox.networks.enas.ENASMicroNetwork
+num_layers: 2
+num_nodes: 5
+out_channels: 24
+in_channels: 3
+dropout_rate: 0.5

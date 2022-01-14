@@ -1,0 +1,6 @@
+_target_: hyperbox.networks.enas.ENASMacroGeneralModel
+num_layers: 12
+out_filters: 24
+in_channels: 3
+num_classes: 10
+dropout_rate: 0.5

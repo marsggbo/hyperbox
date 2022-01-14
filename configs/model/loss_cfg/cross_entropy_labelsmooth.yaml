@@ -1,2 +1,0 @@
-_target_: hyperbox.losses.ce_labelsmooth_loss.CrossEntropyLabelSmooth
-label_smoothing: 0.1

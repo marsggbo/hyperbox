@@ -9,7 +9,7 @@ import torch.nn as nn
 from omegaconf import DictConfig
 
 from hyperbox.utils.logger import get_logger
-from .base_model import BaseModel
+from hyperbox.models.base_model import BaseModel
 
 logger = get_logger(__name__, rank_zero=True)
 
@@ -23,7 +23,7 @@ class DARTSModel(BaseModel):
         loss_cfg: Optional[Union[DictConfig, dict]] = None,
         metric_cfg: Optional[Union[DictConfig, dict]] = None,
         scheduler_cfg: Optional[Union[DictConfig, dict]] = None,
-        arc_lr: float = 0.001,
+        arc_lr: float = 3e-4,
         unrolled: bool = False,
         aux_weight: float = 0.4,
         is_sync: bool = True,
@@ -53,23 +53,14 @@ class DARTSModel(BaseModel):
         self.weight_optim, self.ctrl_optim = self.optimizers()
 
         # phase 1. architecture step
-        self.network.eval()
-        self.mutator.train()
         self.ctrl_optim.zero_grad()
         if self.unrolled:
             self._unrolled_backward(trn_X, trn_y, val_X, val_y)
         else:
             self._backward(val_X, val_y)
         self.ctrl_optim.step()
-        # debug info
-        # self.trainer.accelerator.barrier()
-        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} Updating archs")
-        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} mutator:{self.mutator._cache['normal_n2_p0']}")
-        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} mutator:{self.mutator.candidates['normal_n2_p0']}")
 
         # phase 2: child network step
-        self.network.train()
-        self.mutator.eval()
         self.weight_optim.zero_grad()
         with torch.no_grad():
             self.sample_search()
@@ -77,12 +68,6 @@ class DARTSModel(BaseModel):
         self.manual_backward(loss)
         nn.utils.clip_grad_norm_(self.network.parameters(), 5.)  # gradient clipping
         self.weight_optim.step()
-        # debug info
-        # self.trainer.accelerator.barrier()
-        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} Updating weights")
-        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} mutator:{self.mutator._cache['normal_n2_p0']}")
-        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} mutator:{self.mutator.candidates['normal_n2_p0']}")
-        # print(f"[rank {self.rank}] epoch-{self.current_epoch} batch-{batch_idx} bias={self.network.linear.weight[0][:10]}")
 
         # log train metrics
         preds = torch.argmax(preds, dim=1)
@@ -105,6 +90,73 @@ class DARTSModel(BaseModel):
         loss = loss + self.aux_weight * aux_loss
         # self._write_graph_status()
         return output, loss
+
+    def training_epoch_end(self, outputs: List[Any]):
+        acc_epoch = self.trainer.callback_metrics['train/acc_epoch'].item()
+        loss_epoch = self.trainer.callback_metrics['train/loss_epoch'].item()
+        logger.info(f'Train epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
+
+    def validation_step(self, batch: Any, batch_idx: int):
+        (X, targets) = batch
+        preds, loss = self._logits_and_loss(X, targets)
+
+        # log val metrics
+        acc = self.val_metric(preds, targets)
+        self.log("val/loss", loss, on_step=True, on_epoch=True, prog_bar=False)
+        self.log("val/acc", acc, on_step=True, on_epoch=True, prog_bar=False)
+        if batch_idx % 10 == 0:
+        # if True:
+            logger.info(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
+        return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
+
+    def validation_epoch_end(self, outputs: List[Any]):
+        acc_epoch = self.trainer.callback_metrics['val/acc_epoch'].item()
+        loss_epoch = self.trainer.callback_metrics['val/loss_epoch'].item()
+        logger.info(f'Val epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
+
+        mflops, size = self.arch_size((2, 3, 32, 32), convert=True)
+        logger.info(
+            f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
+        logger.info(f"self.mutator._cache: {len(self.mutator._cache)} choices")
+        for key, value in self.mutator._cache.items():
+            logger.info(f"{key}: {value.detach()}")
+
+        if self.current_epoch % 10 == 0:
+            self.export("mask_epoch_%d.json" % self.current_epoch,
+            True, {'val_acc': acc_epoch, 'val_loss': loss_epoch})
+
+    def on_test_epoch_start(self):
+        self.reset_running_statistics(subset_size=128, subset_batch_size=32)
+
+    def test_step(self, batch: Any, batch_idx: int):
+        (X, targets) = batch
+        preds, loss = self._logits_and_loss(X, targets)
+
+        # log test metrics
+        acc = self.test_metric(preds, targets)
+        self.log("test/loss", loss, on_step=False, on_epoch=True)
+        self.log("test/acc", acc, on_step=False, on_epoch=True)
+        if batch_idx % 10 == 0:
+            logger.info(f"Test batch{batch_idx}: loss={loss}, acc={acc}")
+        return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
+
+    def test_epoch_end(self, outputs: List[Any]):
+        acc = self.trainer.callback_metrics['test/acc'].item()
+        loss = self.trainer.callback_metrics['test/loss'].item()
+        logger.info(f'Test epoch{self.trainer.current_epoch} acc={acc:.4f} loss={loss:.4f}')
+
+    def configure_optimizers(self):
+        """Choose what optimizers and learning-rate schedulers to use in your optimization.
+        Normally you'd need one. But in the case of GANs or similar you might have multiple.
+
+        See examples here:
+            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+        """
+        optimizer_cfg = DictConfig(self.hparams.optimizer_cfg)
+        weight_optim = hydra.utils.instantiate(optimizer_cfg, params=self.network.parameters())
+        ctrl_optim = torch.optim.Adam(
+            self.mutator.parameters(), self.arc_lr, betas=(0.5, 0.999), weight_decay=1.0E-3)
+        return weight_optim, ctrl_optim
 
     def _backward(self, val_X, val_y):
         """
@@ -191,69 +243,3 @@ class DARTSModel(BaseModel):
         dalpha_pos, dalpha_neg = dalphas  # dalpha { L_trn(w+) }, # dalpha { L_trn(w-) }
         hessian = [(p - n) / 2. * eps for p, n in zip(dalpha_pos, dalpha_neg)]
         return hessian
-
-    def training_epoch_end(self, outputs: List[Any]):
-        acc_epoch = self.trainer.callback_metrics['train/acc_epoch'].item()
-        loss_epoch = self.trainer.callback_metrics['train/loss_epoch'].item()
-        logger.info(f'Train epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
-
-    def validation_step(self, batch: Any, batch_idx: int):
-        (X, targets) = batch
-        preds, loss = self._logits_and_loss(X, targets)
-        preds = torch.argmax(preds, dim=1)
-
-        # log val metrics
-        acc = self.val_metric(preds, targets)
-        self.log("val/loss", loss, on_step=True, on_epoch=True, prog_bar=False)
-        self.log("val/acc", acc, on_step=True, on_epoch=True, prog_bar=False)
-        # if batch_idx % 10 == 0:
-        # if True:
-        # logger.info(f"Val epoch{self.current_epoch} batch{batch_idx}: loss={loss}, acc={acc}")
-        return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
-
-    def validation_epoch_end(self, outputs: List[Any]):
-        acc_epoch = self.trainer.callback_metrics['val/acc_epoch'].item()
-        loss_epoch = self.trainer.callback_metrics['val/loss_epoch'].item()
-        logger.info(f'Val epoch{self.trainer.current_epoch} acc={acc_epoch:.4f} loss={loss_epoch:.4f}')
-
-        mflops, size = self.arch_size((2, 3, 32, 32), convert=True)
-        logger.info(
-            f"[rank {self.rank}] current model({self.arch}): {mflops:.4f} MFLOPs, {size:.4f} MB.")
-        logger.info(f"self.mutator._cache: {len(self.mutator._cache)} choices")
-        for key, value in self.mutator._cache.items():
-            logger.info(f"{key}: {value.detach()}")
-
-        if self.current_epoch % 10 == 0:
-            self.export("mask_epoch_%d.json" % self.current_epoch,
-            True, {'val_acc': acc_epoch, 'val_loss': loss_epoch})
-
-    def test_step(self, batch: Any, batch_idx: int):
-        (X, targets) = batch
-        preds, loss = self._logits_and_loss(X, targets)
-        preds = torch.argmax(preds, dim=1)
-
-        # log test metrics
-        acc = self.test_metric(preds, targets)
-        self.log("test/loss", loss, on_step=False, on_epoch=True)
-        self.log("test/acc", acc, on_step=False, on_epoch=True)
-        if batch_idx % 10 == 0:
-            logger.info(f"Test batch{batch_idx}: loss={loss}, acc={acc}")
-        return {"loss": loss, "preds": preds, "targets": targets, 'acc': acc}
-
-    def test_epoch_end(self, outputs: List[Any]):
-        acc = self.trainer.callback_metrics['test/acc'].item()
-        loss = self.trainer.callback_metrics['test/loss'].item()
-        logger.info(f'Test epoch{self.trainer.current_epoch} acc={acc:.4f} loss={loss:.4f}')
-
-    def configure_optimizers(self):
-        """Choose what optimizers and learning-rate schedulers to use in your optimization.
-        Normally you'd need one. But in the case of GANs or similar you might have multiple.
-
-        See examples here:
-            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-        """
-        optimizer_cfg = DictConfig(self.hparams.optimizer_cfg)
-        weight_optim = hydra.utils.instantiate(optimizer_cfg, params=self.network.parameters())
-        ctrl_optim = torch.optim.Adam(
-            self.mutator.parameters(), self.arc_lr, betas=(0.5, 0.999), weight_decay=1.0E-3)
-        return weight_optim, ctrl_optim

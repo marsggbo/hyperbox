@@ -40,7 +40,7 @@ class CIFAR10DataModule(bolt_cifar10):
 
     def __init__(
         self,
-        transforms: Union[dict, DictConfig],
+        transforms: Union[dict, DictConfig]={},
         data_dir: Optional[str] = None,
         val_split: Union[int, float] = 0.5,
         num_workers: int = 4,
@@ -92,18 +92,21 @@ class CIFAR10DataModule(bolt_cifar10):
             train_transforms = self.default_train_transforms() if self.train_transforms is None else self.train_transforms
             val_transforms = self.default_transforms() if self.val_transforms is None else self.val_transforms
 
-            self.dataset_train = self.dataset_cls(self.data_dir, train=True, transform=train_transforms, **self.EXTRA_ARGS)
-            dataset_val = self.dataset_cls(self.data_dir, train=True, transform=val_transforms, **self.EXTRA_ARGS)
-
-            # Split
-            # self.dataset_train = self._split_dataset(dataset_train)
-            self.dataset_val = self._split_dataset(dataset_val, train=False)
             test_transforms = self.default_transforms() if self.test_transforms is None else self.test_transforms
             self.dataset_test = self.dataset_cls(
                 self.data_dir, train=False, transform=test_transforms, **self.EXTRA_ARGS
             )
 
-        if stage == "test" or stage is None:
+            # Split
+            if self.is_customized:
+                dataset_to_split = self.dataset_cls(self.data_dir, train=True, transform=val_transforms, **self.EXTRA_ARGS)
+                self.dataset_train = self._split_dataset(dataset_to_split, train=True)
+                self.dataset_val = self._split_dataset(dataset_to_split, train=False)
+            else:
+                self.dataset_train = self.dataset_cls(self.data_dir, train=True, transform=train_transforms, **self.EXTRA_ARGS)
+                self.dataset_val = self.dataset_test
+
+        elif stage == "test" or stage is None:
             test_transforms = self.default_transforms() if self.test_transforms is None else self.test_transforms
             self.dataset_test = self.dataset_cls(
                 self.data_dir, train=False, transform=test_transforms, **self.EXTRA_ARGS
@@ -112,15 +115,15 @@ class CIFAR10DataModule(bolt_cifar10):
     def train_dataloader(self):
         train_loader = self._data_loader(self.dataset_train, shuffle=self.shuffle)
         if self.is_customized:
+            val_loader = self._data_loader(self.dataset_val, shuffle=self.shuffle)
             train_val_loader = {
                 'train': train_loader,
-                'val': self.val_dataloader()
+                'val': val_loader
             }
             return train_val_loader
         return train_loader
 
     def val_dataloader(self):
-        return self.test_dataloader()
         if self.is_customized:
             return self.test_dataloader()
         return self._data_loader(self.dataset_val)

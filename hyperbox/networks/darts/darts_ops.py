@@ -195,6 +195,7 @@ class FactorizedReduce(nn.Module):
         out = self.bn(out)
         return out
 
+
 class ZeroLayer(nn.Module):
     
     def __init__(self, stride=None):
@@ -211,7 +212,10 @@ class ZeroLayer(nn.Module):
         return padding'''
         if self.stride == 1:
             return x.mul(0.)
-        return x[:,:,::self.stride,::self.stride].mul(0.)
+        if len(x.shape)==4:
+            return x[:,:,::self.stride,::self.stride].mul(0.)
+        elif len(x.shape)==5:
+            return x[:,:,::self.stride,::self.stride,::self.stride].mul(0.)
 
     @staticmethod
     def is_zero_layer():

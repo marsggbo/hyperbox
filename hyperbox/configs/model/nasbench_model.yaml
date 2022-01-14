@@ -1,0 +1,8 @@
+_target_: hyperbox.models.nasbench_model.NASBench201Model
+defaults:
+    - network_cfg: nasbench201
+    - mutator_cfg: random_mutator
+    - optimizer_cfg: adam
+    - metric_cfg: accuracy
+    - loss_cfg: cross_entropy
+    - scheduler_cfg: null
