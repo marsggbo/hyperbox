@@ -57,7 +57,7 @@ class BaseModel(LightningModule):
             loss Optional[DictConfig, dict, Callable]: loss function or DictConfig of loss function
             metric: metric function, such as Accuracy, Precision, etc.
         '''
-        super().__init__()
+        super(BaseModel, self).__init__()
 
         # this line ensures params passed to LightningModule will be saved to ckpt
         # it also allows to access params with 'self.hparams' attribute, such as
