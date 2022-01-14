@@ -116,7 +116,8 @@ def train(config: DictConfig) -> Optional[float]:
         # Evaluate model on test set, using the best model achieved during training
         if config.get("test_after_training") and not config.trainer.get("fast_dev_run"):
             log.info("Starting testing!")
-            trainer.test()
+            ckpt_path = config.trainer.get('ckpt_path') or "best"
+            trainer.test(model=model, datamodule=datamodule, ckpt_path=ckpt_path)
 
     # Make sure everything closed properly
     log.info("Finalizing!")
@@ -135,4 +136,5 @@ def train(config: DictConfig) -> Optional[float]:
     # Return metric score for hyperparameter optimization
     optimized_metric = config.get("optimized_metric")
     if optimized_metric:
+        log.info(f"Best score:\n{optimized_metric}")
         return trainer.callback_metrics[optimized_metric]
