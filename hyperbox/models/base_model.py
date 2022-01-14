@@ -77,16 +77,18 @@ class BaseModel(LightningModule):
         self.network = instantiate(cfg)
         logger.info(f'Building {cfg._target_} ...')
 
-    def build_mutator(self, cfg):
+    def build_mutator(self, cfg, model=None):
+        if model is None:
+            model = self.network
         # build mutator
         if isinstance(cfg, (DictConfig, dict)):
             cfg = DictConfig(cfg)
-            self.mutator = instantiate(cfg, model=self.network)
+            self.mutator = instantiate(cfg, model=model)
             logger.info(f'Building {cfg._target_} ...')
         elif cfg is None:
             from hyperbox.mutator.random_mutator import RandomMutator
             logger.info('Mutator cfg is not specified, so use RandomMutator as the default.')
-            self.mutator = RandomMutator(self.network)
+            self.mutator = RandomMutator(model=model)
 
     def build_loss(self, cfg):
         # build loss function

@@ -200,3 +200,14 @@ def build_activation(act_func, inplace=True):
         return None
     else:
         raise ValueError('do not support: %s' % act_func)
+
+def extract_net_from_ckpt(ckpt: str) -> dict:
+    ckpt = torch.load(ckpt, map_location='cpu')
+    net_weight = ckpt['state_dict'] # keys: 'network.stem', 'network.cells', 'mutator...'
+
+    # extract state_dict of network
+    to_copy_weight = {}
+    for key, value in net_weight.items():
+        if 'network.' in key:
+            to_copy_weight[key.replace('network.', '', 1)] = value
+    return to_copy_weight
