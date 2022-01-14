@@ -1,0 +1,25 @@
+# @package _global_
+
+defaults:
+  - model: darts_model.yaml
+  - datamodule: cifar10_datamodule.yaml
+  - logger: wandb.yaml
+  - hydra: default.yaml
+
+lite:
+  accelerator: "auto" # gpu, cpu, ipu, tpu, auto
+  strategy: null # "dp", "ddp", "ddp_spawn", "tpu_spawn", "deepspeed", "ddp_sharded", or "ddp_sharded_spawn"
+  devices: null
+  num_nodes: 1
+  precision: 32
+  plugins: null
+  gpus: null
+  tpu_cores: null
+
+ipdb_debug: False
+logger:
+  wandb:
+    name: 'lite'
+hydra:
+  job:
+    name: 'lite'
