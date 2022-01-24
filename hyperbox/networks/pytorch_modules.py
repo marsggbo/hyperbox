@@ -425,7 +425,7 @@ class TopKGumbelSoftmax(nn.Module):
         return topk_gumbel_softmax(x, self.tau, self.hard, self.topk, self.eps, self.dim)
 
 def topk_gumbel_softmax(logits: torch.Tensor, tau: float = 1, hard: bool = False,
-        topk: int = None, eps: float = 1e-10, dim: int = -1):
+        topk: int = 2, eps: float = 1e-10, dim: int = -1):
     # gumbels = (
     #     -torch.empty_like(
     #         logits, memory_format=torch.legacy_contiguous_format
