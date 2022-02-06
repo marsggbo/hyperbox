@@ -46,9 +46,6 @@ def train(config: DictConfig) -> Optional[float]:
         import torch
         from hydra.utils import to_absolute_path
         ckpt_path = to_absolute_path(config.get("pretrained_weight"))
-        ckpt = torch.load(ckpt_path, map_location='cpu')
-        if 'epoch' in ckpt:
-            ckpt = ckpt['state_dict']
         try:
             # load state_dict of network, mutator, and etc,.
             # model.load_state_dict(ckpt)
@@ -57,18 +54,26 @@ def train(config: DictConfig) -> Optional[float]:
             log.info(f"Loading pretrained weight from {ckpt_path}, including network, mutator")
         except Exception as e:
             try:
-                # only load network weight
-                model.network.load_state_dict(ckpt)
-                log.info(f"Loading pretrained network weight from {ckpt_path}")
+                ckpt = torch.load(ckpt_path, map_location='cpu')
+                if 'epoch' in ckpt:
+                    ckpt = ckpt['state_dict']
+                model.load_state_dict(ckpt)
+                del ckpt
+                log.info(f"Loading pretrained weight from {ckpt_path}, including network")
             except Exception as e:
                 try:
-                    # load subnet weight from a supernet weight
-                    from hyperbox.networks.utils import extract_net_from_ckpt
-                    weight_supernet = extract_net_from_ckpt(ckpt_path)
-                    model.network.load_from_supernet(weight_supernet)
-                    log.info(f"Loading subnet weight from supernet weight: {ckpt_path}")
+                    # only load network weight
+                    model.network.load_state_dict(ckpt)
+                    log.info(f"Loading pretrained network weight from {ckpt_path}")
                 except Exception as e:
-                    raise Exception(f'failed to load pretrained weight from {ckpt_path}.\n{e}')
+                    try:
+                        # load subnet weight from a supernet weight
+                        from hyperbox.networks.utils import extract_net_from_ckpt
+                        weight_supernet = extract_net_from_ckpt(ckpt_path)
+                        model.network.load_from_supernet(weight_supernet)
+                        log.info(f"Loading subnet weight from supernet weight: {ckpt_path}")
+                    except Exception as e:
+                        raise Exception(f'failed to load pretrained weight from {ckpt_path}.\n{e}')
 
     # Init Lightning callbacks
     callbacks: List[Callback] = []

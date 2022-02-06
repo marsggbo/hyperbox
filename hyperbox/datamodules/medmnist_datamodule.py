@@ -147,7 +147,7 @@ class MedMNISTDataModule(LightningDataModule):
             weights = 1. / class_sample_count.float()
             print(weights)
         samples_weight = torch.tensor([weights[t.item()] for t in labels])
-        sampler = WeightedRandomSampler(samples_weight, len(samples_weight), replacement=True)
+        sampler = WeightedRandomSampler(samples_weight, len(samples_weight)*2, replacement=True)
         return sampler
 
     def setup(self, stage: Optional[str] = None):

@@ -3,8 +3,8 @@
 defaults:
   # - aim.yaml
   # - comet.yaml
-  - csv.yaml
+  # - csv.yaml
   # - mlflow.yaml
   # - neptune.yaml
-  # - tensorboard.yaml
+  - tensorboard.yaml
   - wandb.yaml
