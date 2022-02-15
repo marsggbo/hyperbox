@@ -1,3 +1,4 @@
+import os
 import inspect
 import json
 import logging
@@ -116,6 +117,12 @@ def extras(config: DictConfig) -> None:
             config.datamodule.pin_memory = False
         if config.datamodule.get("num_workers"):
             config.datamodule.num_workers = 0
+
+    # backup searched network mask
+    mask = config.get('model', {}).get('network_cfg', {}).get('mask', None)
+    if mask:
+        path = os.getcwd()
+        os.system(f"cp {mask} {path}")
 
     # disable adding new keys to config
     OmegaConf.set_struct(config, True)
