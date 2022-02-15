@@ -1,4 +1,5 @@
 from typing import List, Optional
+import os
 
 import hydra
 from omegaconf import DictConfig
@@ -27,7 +28,7 @@ def train(config: DictConfig) -> Optional[float]:
     Returns:
         Optional[float]: Metric score for hyperparameter optimization.
     """
-
+    log.info(f'pid {os.getpid()}')
     # Set seed for random number generators in pytorch, numpy and python.random
     if "seed" in config:
         seed_everything(config.seed, workers=True)
