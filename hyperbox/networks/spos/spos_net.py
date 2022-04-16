@@ -21,7 +21,7 @@ class ShuffleNASNetV2(BaseNASNetwork):
         n_class: int=1000,
         mask=None
     ):
-        super(ShuffleNASNetV2, self).__init__()
+        super(ShuffleNASNetV2, self).__init__(mask)
         self.mask = load_json(mask)
 
         self.stage_repeats = stage_repeats

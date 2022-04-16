@@ -30,7 +30,7 @@ class OFAMobileNetV3(BaseNASNetwork):
         first_stride: int = 1, # 1: CIFAR10 2: Imagenet
         mask=None,
     ):
-        super(OFAMobileNetV3, self).__init__()
+        super(OFAMobileNetV3, self).__init__(mask)
         self.mask = load_json(mask)
         self.kernel_size_list = sorted(val2list(kernel_size_list, 1))
         self.expand_ratio_list = sorted(val2list(expand_ratio_list, 1))

@@ -128,7 +128,7 @@ class ResNet(BaseNASNetwork):
         replace_stride_with_dilation=None,
         mask=None, # bool mask for ValueSpace
     ):
-        super(ResNet, self).__init__()
+        super(ResNet, self).__init__(mask)
         self.mask = load_json(mask)
 
         self.dilation = 1
