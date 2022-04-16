@@ -1,0 +1,6 @@
+_target_: hyperbox.networks.nasbench_mbnet.network.NASBenchMBNet
+arch_list: null
+num_classes: 10
+stages: [2,3,3]
+init_channels: 32
+mask: null
