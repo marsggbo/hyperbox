@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="hyperbox",  # you should change "src" to your project name
-    version="1.0.2",
+    version="1.0.3",
     description="Hyperbox: An easy-to-use NAS framework.",
     author="marsggbo",
     url="https://github.com/marsggbo/hyperbox",
