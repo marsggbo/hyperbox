@@ -109,6 +109,7 @@ def train(config: DictConfig) -> Optional[float]:
         logger=logger,
     )
 
+    result = None
     # Train the model
     if config.get("only_test"):
         if config.get('pretrained_weight') is None:
@@ -118,12 +119,14 @@ def train(config: DictConfig) -> Optional[float]:
     else:
         log.info("Starting training!")
         trainer.fit(model=model, datamodule=datamodule)
+        result = trainer.callback_metrics
 
         # Evaluate model on test set, using the best model achieved during training
         if config.get("test_after_training") and not config.trainer.get("fast_dev_run"):
             log.info("Starting testing!")
             ckpt_path = config.trainer.get('ckpt_path') or "best"
             trainer.test(model=model, datamodule=datamodule, ckpt_path=ckpt_path)
+            result.update(trainer.callback_metrics)
 
     # Make sure everything closed properly
     log.info("Finalizing!")
@@ -141,6 +144,6 @@ def train(config: DictConfig) -> Optional[float]:
 
     # Return metric score for hyperparameter optimization
     optimized_metric = config.get("optimized_metric")
-    if optimized_metric:
-        log.info(f"Best score:\n{optimized_metric}")
-        return trainer.callback_metrics[optimized_metric]
+    if optimized_metric and result is not None:
+        log.info(f"Best score:\n{optimized_metric}={result[optimized_metric]}")
+        return result[optimized_metric]

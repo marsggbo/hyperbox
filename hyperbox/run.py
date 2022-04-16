@@ -33,9 +33,6 @@ def main(config: DictConfig):
 
     # Train model
     if config.ipdb_debug:
-        config.trainer.accelerator='auto'
-        config.trainer.strategy=None
-        config.trainer.gpus=1
         set_trace()
     return train(config)
 
