@@ -1,0 +1,52 @@
+# for cuda10.2
+xgboost
+lightgbm
+pathvalidate
+ConfigSpace
+git+https://github.com/automl/nasbench301
+torch-scatter -f https://pytorch-geometric.com/whl/torch-1.8.1.html
+torch-sparse -f https://pytorch-geometric.com/whl/torch-1.8.1.html
+torch-cluster -f https://pytorch-geometric.com/whl/torch-1.8.1.html
+torch-spline-conv -f https://pytorch-geometric.com/whl/torch-1.8.1.html
+torch-geometric -f https://pytorch-geometric.com/whl/torch-1.8.1.html
+
+# for cuda10.2
+git+https://github.com/automl/Auto-PyTorch.git@nb301
+autograd>=1.3
+click
+Cython
+ConfigSpace==0.4.12
+fasteners
+ipython
+imblearn
+lightgbm>=2.3.1
+matplotlib
+netifaces
+numpy
+pandas
+pathvalidate
+Pillow>=7.1.2
+psutil
+pynisher
+Pyro4
+scikit-image
+scipy
+scikit-learn==0.23.0
+seaborn
+setuptools
+serpent
+statsmodels
+tensorboard==1.14.0
+tensorflow-estimator
+tensorflow-gpu
+tensorboard_logger
+torch>=1.5.0
+torchvision>=0.6.0
+timm
+tqdm
+xgboost
+torch-scatter==2.0.4+cu102 -f https://pytorch-geometric.com/whl/torch-1.5.0.html
+torch-sparse==0.6.3+cu102 -f https://pytorch-geometric.com/whl/torch-1.5.0.html
+torch-cluster==1.5.5+cu102 -f https://pytorch-geometric.com/whl/torch-1.5.0.html
+torch-spline-conv==1.2.0+cu102 -f https://pytorch-geometric.com/whl/torch-1.5.0.html
+torch-geometric
