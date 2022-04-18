@@ -43,38 +43,7 @@ def train(config: DictConfig) -> Optional[float]:
         config.model.datamodule_cfg = config.datamodule
     model: LightningModule = hydra.utils.instantiate(config.model, _recursive_=False)
     if config.get('pretrained_weight'):
-        # loading pretrained weight to network and mutator
-        import torch
-        from hydra.utils import to_absolute_path
-        ckpt_path = to_absolute_path(config.get("pretrained_weight"))
-        try:
-            # load state_dict of network, mutator, and etc,.
-            # model.load_state_dict(ckpt)
-            model = model.load_from_checkpoint(ckpt_path, **config.model)
-            del ckpt
-            log.info(f"Loading pretrained weight from {ckpt_path}, including network, mutator")
-        except Exception as e:
-            try:
-                ckpt = torch.load(ckpt_path, map_location='cpu')
-                if 'epoch' in ckpt:
-                    ckpt = ckpt['state_dict']
-                model.load_state_dict(ckpt)
-                del ckpt
-                log.info(f"Loading pretrained weight from {ckpt_path}, including network")
-            except Exception as e:
-                try:
-                    # only load network weight
-                    model.network.load_state_dict(ckpt)
-                    log.info(f"Loading pretrained network weight from {ckpt_path}")
-                except Exception as e:
-                    try:
-                        # load subnet weight from a supernet weight
-                        from hyperbox.networks.utils import extract_net_from_ckpt
-                        weight_supernet = extract_net_from_ckpt(ckpt_path)
-                        model.network.load_from_supernet(weight_supernet)
-                        log.info(f"Loading subnet weight from supernet weight: {ckpt_path}")
-                    except Exception as e:
-                        raise Exception(f'failed to load pretrained weight from {ckpt_path}.\n{e}')
+        model = utils.load_pretrained_weights(config, model, config.get('pretrained_weight'))
 
     # Init Lightning callbacks
     callbacks: List[Callback] = []
@@ -110,13 +79,20 @@ def train(config: DictConfig) -> Optional[float]:
     )
 
     result = None
-    # Train the model
     if config.get("only_test"):
+        # Only test the model
         if config.get('pretrained_weight') is None:
             log.info('No petrained weight provided')
         result = trainer.test(model=model, datamodule=datamodule)
         print(result)
+    elif config.get('engine') is not None and len(config.get('engine')) > 0:
+        # customized engine
+        engine = hydra.utils.instantiate(config.engine, 
+            trainer=trainer, model=model, datamodule=datamodule, cfg=config, _recursive_=False)
+        log.info(f"Running customized engine: {engine.__class__}")
+        result = engine.run()
     else:
+        # Train the model
         log.info("Starting training!")
         trainer.fit(model=model, datamodule=datamodule)
         result = trainer.callback_metrics
@@ -125,7 +101,10 @@ def train(config: DictConfig) -> Optional[float]:
         if config.get("test_after_training") and not config.trainer.get("fast_dev_run"):
             log.info("Starting testing!")
             ckpt_path = config.trainer.get('ckpt_path') or "best"
-            trainer.test(model=model, datamodule=datamodule, ckpt_path=ckpt_path)
+            try:
+                trainer.test(model=model, datamodule=datamodule, ckpt_path=ckpt_path)
+            except:
+                trainer.test(model=model, datamodule=datamodule, ckpt_path=None)
             result.update(trainer.callback_metrics)
 
     # Make sure everything closed properly
@@ -141,6 +120,7 @@ def train(config: DictConfig) -> Optional[float]:
 
     # Print path to best checkpoint
     log.info(f"Best checkpoint path:\n{trainer.checkpoint_callback.best_model_path}")
+    log.info(f"result: {result}")
 
     # Return metric score for hyperparameter optimization
     optimized_metric = config.get("optimized_metric")

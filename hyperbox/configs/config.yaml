@@ -7,7 +7,7 @@ defaults:
   - datamodule: mnist_datamodule.yaml
   - callbacks: default.yaml # set this to null if you don't want to use callbacks
   - logger: wandb # set logger here or use command line (e.g. `python run.py logger=wandb`)
-
+  - engine: none.yaml
   - hparams_search: null
 
   - hydra: default.yaml

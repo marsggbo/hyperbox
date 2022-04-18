@@ -1,7 +1,7 @@
-import os
 import inspect
 import json
 import logging
+import os
 import warnings
 from copy import deepcopy
 from importlib.util import find_spec
@@ -14,6 +14,7 @@ import rich.tree
 import torch
 import wandb
 from omegaconf import DictConfig, OmegaConf
+from pytorch_lightning import LightningModule
 from pytorch_lightning.loggers.wandb import WandbLogger
 from pytorch_lightning.utilities import rank_zero_only
 
@@ -61,9 +62,11 @@ class TorchTensorEncoder(json.JSONEncoder):
             return olist
         return super().default(o)
 
+
 def save_arch_to_json(mask: dict, filepath: str):
     with open(filepath, 'w') as f:
         json.dump(mask, f, indent=4, sort_keys=True, cls=TorchTensorEncoder)
+
 
 def load_json(filename):
     if filename is None:
@@ -273,3 +276,43 @@ def hparams_wrapper(cls):
 
     cls.__new__ = __new__
     return cls
+
+
+def load_pretrained_weights(
+    config: DictConfig, model: LightningModule, ckpt_path: str
+):
+    """
+    Load pretrained weights from a checkpoint.
+    """
+    from hydra.utils import to_absolute_path
+    log = get_logger()
+    # loading pretrained weight to network and mutator
+    ckpt_path = to_absolute_path(config.get("pretrained_weight"))
+    try:
+        # load state_dict of network, mutator, and etc,.
+        # model.load_state_dict(ckpt)
+        model = model.load_from_checkpoint(ckpt_path, **config.model)
+        log.info(f"Loading pretrained weight from {ckpt_path}, including network, mutator")
+    except Exception as e:
+        try:
+            ckpt = torch.load(ckpt_path, map_location='cpu')
+            if 'epoch' in ckpt:
+                ckpt = ckpt['state_dict']
+            model.load_state_dict(ckpt)
+            del ckpt
+            log.info(f"Loading pretrained weight from {ckpt_path}, including network")
+        except Exception as e:
+            try:
+                # only load network weight
+                model.network.load_state_dict(ckpt)
+                log.info(f"Loading pretrained network weight from {ckpt_path}")
+            except Exception as e:
+                try:
+                    # load subnet weight from a supernet weight
+                    from hyperbox.networks.utils import extract_net_from_ckpt
+                    weight_supernet = extract_net_from_ckpt(ckpt_path)
+                    model.network.load_from_supernet(weight_supernet)
+                    log.info(f"Loading subnet weight from supernet weight: {ckpt_path}")
+                except Exception as e:
+                    raise Exception(f'failed to load pretrained weight from {ckpt_path}.\n{e}')
+    return model
