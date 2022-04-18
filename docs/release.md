@@ -163,7 +163,7 @@ defaults:
 ## 2021年6月27日16:40:17
 
 - 统一Model类下的`sample_search`接口
-- rename `random_nas_model.py` to `random_model.py`
+- rename `random_model.py` to `random_model.py`
 
 ## 2021年7月16日16:30:19
 

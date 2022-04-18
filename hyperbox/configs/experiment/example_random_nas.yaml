@@ -5,7 +5,7 @@
 
 defaults:
   - override /trainer: debug.yaml # choose trainer from 'configs/trainer/'
-  - override /model: random_nas_model.yaml
+  - override /model: random_model.yaml
   - override /datamodule: fakedata_datamodule.yaml
   - override /callbacks: default.yaml
   - override /logger: wandb.yaml
