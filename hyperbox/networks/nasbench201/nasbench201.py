@@ -409,6 +409,15 @@ class NASBench201Network(BaseNASNetwork):
                 arch_json[key] = op_name
         return arch_json
 
+    @property
+    def arch_encoding(self):
+        arch_json = self.arch
+        arch_encoding = []
+        for key, op_name in arch_json.items():
+            op_idx = PRIMITIVES.index(op_name)
+            arch_encoding.append(op_idx)
+        return ''.join([str(x) for x in arch_encoding])
+
     def sync_mask_for_all_cells(self, mask):
         '''
         Should be called after mutator.reset().
