@@ -17,9 +17,7 @@ A clean and scalable template to kickstart your AutoML project 🚀⚡🔥<br>
 
 </div>
 
-## Why Hyperbox?
-
-...
+Please refer wo [Wiki](https://github.com/marsggbo/hyperbox/wiki) for more details.
 
 ## Thanks
 
