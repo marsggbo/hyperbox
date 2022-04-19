@@ -91,6 +91,7 @@ class NASBenchMBNet(BaseNASNetwork):
         if arch_list is not None:
             assert len(arch_list) == sum(stages)
         self.arch_list = arch_list
+        self.arch_info = None
 
         self.stem = nn.Sequential(
             nn.Conv2d(3, init_channels, 3, padding=1, bias=False),
@@ -141,6 +142,15 @@ class NASBenchMBNet(BaseNASNetwork):
                 if isinstance(block, OperationSpace):
                     arch_list.append(block.mask.cpu().detach().numpy().argmax())
         return ''.join([str(x) for x in arch_list])
+
+    def query_by_key(self, query_file_path, key='mean_acc', arch=None):
+        if arch is None:
+            arch = self.arch
+        if self.arch_info is None:
+            import json
+            with open(query_file_path, 'r') as f:
+                self.arch_info = json.load(f)
+        return self.arch_info[arch].get(key, '-1')
 
 
 if __name__ == '__main__':
