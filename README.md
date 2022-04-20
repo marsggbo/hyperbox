@@ -48,7 +48,6 @@ python -m hyperbox.run experimen=example_random trainer.fast_dev_run=True
 </details>
 
 
-
 <details>
 <summary><b> Hyperbox Structure </b></summary>
 
@@ -64,7 +63,9 @@ python -m hyperbox.run experimen=example_random trainer.fast_dev_run=True
 - [Q&A](https://github.com/marsggbo/hyperbox/wiki/Q&A)
 - [Usage](https://github.com/marsggbo/hyperbox/wiki/Usages)
 
-</detail
+</details>
+
+
 ## Thanks
 
 [![](https://shields.io/badge/-NNI-017F2F?style=flat&logo=github&labelColor=303030)](https://github.com/microsoft/nni/tree/v1.7)
