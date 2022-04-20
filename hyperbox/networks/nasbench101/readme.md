@@ -23,3 +23,8 @@ curl -O https://storage.googleapis.com/nasbench/nasbench_only_108.tfrecord
 ```
 python db_gen.py --inputFile /path/to/nasbench_full.tfrecord
 ```
+
+# Thanks
+- https://github.com/romulus0914/NASBench-PyTorch/blob/master/main.py
+- https://nni.readthedocs.io/en/v1.7/NAS/BenchmarksExample.html
+- https://github.com/microsoft/nni/blob/v1.7/src/sdk/pynni/nni/nas/benchmarks/nasbench101/__init__.py
