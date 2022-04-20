@@ -3,6 +3,7 @@
 # Hyperbox
 
 
+<a href="https://github.com/marsggbo/hyperbox"><img alt="Hyperbox" src="https://img.shields.io/badge/-Hyperbox-organe?style=for-the-badge&logo=python&logoColor=white"></a>
 <a href="https://pytorch.org/get-started/locally/"><img alt="Python" src="https://img.shields.io/badge/-Python 3.7--3.9-blue?style=for-the-badge&logo=python&logoColor=white"></a>
 <a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/-PyTorch 1.8+-ee4c2c?style=for-the-badge&logo=pytorch&logoColor=white"></a>
 <a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?style=for-the-badge&logo=pytorchlightning&logoColor=white"></a>
@@ -63,10 +64,10 @@ python -m hyperbox.run experimen=example_random trainer.fast_dev_run=True
 - [Q&A](https://github.com/marsggbo/hyperbox/wiki/Q&A)
 - [Usage](https://github.com/marsggbo/hyperbox/wiki/Usages)
 
-</details>
-
-
+</detail
 ## Thanks
 
-[![](https://shields.io/badge/-Lightning--Hydra--Template-017F2F?style=flat&logo=github&labelColor=303030)](https://github.com/ashleve/lightning-hydra-template)
+[![](https://shields.io/badge/-NNI-017F2F?style=flat&logo=github&labelColor=303030)](https://github.com/microsoft/nni/tree/v1.7)
 
+
+[![](https://shields.io/badge/-Lightning--Hydra--Template-017F2F?style=flat&logo=github&labelColor=303030)](https://github.com/ashleve/lightning-hydra-template)   
