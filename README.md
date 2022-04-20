@@ -17,7 +17,54 @@ A clean and scalable template to kickstart your AutoML project 🚀⚡🔥<br>
 
 </div>
 
-Please refer wo [Wiki](https://github.com/marsggbo/hyperbox/wiki) for more details.
+You can refer to [Wiki](https://github.com/marsggbo/hyperbox/wiki) for more details.
+
+
+<details>
+<summary><b> Install </b></summary>
+
+- install via `pip`
+```
+pip install hyperbox
+```
+- install via `github`
+
+```
+git clone https://github.com/marsggbo/hyperbox
+cd hyperbox
+python setup.py develop
+```
+
+</details>
+
+<details>
+<summary><b> Quick Start </b></summary>
+
+```
+python -m hyperbox.run experimen=example_random trainer.fast_dev_run=True
+```
+
+</details>
+
+
+
+<details>
+<summary><b> Hyperbox Structure </b></summary>
+
+- [Wiki for hyperbox.config](https://github.com/marsggbo/hyperbox/wiki/Customize-Config)
+- [Wiki for hyperbox.mutables](https://github.com/marsggbo/hyperbox/wiki/Customize-Mutable)
+- [Wiki for hyperbox.engine](https://github.com/marsggbo/hyperbox/wiki/Customize-Engine)
+- [Wiki for hyperbox.mutator](https://github.com/marsggbo/hyperbox/wiki/Customize-Mutator)
+- [Wiki for hyperbox.models](https://github.com/marsggbo/hyperbox/wiki/Customize-Models)
+- [Wiki for hyperbox.networks](https://github.com/marsggbo/hyperbox/wiki/Customize-NAS-Network)
+- [Wiki for Hydra](https://github.com/marsggbo/hyperbox/wiki/Hydra-Q&A)
+- [Wiki for Hyperbox App](https://github.com/marsggbo/hyperbox/wiki/Hyperbox-App:-Start-a-new-project)
+- [Miscellaneous](https://github.com/marsggbo/hyperbox/wiki/Miscellaneous-(tricks))
+- [Q&A](https://github.com/marsggbo/hyperbox/wiki/Q&A)
+- [Usage](https://github.com/marsggbo/hyperbox/wiki/Usages)
+
+</details>
+
 
 ## Thanks
 
