@@ -9,8 +9,8 @@ from torch.nn import functional as F
 
 from hyperbox.mutables.spaces import OperationSpace
 
-from .base_mutator import BaseMutator
-from .default_mutator import Mutator
+from hyperbox.mutator.base_mutator import BaseMutator
+from hyperbox.mutator.default_mutator import Mutator
 
 __all__ = [
     'ProxylessMutator',

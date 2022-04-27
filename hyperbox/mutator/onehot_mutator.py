@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 from hyperbox.mutables.spaces import InputSpace, OperationSpace, ValueSpace
 
-from .default_mutator import Mutator
+from hyperbox.mutator.default_mutator import Mutator
 from .darts_mutator import DartsMutator
 
 __all__ = [

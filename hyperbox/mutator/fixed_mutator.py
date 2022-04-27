@@ -7,7 +7,7 @@ import torch
 
 from hyperbox.mutables.spaces import MutableScope
 
-from .default_mutator import Mutator
+from hyperbox.mutator.default_mutator import Mutator
 
 
 class FixedArchitecture(Mutator):

@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 from hyperbox.mutables.spaces import InputSpace, OperationSpace, MutableScope
 
-from .default_mutator import Mutator
+from hyperbox.mutator.default_mutator import Mutator
 
 __all__ = [
     'EnasMutator',

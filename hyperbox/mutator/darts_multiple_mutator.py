@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 from hyperbox.mutables.spaces import InputSpace, OperationSpace, ValueSpace
 from hyperbox.networks.pytorch_modules import topk_gumbel_softmax
-from .default_mutator import Mutator
+from hyperbox.mutator.default_mutator import Mutator
 
 __all__ = [
     'DartsMultipleMutator',
