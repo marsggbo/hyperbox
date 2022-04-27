@@ -7,31 +7,29 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from hyperbox.utils.calc_model_size import flops_size_counter
-from hyperbox.utils.utils import TorchTensorEncoder
 from hyperbox.mutables.spaces import InputSpace, OperationSpace
-
 from hyperbox.mutator.random_mutator import RandomMutator
 from hyperbox.mutator.utils import CARS_NSGA
+from hyperbox.utils.calc_model_size import flops_size_counter
+from hyperbox.utils.utils import TorchTensorEncoder
+
 
 __all__ = [
     'EAMutator',
 ]
 
 
-OBJECT_KEY_MAP = {
-    0: 'flops',
-    1: 'size',
-}
-
-TARGET_KEY_MAP = {
-    0: 'metric',
-    1: 'speed',
-    2: 'acc'
-}
-
-
 class EAMutator(RandomMutator):
+    OBJECT_KEY_MAP = {
+        0: 'flops',
+        1: 'size',
+    }
+
+    TARGET_KEY_MAP = {
+        0: 'metric',
+        1: 'speed',
+        2: 'acc'
+    }
     def __init__(
         self,
         model: torch.nn.Module,
@@ -54,8 +52,8 @@ class EAMutator(RandomMutator):
         '''
         super().__init__(model)
         self.algorithm = algorithm
-        self.target_keys = [TARGET_KEY_MAP[k] for k in target_keys]
-        self.object_keys = [OBJECT_KEY_MAP[k] for k in object_keys]
+        self.target_keys = [self.TARGET_KEY_MAP[k] for k in target_keys]
+        self.object_keys = [self.OBJECT_KEY_MAP[k] for k in object_keys]
         self.num_population = num_population # 初始population数量
         self.warmup_epochs  = warmup_epochs
         self.init_population_mode  = init_population_mode # 初始化population的方式
@@ -414,7 +412,15 @@ class EAMutator(RandomMutator):
         self.population = ckpt['population']
         print('Load checkpoint from', file)
 
-    def search(self, search_epochs, eval_func, verbose=False, filling_history=False):
+    def search(
+        self,
+        search_epochs,
+        eval_func,
+        eval_kwargs: dict,
+        verbose=False,
+        filling_history=False,
+        save_ckpt=False,
+        ):
         '''Start search using EA
         Args:
         - search_epochs: int. # max epochs of searching
@@ -432,7 +438,8 @@ class EAMutator(RandomMutator):
             for j, arch in enumerate(self.population.values()):
                 self.reset_cache_mask(arch['arch'])
                 if arch.get('metric') is None:
-                    arch['metric'] = eval_func(arch, self.model)
+                    eval_kwargs.update({'arch': arch, 'network': self.model})
+                    arch['metric'] = eval_func(**eval_kwargs)
             self.crt_epoch += 1
             if verbose:
                 metrics = [pool['metric'] for pool in self.population.values()]
@@ -446,32 +453,36 @@ class EAMutator(RandomMutator):
             for j, arch in enumerate(self.history.values()):
                 self.reset_cache_mask(arch['arch'])
                 if arch.get('metric') is None:
-                    arch['metric'] = eval_func(arch, self.model)
-        self.save_ckpt()
+                    eval_kwargs.update({'arch': arch, 'network': self.model})
+                    arch['metric'] = eval_func(**eval_kwargs)
+        if save_ckpt:
+            self.save_ckpt()
         print(f'Evolution is finished')
 
-def plot_pareto_fronts(
-        obj1: np.array,
-        obj2: np.array,
-        pareto_indices: np.array,
-        name_obj1: str='obj1',
-        name_obj2: str='obj2',
-        figsize=(8,5),
-        figname=None
-    ):
+    @staticmethod
+    def plot_pareto_fronts(
+            obj1: np.array,
+            obj2: np.array,
+            pareto_indices: np.array,
+            name_obj1: str='obj1',
+            name_obj2: str='obj2',
+            figsize=(8,5),
+            figname=None
+        ):
 
-    import matplotlib.pyplot as plt
-    obj1_pareto = [x for x in obj1[pareto_indices]]
-    obj2_pareto = [x for x in obj2[pareto_indices]]
-    fig = plt.figure(num=1, figsize=figsize)
-    ax1 = fig.add_subplot(111)
-    ax1.scatter(obj1, obj2)
-    ax1.plot(obj1_pareto, obj2_pareto)
-    ax1.set_xlabel(name_obj1)
-    ax1.set_ylabel(name_obj2)
-    plt.show()
-    if figname is not None:
-        fig.savefig(figname)
+        import matplotlib.pyplot as plt
+        obj1_pareto = [x for x in obj1[pareto_indices]]
+        obj2_pareto = [x for x in obj2[pareto_indices]]
+        fig = plt.figure(num=1, figsize=figsize)
+        ax1 = fig.add_subplot(111)
+        ax1.scatter(obj1, obj2)
+        ax1.plot(obj1_pareto, obj2_pareto)
+        ax1.set_xlabel(name_obj1)
+        ax1.set_ylabel(name_obj2)
+        plt.show()
+        if figname is not None:
+            fig.savefig(figname)
+
 
 if __name__ == '__main__':
     from hyperbox.networks.bnnas.bn_net import BNNet
