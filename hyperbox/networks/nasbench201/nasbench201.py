@@ -16,6 +16,136 @@ from hyperbox.networks.base_nas_network import BaseNASNetwork
 from hyperbox.networks.nasbench201.db_gen import PRIMITIVES, query, query_nb201_trial_stats
 
 
+class NASBench201Network(BaseNASNetwork):
+    def __init__(
+        self,
+        stem_out_channels: int=16,
+        num_modules_per_stack: int=5,
+        bn_affine=True,
+        bn_momentum=0.1,
+        bn_track_running_stats=True,
+        num_classes=10,
+        mask=None
+    ):
+        super(NASBench201Network, self).__init__(mask=mask)
+        self.channels = C = stem_out_channels
+        self.num_modules = N = num_modules_per_stack
+        self.num_classes = num_classes
+
+        self.bn_momentum = bn_momentum
+        self.bn_affine = bn_affine
+        self.bn_track_running_stats = bn_track_running_stats
+
+        self.stem = nn.Sequential(
+            nn.Conv2d(3, C, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(C, momentum=self.bn_momentum),
+        )
+
+        layer_channels = [C] * N + [C * 2] + [C * 2] * N + [C * 4] + [C * 4] * N
+        layer_reductions = [False] * N + [True] + [False] * N + [True] + [False] * N
+
+        C_prev = C
+        self.cells = nn.ModuleList()
+
+        for i, (C_curr, reduction) in enumerate(zip(layer_channels, layer_reductions)):
+            if reduction:
+                cell = ResNetBasicBlock(
+                    C_prev,
+                    C_curr,
+                    2,
+                    self.bn_affine,
+                    self.bn_momentum,
+                    self.bn_track_running_stats,
+                )
+            else:
+                cell = NASBench201Cell(
+                    i,
+                    C_prev,
+                    C_curr,
+                    1,
+                    self.bn_affine,
+                    self.bn_momentum,
+                    self.bn_track_running_stats,
+                    mask=self.mask
+                )
+
+            self.cells.append(cell)
+            C_prev = C_curr
+
+        self.lastact = nn.Sequential(
+            nn.BatchNorm2d(C_prev, momentum=self.bn_momentum), nn.ReLU(inplace=True)
+        )
+        self.global_pooling = nn.AdaptiveAvgPool2d(1)
+        self.classifier = nn.Linear(C_prev, self.num_classes)
+        self.init_weights()
+
+    def forward(self, inputs):
+        out = self.stem(inputs)
+        bs = inputs.shape[0]
+        for idx, cell in enumerate(self.cells):
+            out = cell(out)
+
+        out = self.lastact(out)
+        out = self.global_pooling(out)
+        out = out.view(out.size(0), -1)
+        out = self.classifier(out)
+
+        return out
+
+    @property
+    def arch(self):
+        arch_json = {}
+        for name, module in self.named_modules():
+            if isinstance(module, spaces.Mutable):
+                key = module.key
+                if self.mask is not None:
+                    mask = self.mask[key]
+                else:
+                    mask = module.mask
+                idx = torch.argmax(mask.float())
+                op_name = PRIMITIVES[idx]
+                arch_json[key] = op_name
+        return arch_json
+
+    @property
+    def arch_encoding(self):
+        arch_json = self.arch
+        arch_encoding = []
+        for key, op_name in arch_json.items():
+            op_idx = PRIMITIVES.index(op_name)
+            arch_encoding.append(op_idx)
+        return ''.join([str(x) for x in arch_encoding])
+
+    def sync_mask_for_all_cells(self, mask):
+        '''
+        Should be called after mutator.reset().
+        For example:
+        net = NASBench201Network()
+        rm = RandomMutator(net)
+        mutator.reset()
+        net.sync_mask_for_all_cells(rm._cache)
+        '''
+        for cell in self.cells:
+            if not hasattr(cell, 'layers'):
+                continue
+            for op_list in cell.layers:
+                if len(op_list) > 0:
+                    for op in op_list:
+                        op.mask = mask[op.key]
+
+    def print_cell_mask_by_idx(self, idx):
+        for op_list in self.cells.__getitem__(idx).layers:
+            if len(op_list) > 0:
+                for op in op_list:
+                    print(op.key, op.mask)
+
+    def query_by_key(self, key='test_acc', arch=None, num_epochs=200, dataset='cifar10', reduction='mean'):
+        if arch is None:
+            arch = self.arch
+        self.arch_info = next(query_nb201_trial_stats(arch, num_epochs, dataset, reduction))
+        return self.arch_info.get(key, '-1')
+
+
 class Pooling(nn.Module):
     """
     Parameters
@@ -178,7 +308,7 @@ class NASBench201Cell(nn.Module):
         mask=None
     ):
         super(NASBench201Cell, self).__init__()
-
+        self.mask = mask
         self.NUM_NODES = 4
         self.layers = nn.ModuleList()
 
@@ -318,136 +448,6 @@ class ResNetBasicBlock(nn.Module):
         return inputs + basicblock
 
 
-class NASBench201Network(BaseNASNetwork):
-    def __init__(
-        self,
-        stem_out_channels: int=16,
-        num_modules_per_stack: int=5,
-        bn_affine=True,
-        bn_momentum=0.1,
-        bn_track_running_stats=True,
-        num_classes=10,
-        mask=None
-    ):
-        super(NASBench201Network, self).__init__(mask=mask)
-        self.channels = C = stem_out_channels
-        self.num_modules = N = num_modules_per_stack
-        self.num_classes = num_classes
-
-        self.bn_momentum = bn_momentum
-        self.bn_affine = bn_affine
-        self.bn_track_running_stats = bn_track_running_stats
-
-        self.stem = nn.Sequential(
-            nn.Conv2d(3, C, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(C, momentum=self.bn_momentum),
-        )
-
-        layer_channels = [C] * N + [C * 2] + [C * 2] * N + [C * 4] + [C * 4] * N
-        layer_reductions = [False] * N + [True] + [False] * N + [True] + [False] * N
-
-        C_prev = C
-        self.cells = nn.ModuleList()
-
-        for i, (C_curr, reduction) in enumerate(zip(layer_channels, layer_reductions)):
-            if reduction:
-                cell = ResNetBasicBlock(
-                    C_prev,
-                    C_curr,
-                    2,
-                    self.bn_affine,
-                    self.bn_momentum,
-                    self.bn_track_running_stats,
-                )
-            else:
-                cell = NASBench201Cell(
-                    i,
-                    C_prev,
-                    C_curr,
-                    1,
-                    self.bn_affine,
-                    self.bn_momentum,
-                    self.bn_track_running_stats,
-                    mask=self.mask
-                )
-
-            self.cells.append(cell)
-            C_prev = C_curr
-
-        self.lastact = nn.Sequential(
-            nn.BatchNorm2d(C_prev, momentum=self.bn_momentum), nn.ReLU(inplace=True)
-        )
-        self.global_pooling = nn.AdaptiveAvgPool2d(1)
-        self.classifier = nn.Linear(C_prev, self.num_classes)
-        self.init_weights()
-
-    def forward(self, inputs):
-        out = self.stem(inputs)
-        bs = inputs.shape[0]
-        for idx, cell in enumerate(self.cells):
-            out = cell(out)
-
-        out = self.lastact(out)
-        out = self.global_pooling(out)
-        out = out.view(out.size(0), -1)
-        out = self.classifier(out)
-
-        return out
-
-    @property
-    def arch(self):
-        arch_json = {}
-        for name, module in self.named_modules():
-            if isinstance(module, spaces.Mutable):
-                key = module.key
-                if self.mask is not None:
-                    mask = self.mask[key]
-                else:
-                    mask = module.mask
-                idx = torch.argmax(mask.float())
-                op_name = PRIMITIVES[idx]
-                arch_json[key] = op_name
-        return arch_json
-
-    @property
-    def arch_encoding(self):
-        arch_json = self.arch
-        arch_encoding = []
-        for key, op_name in arch_json.items():
-            op_idx = PRIMITIVES.index(op_name)
-            arch_encoding.append(op_idx)
-        return ''.join([str(x) for x in arch_encoding])
-
-    def sync_mask_for_all_cells(self, mask):
-        '''
-        Should be called after mutator.reset().
-        For example:
-        net = NASBench201Network()
-        rm = RandomMutator(net)
-        mutator.reset()
-        net.sync_mask_for_all_cells(rm._cache)
-        '''
-        for cell in self.cells:
-            if not hasattr(cell, 'layers'):
-                continue
-            for op_list in cell.layers:
-                if len(op_list) > 0:
-                    for op in op_list:
-                        op.mask = mask[op.key]
-
-    def print_cell_mask_by_idx(self, idx):
-        for op_list in self.cells.__getitem__(idx).layers:
-            if len(op_list) > 0:
-                for op in op_list:
-                    print(op.key, op.mask)
-
-    def query_by_key(self, key='test_acc', arch=None, num_epochs=200, dataset='cifar10', reduction='mean'):
-        if arch is None:
-            arch = self.arch
-        self.arch_info = next(query_nb201_trial_stats(arch, num_epochs, dataset, reduction))
-        return self.arch_info.get(key, '-1')
-
-
 if __name__ == "__main__":
     from hyperbox.mutator import RandomMutator
     from hyperbox.networks.nasbench201.db_gen import query_nb201_trial_stats
@@ -457,24 +457,27 @@ if __name__ == "__main__":
     net.verbose = 0
     rm = RandomMutator(net)
     num = 3
-    for i in range(5):
-        rm.reset()
-        x = torch.randn(num,3,64,64).to(device)
-        preds = net(x)
-        print(preds.argmax(-1))
-    net = net.eval()
-    for i in range(5):
-        # rm.reset()
-        x = torch.randn(num,3,64,64).to(device)
-        preds = net(x)
-        print(preds.argmax(-1))
-    # for i in range(3):
+    # for i in range(5):
     #     rm.reset()
-    #     net.sync_mask_for_all_cells(rm._cache)
-    #     net.print_cell_mask_by_idx(2)
-    #     a = torch.rand(2, 3, 64, 64).to(device)
-    #     b = net(a)
-    #     arch_json = net.arch 
-    #     acc = net.query_by_key()
-    #     for t in query_nb201_trial_stats(arch_json, 200, 'cifar10'):
-    #         pprint.pprint(t)
+    #     x = torch.randn(num,3,64,64).to(device)
+    #     preds = net(x)
+    #     print(preds.argmax(-1))
+    # net = net.eval()
+    # for i in range(5):
+    #     # rm.reset()
+    #     x = torch.randn(num,3,64,64).to(device)
+    #     preds = net(x)
+    #     print(preds.argmax(-1))
+    for i in range(3):
+        rm.reset()
+        # net.sync_mask_for_all_cells(rm._cache)
+        print(0, net.print_cell_mask_by_idx(0))
+        print(2, net.print_cell_mask_by_idx(2))
+        print(4, net.print_cell_mask_by_idx(4))
+        a = torch.rand(2, 3, 64, 64).to(device)
+        b = net(a)
+        print(net.arch_size((2,3,64,64)))
+        arch_json = net.arch 
+        acc = net.query_by_key()
+        for t in query_nb201_trial_stats(arch_json, 200, 'cifar10'):
+            pprint.pprint(t)
