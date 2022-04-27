@@ -20,11 +20,6 @@ from pytorch_lightning.utilities import rank_zero_only
 
 from .logger import get_logger
 
-__all__ = [
-    '_module_available', 'TorchTensorEncoder', 'load_json', 'extras', 'print_config',
-    'empty', 'log_hyperparameters', 'finish', 'hparams_wrapper', 'save_arch_to_json', 'DotDict'
-]
-
 
 class DotDict(dict):
     """dot.notation access to dictionary attributes"""
@@ -316,3 +311,15 @@ def load_pretrained_weights(
                 except Exception as e:
                     raise Exception(f'failed to load pretrained weight from {ckpt_path}.\n{e}')
     return model
+
+
+def lazy_property(func):
+    attr_name = "_lazy_" + func.__name__
+
+    @property
+    def _lazy_property(self):
+        if not hasattr(self, attr_name):
+            setattr(self, attr_name, func(self))
+        return getattr(self, attr_name)
+
+    return _lazy_property

@@ -7,9 +7,9 @@ import json
 import torch
 
 from hyperbox.mutables import spaces
-from hyperbox.utils.utils import TorchTensorEncoder
+from hyperbox.utils.utils import TorchTensorEncoder, lazy_property
+from hyperbox.mutator.base_mutator import BaseMutator
 
-from .base_mutator import BaseMutator
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,17 @@ class Mutator(BaseMutator):
             assert mutable.mask.shape==mask[mutable.key].shape,\
                 f"the given mask ({mask[mutable.key].shape}) cannot match the original size [{mutable.key}]{mutable.mask.shape}"
             mutable.mask = mask[mutable.key]
+
+    @lazy_property
+    def has_duplicate_mutable(self):
+        mutable_keys = set()
+        for name, module in self.model.named_modules():
+            if isinstance(module, spaces.Mutable):
+                if module.key not in mutable_keys:
+                    mutable_keys.add(module.key)
+                else:
+                    return True
+        return False
 
     def build_archs_for_valid(self, *args, **kwargs):
         '''
@@ -87,12 +98,28 @@ class Mutator(BaseMutator):
             self._cache = self.sample_func(self, *args, **kwargs)
             del self.sample_func
         self._cache = self.check_freeze_mutable(self._cache)
+        if self.has_duplicate_mutable:
+            self.sync_mask_to_duplicate_mutables(self._cache)
+        return self._cache
 
     def check_freeze_mutable(self, mask):
+        '''
+        Check if the mutable is frozen, if so, set the mask to be the default mask
+        '''
         for mutable in self.mutables:
             if getattr(mutable, 'is_freeze', False):
                 mask[mutable.key] = mutable.mask
         return mask
+
+    def sync_mask_to_duplicate_mutables(self, mask):
+        '''
+        Sync the mask to the duplicate mutables
+        '''
+        for name, module in self.model.named_modules():
+            if isinstance(module, spaces.Mutable):
+                if module.key in mask:
+                # if module.key in mask and not all(mask[module.key] == module.mask):
+                    module.mask.data = mask[module.key].data
 
     def export(self, *args, **kwargs):
         """

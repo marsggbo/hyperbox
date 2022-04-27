@@ -17,8 +17,10 @@ class StructuredMutableTreeNode:
     ``Mutable`` (other than ``MutableScope``).
     """
 
-    def __init__(self, mutable):
+    def __init__(self, mutable, order='pre', deduplicate=True):
         self.mutable = mutable
+        self.order = order
+        self.deduplicate = deduplicate
         self.children = []
 
     def add_child(self, mutable):
@@ -29,7 +31,7 @@ class StructuredMutableTreeNode:
         return type(self.mutable)
 
     def __iter__(self):
-        return self.traverse()
+        return self.traverse(order=self.order, deduplicate=self.deduplicate)
 
     def traverse(self, order="pre", deduplicate=True, memo=None):
         """
@@ -71,9 +73,13 @@ class BaseMutator(nn.Module):
     A mutator is responsible for mutating a graph by obtaining the search space from the network and implementing
     callbacks that are called in ``forward`` in Mutables.
     """
+    ORDER = 'pre'
+    DEDUPLICATE = True
 
     def __init__(self, model):
         super().__init__()
+        self.order = self.ORDER
+        self.deduplicate = self.DEDUPLICATE
         self.__dict__["model"] = model
         self._structured_mutables = self._parse_search_space(self.model)
 
@@ -81,7 +87,7 @@ class BaseMutator(nn.Module):
         if memo is None:
             memo = set()
         if root is None:
-            root = StructuredMutableTreeNode(None)
+            root = StructuredMutableTreeNode(None, order=self.order, deduplicate=self.deduplicate)
         if module not in memo:
             memo.add(module)
             if isinstance(module, Mutable):
