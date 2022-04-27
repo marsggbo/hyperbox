@@ -2,20 +2,24 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from hyperbox.mutables.spaces import InputSpace, OperationSpace, ValueSpace
+from hyperbox.mutables.spaces import InputSpace, OperationSpace, ValueSpace\
+from hyperbox.mutator.default_mutator import Mutator
+from hyperbox.mutator.random_mutator import RandomMutator
 
-from .default_mutator import Mutator
 
 __all__ = [
     'RandomMultipleMutator',
 ]
 
 
-class RandomMultipleMutator(Mutator):
-    def __init__(self, model, *args, **kwargs):
-        super().__init__(model)
+class RandomMultipleMutator(RandomMutator):
+    def __init__(self, model, single_path_prob=0, *args, **kwargs):
+        super(RandomMultipleMutator, self).__init__(model)
+        self.single_path_prob = single_path_prob
 
     def sample_search(self):
+        if np.random.rand() < self.single_path_prob:
+            return super(RandomMultipleMutator, self).sample_search()
         result = dict()
         for mutable in self.mutables:
             if isinstance(mutable, OperationSpace):
