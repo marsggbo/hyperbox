@@ -25,16 +25,6 @@ class Mutator(BaseMutator):
                 default_mask[m.key] = m.mask
         self.default_mask = default_mask
 
-    def sample_by_mask(self, mask: dict):
-        '''
-        Sample an architecture by the mask
-        '''
-        self._cache = mask
-        for mutable in self.mutables:
-            assert mutable.mask.shape==mask[mutable.key].shape,\
-                f"the given mask ({mask[mutable.key].shape}) cannot match the original size [{mutable.key}]{mutable.mask.shape}"
-            mutable.mask = mask[mutable.key]
-
     @lazy_property
     def has_duplicate_mutable(self):
         mutable_keys = set()
@@ -82,6 +72,18 @@ class Mutator(BaseMutator):
             A mapping from key of mutables to decisions.
         """
         raise NotImplementedError
+
+    def sample_by_mask(self, mask: dict):
+        '''
+        Sample an architecture by the mask
+        '''
+        self._cache = self.check_freeze_mutable(mask)
+        for mutable in self.mutables:
+            assert mutable.mask.shape==mask[mutable.key].shape,\
+                f"the given mask ({mask[mutable.key].shape}) cannot match the original size [{mutable.key}]{mutable.mask.shape}"
+            mutable.mask = mask[mutable.key]
+        if self.has_duplicate_mutable:
+            self.sync_mask_to_duplicate_mutables(self._cache)
 
     def reset(self, *args, **kwargs):
         """

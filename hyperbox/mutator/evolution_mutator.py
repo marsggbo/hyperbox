@@ -28,6 +28,17 @@ def get_int_num(target_num: Optional[Union[int, float]], total_num: int=None) ->
         assert total_num is not None, '`total_num` must be given when `target_num` is float'
         return int(total_num * target_num)
 
+def is_constraint_satisfied(constraint, obj):
+    '''check if the constraint is satisfied by the obj
+    Args:
+        constraint: a list of constraints
+    '''
+    if isinstance(constraint, (list, tuple)):
+        assert len(constraint) == 2, '`constraint` must be a list of length 2, indicating left and right ranges'
+        return constraint[0] <= obj <= constraint[1]
+    else:
+        return constraint >= obj
+
 
 class EvolutionMutator(RandomMutator):
     def __init__(
@@ -37,17 +48,19 @@ class EvolutionMutator(RandomMutator):
         evolution_epochs: int=100,
         population_num: Optional[Union[int, float]]=50,
         selection_alg: str='best',
-        selection_num: int=0.5,
-        crossover_num: Optional[Union[int, float]]=0.2,
+        selection_num: int=0.8,
+        crossover_num: Optional[Union[int, float]]=0.5,
         crossover_prob: float=0.3,
-        mutation_num: Optional[Union[int, float]]=0.2,
+        mutation_num: Optional[Union[int, float]]=0.5,
         mutation_prob: float=0.3,
-        flops_limit: float=5000*1e6, # MFLOPs
-        size_limit: float=80, # MB
+        flops_limit: Optional[Union[list, float]]=5000*1e6, # MFLOPs
+        size_limit: Optional[Union[list, float]]=800, # MB
         log_dir: str='evolution_logs',
         topk: int=10,
+        resume_from_checkpoint: Optional[str]=None,
         to_save_checkpoint: bool=True,
         to_plot_pareto: bool=True,
+        figname: str='evolution_pareto.pdf',
         *args, **kwargs
     ):
         '''
@@ -69,8 +82,10 @@ class EvolutionMutator(RandomMutator):
             size_limit: size limit for each epoch
             log_dir: log directory
             topk: top k candidates
+            resume_from_checkpoint: resume from checkpoint
             to_save_checkpoint: save checkpoint or not
             to_plot_pareto: plot pareto or not
+            figname: pareto figure name
         '''
         super(EvolutionMutator, self).__init__(model)
         self.warmup_epochs = warmup_epochs
@@ -88,8 +103,10 @@ class EvolutionMutator(RandomMutator):
         self.log_dir = os.path.join(os.getcwd(), log_dir)
         self.checkpoint_name = os.path.join(self.log_dir, 'checkpoint.pth.tar')
         self.topk = topk
+        self.resume_from_checkpoint = resume_from_checkpoint
         self.to_save_checkpoint = to_save_checkpoint
         self.to_plot_pareto = to_plot_pareto
+        self.figname = figname
 
         self.memory = []
         self.vis_dict = {}
@@ -110,16 +127,16 @@ class EvolutionMutator(RandomMutator):
         log.info(f'save checkpoint to {self.checkpoint_name}')
 
     def load_checkpoint(self):
-        if not os.path.exists(self.checkpoint_name):
+        if not os.path.exists(self.resume_from_checkpoint):
             return False
-        info = torch.load(self.checkpoint_name)
+        info = torch.load(self.resume_from_checkpoint)
         self.memory = info['memory']
         self.candidates = info['candidates']
         self.vis_dict = info['vis_dict']
         self.keep_top_k = info['keep_top_k']
         self.epoch = info['epoch']
 
-        log.info('load checkpoint from', self.checkpoint_name)
+        log.info(f'load checkpoint from {self.checkpoint_name}')
         return True
 
     def search(self):
@@ -134,8 +151,8 @@ class EvolutionMutator(RandomMutator):
             - crossover_prob: {self.crossover_prob}
             - mutation_prob: {self.mutation_prob}
         ''')
-        
-        # self.load_checkpoint()
+        if self.resume_from_checkpoint:
+            self.load_checkpoint()
 
         self.get_random(self.population_num)
 
@@ -187,6 +204,9 @@ class EvolutionMutator(RandomMutator):
             # method2: pareto
             pareto_lists = NonDominatedSorting( np.vstack( (1/objy, objx) ) )
             pareto_indices = pareto_lists[0]
+            print(f"Information of pareto models:")
+            for i, idx in enumerate(pareto_indices):
+                print(f"{i} size:{objx[idx]} perf:{objy[idx]}")
 
             self.plot_pareto_fronts(
                 objx, objy, pareto_indices, 'size', 'performance', figname='evolution_pareto.png'
@@ -194,9 +214,8 @@ class EvolutionMutator(RandomMutator):
 
     def get_random(self, num):
         log.info('random select ........')
-        # self.candidates = []
         while len(self.candidates) < num:
-            arch = self.reset() # type: dict
+            arch = self.sample_search() # type: dict
             if not self.is_legal(arch):
                 continue
             self.candidates.append(self.get_cand_by_arch(arch))
@@ -212,6 +231,7 @@ class EvolutionMutator(RandomMutator):
                     'op2': [1, 0, 0]
                 }
         '''
+        self.sample_by_mask(arch)
         encoding = self.arch2encoding(arch)
         if encoding not in self.vis_dict:
             self.vis_dict[encoding] = {'encoding': encoding, 'arch': arch}
@@ -226,23 +246,28 @@ class EvolutionMutator(RandomMutator):
             info['size'] = size # MB
             # info['flops'] = np.random.rand() # MFLOPs
             # info['size'] = np.random.rand() + np.random.rand() # MB
-        log.debug(f"{encoding} flops = {info['flops']} size={info['size']}")
 
-        if info['flops'] > self.flops_limit:
+        if is_constraint_satisfied(info['flops'], self.flops_limit):
             log.debug('flops limit exceed')
             info['is_filtered'] = True
+            log.debug(f"{encoding} flops = {info['flops']} MFLOPs size={info['size']} MB")
             return False
-        elif info['size'] > self.size_limit:
+        elif is_constraint_satisfied(info['size'], self.size_limit):
             log.debug('size limit exceed')
             info['is_filtered'] = True
+            log.debug(f"{encoding} flops = {info['flops']} MFLOPs size={info['size']} MB")
             return False
 
         info['visited'] = True
-        info['performance'] = np.random.rand() * 10 + np.random.rand()
+        info['performance'] = self.query_performance(arch)
+        log.debug(f"{encoding} flops = {info['flops']} MFLOPs size={info['size']} MB perf={info['performance']}")
         # info['performance'] = get_cand_err(self.model, cand, self.args) # todo
         return True
 
     def query_performance(self, arch: dict):
+        return self.query_api(arch)
+
+    def query_api(self, *args, **kwargs):
         raise NotImplementedError
 
     def arch2encoding(self, arch: dict):
@@ -398,13 +423,15 @@ class EvolutionMutator(RandomMutator):
         ax1.set_xlabel(name_objx)
         ax1.set_ylabel(name_objy)
         plt.show()
-        if figname is not None:
-            if not os.path.isdir(figname):
-                figname = os.path.join(os.getcwd(), figname)
-            fig.savefig(figname)
+        if figname is None:
+            figname = self.figname
+        if not os.path.isdir(figname):
+            figname = os.path.join(os.getcwd(), figname)
+        fig.savefig(figname)
 
 
 if __name__ == '__main__':
+    from types import MethodType
     from hyperbox.networks.nasbench201.nasbench201 import NASBench201Network
     from hyperbox.networks.nasbench_mbnet.network import NASBenchMBNet
     net = NASBench201Network(num_classes=10).cuda()
@@ -425,7 +452,14 @@ if __name__ == '__main__':
         log_dir='evolution_logs',
         topk=10,
         to_save_checkpoint=True,
-        to_plot_pareto=True
+        to_plot_pareto=True,
+        figname='evolution_pareto.pdf'
     )
+
+    def query_api(self, arch):
+        return np.random.rand() * 10 + np.random.rand()
+
+    ea.query_api = MethodType(query_api, ea)
+
     em.search()
     
