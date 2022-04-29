@@ -146,7 +146,7 @@ def flops_size_counter(_model, input_size, convert=True, verbose=False):
         total_params += m.total_params
         # print("%s: %.2f %.2f" % (name, m.total_ops.item(), m.total_params.item()))
 
-    total_ops = total_ops.item()
+    total_ops = total_ops.item() / input_size[0]
     total_params = total_params.item()
 
     model.train(training).to(original_device)
