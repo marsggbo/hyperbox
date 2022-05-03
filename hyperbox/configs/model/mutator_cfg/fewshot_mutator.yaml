@@ -1,0 +1,5 @@
+_target_: hyperbox.mutator.fewshot_mutator.FewshotMutator
+training_epochs: 100
+split_mutable_indices: 2
+save_dir: null
+to_save_sub_supernets: True
