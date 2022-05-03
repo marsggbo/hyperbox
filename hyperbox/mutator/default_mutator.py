@@ -1,15 +1,14 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-
-import logging
 import json
+import logging
+from typing import Optional, Union
 
 import torch
 
 from hyperbox.mutables import spaces
-from hyperbox.utils.utils import TorchTensorEncoder, lazy_property
 from hyperbox.mutator.base_mutator import BaseMutator
-
+from hyperbox.utils.utils import TorchTensorEncoder, lazy_property
 
 logger = logging.getLogger(__name__)
 
@@ -228,3 +227,34 @@ class Mutator(BaseMutator):
         result = self._cache[mutable.key]
         logger.debug("Decision %s: %s", mutable.key, result)
         return result
+
+    def get_mutable_by_key(self, key):
+        if len(self._cache) > 0:
+            return self._cache[key]
+        else:
+            for mutable in self.mutables:
+                if mutable.key == key:
+                    return mutable
+        raise ValueError("Mutable with key \"{}\" not found.".format(key))
+
+    def __getitem__(self, key: Optional[Union[str, int]]) -> 'spaces.Mutable':
+        _m = None
+        if isinstance(key, int):
+            for idx, mutable in enumerate(self.mutables):
+                if idx == key:
+                    _m = mutable
+        elif isinstance(key, str):
+            _m = self.get_mutable_by_key(key)
+        if _m is None:
+            raise ValueError("Invalid key: {}".format(key))
+        return _m
+
+    def __len__(self):
+        return self.num_mutables
+
+    @lazy_property
+    def num_mutables(self):
+        num = 0
+        for mutable in self.mutables:
+            num += 1
+        return num
