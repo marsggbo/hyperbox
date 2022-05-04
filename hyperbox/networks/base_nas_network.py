@@ -85,6 +85,26 @@ class BaseNASNetwork(nn.Module):
         new_net.load_state_dict(self.state_dict())
         return new_net
 
+    def assign_name2modules(self):
+        '''assign name to each module
+        examples:
+            >>> class MyNet(BaseNASNetwork):
+                    def __init__(self):
+                        super(MyNet, self).__init__()
+                        self.op = nn.Sequential(OrderedDict([
+                            ('op1', nn.Conv2d(3, 64, 3, 1, 1)),
+                            ('op2', nn.Conv2d(3, 64, 5, 1, 2)),
+                            ])
+            
+            >>> net = MyNet()
+            >>> net.assign_name2modules()
+            >>> op1 = net.op[0]
+            >>> print(op1.autoname) # ==> op1
+            >>> net.get_module_by_name('op1') is op1 # ==> True
+        '''
+        for name, m in self.named_modules():
+            m.autoname = name
+
     def get_module_by_name(self, name):
         def is_int(item):
             try:
