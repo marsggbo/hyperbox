@@ -100,7 +100,7 @@ class NASBenchMBNet(BaseNASNetwork):
         )
 
         arch_ = arch_list
-        features = []
+        layers = []
         channels = init_channels
         for stage_id, stage_len in enumerate(stages):
             for idx in range(stage_len):
@@ -110,11 +110,11 @@ class NASBenchMBNet(BaseNASNetwork):
                     channels *= 2
                 else:
                     ops = [op_func(channels, channels, 1) for key, op_func in OPS.items()]
-                index = int(arch_[len(features)]) if arch_ is not None else None
+                index = int(arch_[len(layers)]) if arch_ is not None else None
                 ops = OperationSpace(candidates=ops, key=f"stage{stage_id}_{idx}", mask=mask, index=index)
-                features.append(ops)
+                layers.append(ops)
 
-        self.features = nn.Sequential(*features)
+        self.layers = nn.Sequential(*layers)
         self.out = nn.Sequential(
             nn.Conv2d(channels, 1280, kernel_size=1, bias=False, stride=1),
             nn.BatchNorm2d(1280),
@@ -126,7 +126,7 @@ class NASBenchMBNet(BaseNASNetwork):
 
     def forward(self, x):
         x = self.stem(x)
-        x = self.features(x)
+        x = self.layers(x)
         x = self.out(x)
         out = self.classifier(x.view(x.size(0), -1))
         return out
@@ -138,7 +138,7 @@ class NASBenchMBNet(BaseNASNetwork):
             for key, value in self.mask.items():
                 arch_list.append(value.cpu().detach().numpy().argmax())
         else:
-            for block in self.features:
+            for block in self.layers:
                 if isinstance(block, OperationSpace):
                     arch_list.append(block.mask.cpu().detach().numpy().argmax())
         return ''.join([str(x) for x in arch_list])
