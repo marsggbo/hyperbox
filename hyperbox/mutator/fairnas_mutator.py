@@ -69,7 +69,7 @@ class FairNASMutator(Mutator):
         memory = ()
         idx = 0
         for idx in range(self.num_path):
-            path = self.path2string(self[idx])
+            path = self.path2string(self.get_path_by_idx(idx))
             if path not in memory:
                 memory += (path,)
                 for key in search_space:
@@ -180,14 +180,9 @@ class FairNASMutator(Mutator):
     def sample_final(self):
         return self.sample_search()
 
-    def __getitem__(self, idx):
+    def get_path_by_idx(self, idx):
         path = {key: value[idx] for key, value in self.search_space.items()}
         return path
-
-    def __len__(self):
-        for key, space in self.search_space.items():
-            self.num_path = len(space)
-            return len(space)
 
     def path2string(self, path):
         name = ''
@@ -206,7 +201,6 @@ if __name__ == '__main__':
             if fm.idx == fm.num_path:
                 print('new round\n=====================')
             fm.reset()
-            net.sync_mask_for_all_cells(fm._cache)
             print(f"{i+1}: {net.arch_encoding} {fm.idx}")
 
     # singlepath lcm
