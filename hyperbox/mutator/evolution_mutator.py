@@ -24,7 +24,7 @@ __all__ = [
 def get_int_num(target_num: Optional[Union[int, float]], total_num: int=None) -> int:
     if isinstance(target_num, int):
         return target_num
-    if isinstance(target_num, float):
+    elif isinstance(target_num, float):
         assert total_num is not None, '`total_num` must be given when `target_num` is float'
         return int(total_num * target_num)
 
@@ -46,7 +46,7 @@ class EvolutionMutator(RandomMutator):
         model,
         warmup_epochs: int=0,
         evolution_epochs: int=100,
-        population_num: Optional[Union[int, float]]=50,
+        population_num: int=50,
         selection_alg: str='best',
         selection_num: int=0.8,
         crossover_num: Optional[Union[int, float]]=0.5,
@@ -56,7 +56,7 @@ class EvolutionMutator(RandomMutator):
         flops_limit: Optional[Union[list, float]]=5000*1e6, # MFLOPs
         size_limit: Optional[Union[list, float]]=800, # MB
         log_dir: str='evolution_logs',
-        topk: int=10,
+        topk: Optional[Union[int, float]]=10,
         resume_from_checkpoint: Optional[str]=None,
         to_save_checkpoint: bool=True,
         to_plot_pareto: bool=True,
@@ -102,7 +102,7 @@ class EvolutionMutator(RandomMutator):
         self.size_limit = size_limit
         self.log_dir = os.path.join(os.getcwd(), log_dir)
         self.checkpoint_name = os.path.join(self.log_dir, 'checkpoint.pth.tar')
-        self.topk = topk
+        self.topk = get_int_num(topk, population_num)
         self.resume_from_checkpoint = resume_from_checkpoint
         self.to_save_checkpoint = to_save_checkpoint
         self.to_plot_pareto = to_plot_pareto
@@ -204,9 +204,9 @@ class EvolutionMutator(RandomMutator):
             # method2: pareto
             pareto_lists = NonDominatedSorting( np.vstack( (1/objy, objx) ) )
             pareto_indices = pareto_lists[0]
-            print(f"Information of pareto models:")
+            log.info(f"Information of pareto models:")
             for i, idx in enumerate(pareto_indices):
-                print(f"{i} size:{objx[idx]} perf:{objy[idx]}")
+                log.info(f"{i} size:{objx[idx]} perf:{objy[idx]}")
 
             self.plot_pareto_fronts(
                 objx, objy, pareto_indices, 'size', 'performance', figname='evolution_pareto.png'
@@ -397,6 +397,37 @@ class EvolutionMutator(RandomMutator):
             if np.random.rand() < crossover_prob:
                 cross_arch[key] = deepcopy(arch2[key])
         return cross_arch
+
+    @classmethod
+    def plot_real_proxy_metrics(
+        cls,
+        real_metrics: list,
+        proxy_metrics: list,
+        name_objx: str='predicted performance',
+        name_objy: str='real performance',
+        figsize=(8,5),
+        figname=None
+    ):
+        '''plot real and proxy metrics
+        Args:
+            real_metrics: list of real metrics
+            proxy_metrics: list of proxy metrics
+            name_objx: name of x axis
+            name_objy: name of y axis
+            figsize: figure size
+            figname: figure name
+        '''
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+        import pandas as pd
+        fig, ax = plt.subplots(figsize=figsize)
+        data = pd.DataFrame({name_objx: proxy_metrics, name_objy: real_metrics})
+        sns.regplot(x=name_objx,y=name_objy,data=data)
+        if figname is None:
+            figname = 'real_proxy_metrics.pdf'
+        if not os.path.isdir(figname):
+            figname = os.path.join(os.getcwd(), figname)
+        fig.savefig(figname)
 
     @classmethod
     def plot_pareto_fronts(
