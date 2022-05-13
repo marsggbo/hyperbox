@@ -1,24 +1,17 @@
-import numpy as np
-import omegaconf
 import copy
 
+import numpy as np
+import omegaconf
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from hyperbox.utils.average_meter import AverageMeter
-from hyperbox.mutables.ops import BaseConvNd, BaseBatchNorm, Linear, FinegrainedModule
 from hyperbox.mutables.masker import __MASKERS__
+from hyperbox.mutables.ops import BaseBatchNorm, BaseConvNd, FinegrainedModule, Linear
 from hyperbox.mutables.spaces import ValueSpace
 from hyperbox.mutator.fixed_mutator import FixedArchitecture
-
 from hyperbox.networks.pytorch_modules import Hsigmoid, Hswish
-
-
-__all__ = [
-    'isValueSpace', 'bind_module_to_ValueSpace', 'sortChannels', 'set_running_statistics',
-    'val2list', 'make_divisible', 'build_activation', 'get_same_padding'
-]
+from hyperbox.utils.average_meter import AverageMeter
 
 
 def isValueSpace(module):
