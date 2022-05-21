@@ -26,6 +26,12 @@ class Mutator(BaseMutator):
 
     @lazy_property
     def has_duplicate_mutable(self):
+        '''check if the model has duplicate mutable
+            e.g., in DARTS, different cells share the same mutable as the edges use the same key,
+            but only the mask of the last cell will be updated by `reset`.
+            To avoid this case, you should use `sync_mask_to_duplicate_mutables` to sync the mask to the duplicate mutables.
+            more details can be found in `reset`.
+        '''
         mutable_keys = set()
         for name, module in self.model.named_modules():
             if isinstance(module, spaces.Mutable):
