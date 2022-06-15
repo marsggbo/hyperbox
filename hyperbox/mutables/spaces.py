@@ -113,6 +113,7 @@ class Mutable(nn.Module):
 
     def defrost(self):
         self.is_freeze = False
+        self.frozen_attributes = []
 
 
 class MutableScope(Mutable):
@@ -293,6 +294,7 @@ class OperationSpace(CategoricalSpace):
             self.candidates = nn.ModuleList()
             for idx, is_selected in enumerate(self.mask):
                 if is_selected: self.candidates.append(candidates[idx])
+        self.length = len(self.candidates)
 
     def forward(self, *inputs, reduction='sum'):
         if self.is_search and hasattr(self, "mutator") and self.mutator._cache:
@@ -374,13 +376,13 @@ class InputSpace(CategoricalSpace):
             ----------
                 >>>    # first example
                 >>>    inputs = [out1, out2, out3]
-                >>>    input_choice = InputSpace(n_candidates=3, n_chosen=1)
-                >>>    out, mask = input_choice(inputs, return_mask=True)
+                >>>    input_choice = InputSpace(n_candidates=3, n_chosen=1, return_mask=True)
+                >>>    out, mask = input_choice(inputs)
                 >>>    #
                 >>>    # second example
                 >>>    inputs = {'key1':out1, 'key2':out2, 'key3':out3}
-                >>>    input_choice = InputSpace(choose_from=['key1', 'key2', 'key3'], n_chosen=1)
-                >>>    out, mask = input_choice(inputs, return_mask=True)
+                >>>    input_choice = InputSpace(choose_from=['key1', 'key2', 'key3'], n_chosen=1, return_mask=True)
+                >>>    out, mask = input_choice(inputs)
         """
         # precondition check
         assert n_candidates is not None or choose_from is not None, "At least one of `n_candidates` and `choose_from`" \
@@ -401,6 +403,12 @@ class InputSpace(CategoricalSpace):
         self.n_chosen = n_chosen
         self.reduction = reduction
         self.return_mask = return_mask
+        if not self.is_search:
+            candidates = []
+            for idx, is_selected in enumerate(self.mask):
+                if is_selected: candidates.append(self.candidates[idx])
+            self.candidates = candidates
+            self.length = len(self.candidates)
 
     def forward(self, optional_inputs: Union[list, dict]) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """
@@ -461,6 +469,11 @@ class ValueSpace(CategoricalSpace):
         super().__init__(candidates, mask, index, key)
         self._sortIdx = None # sorted indices for module weights when pruning
         self.bindModuleNames = []
+        if not self.is_search:
+            self.candidates = []
+            for idx, is_selected in enumerate(self.mask):
+                if is_selected: self.candidates.append(candidates[idx])
+            self.length = len(self.candidates)
 
     @property
     def lastBindModuleName(self):
