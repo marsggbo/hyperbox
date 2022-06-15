@@ -87,8 +87,9 @@ class Mutator(BaseMutator):
             assert mutable.mask.shape==mask[mutable.key].shape,\
                 f"the given mask ({mask[mutable.key].shape}) cannot match the original size [{mutable.key}]{mutable.mask.shape}"
             mutable.mask = mask[mutable.key]
-        if self.has_duplicate_mutable:
-            self.sync_mask_to_duplicate_mutables(self._cache)
+        # if self.has_duplicate_mutable:
+        #     self.sync_mask_to_duplicate_mutables(self._cache)
+        self.sync_mask_to_duplicate_mutables(self._cache)
 
     def reset(self, *args, **kwargs):
         """
@@ -105,8 +106,9 @@ class Mutator(BaseMutator):
             self._cache = self.sample_func(self, *args, **kwargs)
             del self.sample_func
         self._cache = self.check_freeze_mutable(self._cache)
-        if self.has_duplicate_mutable:
-            self.sync_mask_to_duplicate_mutables(self._cache)
+        # if self.has_duplicate_mutable:
+        #     self.sync_mask_to_duplicate_mutables(self._cache)
+        self.sync_mask_to_duplicate_mutables(self._cache)
         return self._cache
 
     def check_freeze_mutable(self, mask):
@@ -235,12 +237,9 @@ class Mutator(BaseMutator):
         return result
 
     def get_mutable_by_key(self, key):
-        if len(self._cache) > 0:
-            return self._cache[key]
-        else:
-            for mutable in self.mutables:
-                if mutable.key == key:
-                    return mutable
+        for mutable in self.mutables:
+            if mutable.key == key:
+                return mutable
         raise ValueError("Mutable with key \"{}\" not found.".format(key))
 
     def __getitem__(self, key: Optional[Union[str, int]]) -> 'spaces.Mutable':
