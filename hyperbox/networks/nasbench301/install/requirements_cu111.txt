@@ -101,7 +101,7 @@ lightgbm==3.3.1
 lightning-bolts==0.4.0
 llvmlite==0.24.0
 locket==0.2.0
-lxml==4.2.5
+lxml==4.9.1
 Mako==1.1.5
 Markdown==3.3.3
 #MarkupSafe==1.0
