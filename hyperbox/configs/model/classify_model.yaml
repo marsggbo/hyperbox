@@ -10,9 +10,3 @@ defaults:
 optimizer_cfg:
     lr: 0.025
     weight_decay: 0.0003
-
-network_cfg:
-    n_layers: 20
-    channels: 36
-    # mask: '/home/comp/18481086/code/hyperbox/hyperbox/networks/darts/darts_mask.json'
-    mask: '/home/xihe/xinhe/hyperbox/hyperbox/networks/darts/darts_mask.json'
