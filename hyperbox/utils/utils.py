@@ -52,8 +52,7 @@ class TorchTensorEncoder(json.JSONEncoder):
         if isinstance(o, torch.Tensor):
             olist = o.tolist()
             if "bool" not in o.type().lower() and all(map(lambda d: d == 0 or d == 1, olist)):
-                print("Every element in %s is either 0 or 1. "
-                                "You might consider convert it into bool.", olist)
+                print(f"Every element in {olist} is either 0 or 1. You might consider convert it into bool.")
             return olist
         return super().default(o)
 
