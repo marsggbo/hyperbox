@@ -103,8 +103,14 @@ class Mutator(BaseMutator):
         if not hasattr(self, 'sample_func'):
             self._cache = self.sample_search(*args, **kwargs)
         else:
-            self._cache = self.sample_func(self, *args, **kwargs)
-            del self.sample_func
+            '''
+            >>> import types
+            >>> net = ...
+            >>> mutator = RandomMutator(net)
+            >>> mutator.sample_func = types.MethodType(sample_func, mutator)
+            >>> mutator.reset()
+            '''
+            self._cache = self.sample_func(*args, **kwargs)
         self._cache = self.check_freeze_mutable(self._cache)
         # if self.has_duplicate_mutable:
         #     self.sync_mask_to_duplicate_mutables(self._cache)
@@ -129,6 +135,22 @@ class Mutator(BaseMutator):
                 if module.key in mask:
                 # if module.key in mask and not all(mask[module.key] == module.mask):
                     module.mask.data = mask[module.key].data
+
+    def freeze_mutable(self, key):
+        '''
+        Freeze the mutable with the given key
+        '''
+        for name, module in self.model.named_modules():
+            if isinstance(module, spaces.Mutable) and module.key == key:
+                module.freeze()
+
+    def defrost_mutable(self, key):
+        '''
+        Defrost the mutable with the given key
+        '''
+        for name, module in self.model.named_modules():
+            if isinstance(module, spaces.Mutable) and module.key == key:
+                module.defrost()
 
     def export(self, *args, **kwargs):
         """
