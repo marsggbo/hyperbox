@@ -11,3 +11,5 @@ job:
   env_set:
     EXAMPLE_VAR: "example_value"
   name: "exp"
+  chdir: True # the output/working directory will be changed to {hydra.job.name}, you can see below URL for more details
+  # https://hydra.cc/docs/next/tutorials/basic/running_your_app/working_directory/#disable-changing-current-working-dir-to-jobs-output-dir

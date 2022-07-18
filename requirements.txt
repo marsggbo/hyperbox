@@ -1,11 +1,11 @@
 # --------- pytorch --------- #
 torch>=1.8.1
-pytorch-lightning>=1.5.8
+pytorch-lightning>=1.6.0
 torchmetrics>=0.3.2
 lightning-bolts>=0.3.3
 
 # --------- hydra --------- #
-hydra-core==1.1.0.rc1
+hydra-core==1.2.0
 hydra-colorlog==1.1.0.dev1
 hydra-optuna-sweeper==1.1.0.dev2
 # hydra-ax-sweeper==1.1.0
@@ -13,7 +13,7 @@ hydra-optuna-sweeper==1.1.0.dev2
 # hydra-submitit-launcher==1.1.0
 
 # --------- loggers --------- #
-wandb>=0.10.30
+wandb>=0.12.21
 # neptune-client
 # mlflow
 # comet-ml
