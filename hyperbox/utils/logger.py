@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 from loguru import logger
 
 
@@ -9,7 +10,7 @@ def custom_format(record):
     fmt = "<cyan>[{time:YYYY-MM-DD HH:mm:ss}]</cyan> <green>[{level}]</green> <red>[{extra[abspath]}:{line} ({name})]</red> {message}\n{exception}"
     return fmt
 
-def get_logger(name=None, level='info', is_rank_zero=True):
+def get_logger(name=None, level=logging.INFO, is_rank_zero=True):
     if is_rank_zero or name is None:
         name = 'exp'
     fmt = custom_format
