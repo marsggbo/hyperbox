@@ -101,19 +101,19 @@ def extras(config: DictConfig) -> None:
 
     # set <config.trainer.fast_dev_run=True> if <config.debug=True>
     if config.get("debug"):
-        log.info("Running in debug mode! <config.debug=True>")
+        log.info("Running in debug mode! `trainer.fast_dev_run=True` by default! ")
         config.trainer.fast_dev_run = True
 
     # force debugger friendly configuration if <config.trainer.fast_dev_run=True>
     if config.trainer.get("fast_dev_run"):
         log.info("Forcing debugger friendly configuration! <config.trainer.fast_dev_run=True>")
         # Debuggers don't like GPUs or multiprocessing
-        if config.trainer.get("gpus")>1:
-            config.trainer.gpus = 1
-        if config.datamodule.get("pin_memory"):
-            config.datamodule.pin_memory = False
-        if config.datamodule.get("num_workers"):
-            config.datamodule.num_workers = 0
+        # if config.trainer.get("gpus")>1:
+        #     config.trainer.gpus = 1
+        # if config.datamodule.get("pin_memory"):
+        #     config.datamodule.pin_memory = False
+        # if config.datamodule.get("num_workers"):
+        #     config.datamodule.num_workers = 0
 
     # backup searched network mask
     mask = config.get('model', {}).get('network_cfg', {}).get('mask', None)
