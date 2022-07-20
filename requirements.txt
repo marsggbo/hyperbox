@@ -39,4 +39,5 @@ seaborn
 pudb
 colorlog
 graphviz
+peewee # for building nasbench-201
 # dvc
