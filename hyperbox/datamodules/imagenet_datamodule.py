@@ -11,7 +11,7 @@ from pl_bolts.datamodules import ImagenetDataModule as bolt_imagenet
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
 from torchvision.datasets import ImageFolder, ImageNet
-
+from torchvision import transforms as T
 from hyperbox.datamodules.transforms import get_transforms
 from hyperbox.utils.utils import _module_available
 from nvidia.dali.pipeline import Pipeline, pipeline_def
@@ -50,11 +50,13 @@ class ImagenetDataModule(bolt_imagenet):
         shuffle: bool = True,
         pin_memory: bool = False,
         drop_last: bool = False,
+        autoaugment: bool = False,
         *args: Any,
         **kwargs: Any,
     ) -> None:
         self._num_classes = classes
         self.valid_image_size = valid_image_size
+        self.autoaugment = autoaugment
         super(ImagenetDataModule, self).__init__(
             data_dir, meta_dir, num_imgs_per_val_class, image_size, num_workers,
             batch_size, shuffle, pin_memory, drop_last, *args, **kwargs)
@@ -69,17 +71,27 @@ class ImagenetDataModule(bolt_imagenet):
     def train_transform(self, size=None) -> Callable:
         if size is None:
             size = self.image_size
-        preprocessing = transform_lib.Compose([
+        op_list = [
             transform_lib.RandomResizedCrop(size),
-            transform_lib.RandomHorizontalFlip(),
-            transform_lib.ColorJitter(brightness=32. / 255., saturation=0.5),
+            transform_lib.RandomHorizontalFlip(),            
+        ]
+        if self.autoaugment:
+            policy = T.AutoAugmentPolicy.IMAGENET
+            augmenter = T.AutoAugment(policy)
+            op_list.append(augmenter)
+        else:
+            op_list.append(
+                transform_lib.ColorJitter(brightness=32. / 255., saturation=0.5),
+            )
+        op_list.extend([
             transform_lib.ToTensor(),
             transform_lib.Normalize(
                 mean=[0.485, 0.456, 0.406],
                 std=[0.229, 0.224, 0.225]
-            ),
+            )  
         ])
-
+        
+        preprocessing = transform_lib.Compose(op_list)
         return preprocessing
 
     def val_transform(self) -> Callable:
