@@ -8,7 +8,7 @@ setup(
     author="marsggbo",
     url="https://github.com/marsggbo/hyperbox",
     # replace with your own github project link
-    install_requires=["pytorch-lightning>=1.6", "hydra-core>=1.1"],
+    install_requires=["pytorch-lightning>=1.6", "hydra-core>=1.2"],
     packages=find_packages(),
     include_package_data=True,
 )

@@ -1,5 +1,6 @@
 # --------- pytorch --------- #
 torch>=1.8.1
+torchvision
 pytorch-lightning>=1.6.0
 torchmetrics>=0.3.2
 lightning-bolts>=0.3.3
@@ -26,6 +27,8 @@ isort
 flake8
 
 # --------- others --------- #
+ipdb
+loguru
 jupyterlab
 python-dotenv
 rich
@@ -36,4 +39,5 @@ seaborn
 pudb
 colorlog
 graphviz
+peewee # for building nasbench-201
 # dvc
