@@ -1,6 +1,7 @@
 _target_: hyperbox.datamodules.imagenet_datamodule.ImagenetDataModule
-data_dir: /datasets/imagenet100
-classes: 100
+data_dir: ~/datasets/imagenet2012
+classes: 1000
+autoaugment: True
 image_size: 224
 batch_size: 64
 shuffle: True
