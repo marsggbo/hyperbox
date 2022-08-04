@@ -51,6 +51,7 @@ class CIFAR10DataModule(bolt_cifar10):
         pin_memory: bool = False,
         drop_last: bool = False,
         num_classes: int = 10,
+        use_cutout: bool = False,
         is_customized: bool = False,
         *args: Any,
         **kwargs: Any,
@@ -61,21 +62,23 @@ class CIFAR10DataModule(bolt_cifar10):
         self._transforms = get_transforms('torch', dict(transforms))
         self._num_classes = num_classes
         self.is_customized = is_customized
+        self.use_cutout = use_cutout
 
     @property
     def num_classes(self) -> int:
         return self._num_classes
 
     def default_train_transforms(self):
-        # return self._transforms._transform_train
-        return transforms.Compose([
+        ops = [
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(0.5),
             transforms.RandomRotation(15),
             transforms.ToTensor(),
-            Cutout(1, 16),
-            transforms.Normalize(self.MEAN, self.STD)
-        ])
+        ]
+        if self.use_cutout:
+            ops.append(Cutout(n_holes=1, length=16))
+        ops.append(transforms.Normalize(self.MEAN, self.STD))
+        return transforms.Compose(ops)
 
     def default_transforms(self) -> Callable:
         """ Default transform for the dataset """
