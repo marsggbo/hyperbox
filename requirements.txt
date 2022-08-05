@@ -30,6 +30,7 @@ flake8
 ipdb>=0.13.9
 loguru>=0.6.0
 jupyterlab
+pyrootutils
 rich
 pytest
 sh

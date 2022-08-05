@@ -1,6 +1,6 @@
 _target_: hyperbox.datamodules.mnist_datamodule.MNISTDataModule
 
-data_dir: ${data_dir} # data_dir is specified in config.yaml
+data_dir: /path/to/data # data_dir is specified in config.yaml
 batch_size: 32
 num_workers: 0
 pin_memory: False

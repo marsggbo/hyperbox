@@ -1,11 +1,18 @@
+# https://github.com/ashleve/lightning-hydra-template/blob/main/src/train.py
 import os
 import sys
 
 import hydra
 from omegaconf import DictConfig
+import pyrootutils
 
-# load environment variables from `.env` file if it exists
-# recursively searches for `.env` in all folders starting from work dir
+# project root setup
+# searches for root indicators in parent dirs, like ".git", "pyproject.toml", etc.
+# sets PROJECT_ROOT environment variable (used in `configs/paths/default.yaml`)
+# loads environment variables from ".env" if exists
+# adds root dir to the PYTHONPATH (so this file can be run from any place)
+# https://github.com/ashleve/pyrootutils
+root = pyrootutils.setup_root(__file__, dotenv=True, pythonpath=True) # config.paths.root_dir
 
 
 @hydra.main(version_base="1.2", config_path="configs/", config_name="config.yaml")

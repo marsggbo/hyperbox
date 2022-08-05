@@ -536,7 +536,7 @@ model:
 
 datamodule:
     _target_: hyperbox.datamodules.mnist_datamodule.MNISTDataModule
-    data_dir: ${data_dir}
+    data_dir: /path/to/data
     train_val_test_split: [55_000, 5_000, 10_000]
     batch_size: 64
     num_workers: 0
