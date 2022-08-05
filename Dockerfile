@@ -5,18 +5,18 @@
 # GPU-ready with Apex for mixed-precision support
 # https://ngc.nvidia.com/catalog/containers/nvidia:pytorch
 # https://docs.nvidia.com/deeplearning/frameworks/support-matrix/
-FROM nvcr.io/nvidia/pytorch:21.03-py3
+FROM nvcr.io/nvidia/pytorch:22.07-py3
 
 
 # Copy all files
-ADD . /workspace/project
-WORKDIR /workspace/project
+ADD . /workspace/hyperbox
+WORKDIR /workspace/hyperbox
 
 
-# Create myenv
-RUN conda env create -f conda_env_gpu.yaml -n myenv
+# Create hyperbox
+RUN conda env create -f conda_env_gpu.yaml -n hyperbox
 RUN conda init bash
 
 
-# Set myenv to default virtual environment
-RUN echo "source activate myenv" >> ~/.bashrc
+# Set hyperbox to default virtual environment
+RUN echo "source activate hyperbox" >> ~/.bashrc
