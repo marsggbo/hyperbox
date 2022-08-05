@@ -33,8 +33,8 @@ pip install hyperbox
 ```
 git clone https://github.com/marsggbo/hyperbox
 cd hyperbox
-python install -r requirements.txt
 python setup.py develop
+python install -r requirements.txt
 ```
 
 </details>
@@ -43,7 +43,7 @@ python setup.py develop
 <summary><b> Quick Start </b></summary>
 
 ```
-python -m hyperbox.run experiment=example_random_nas trainer.fast_dev_run=True
+python -m hyperbox.run experiment=example_random_nas +trainer.fast_dev_run=True
 ```
 
 </details>

@@ -27,10 +27,9 @@ isort
 flake8
 
 # --------- others --------- #
-ipdb
-loguru
+ipdb>=0.13.9
+loguru>=0.6.0
 jupyterlab
-python-dotenv
 rich
 pytest
 sh
@@ -38,6 +37,6 @@ scikit-learn
 seaborn
 pudb
 colorlog
-graphviz
+graphviz>=0.20.1
 peewee # for building nasbench-201
-# dvc
+numpy>=1.22.0
