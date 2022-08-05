@@ -18,7 +18,6 @@ seed: 12345
 trainer:
     min_epochs: 1
     max_epochs: 100
-    progress_bar_refresh_rate: 0
 logger:
     wandb:
         project: "OFA"

@@ -18,13 +18,8 @@ seed: 12345
 
 trainer:
   _target_: pytorch_lightning.Trainer
-  gpus: 0
   min_epochs: 1
   max_epochs: 10
-  gradient_clip_val: 0.5
-  accumulate_grad_batches: 2
-  weights_summary: null
-  # resume_from_checkpoint: ${work_dir}/last.ckpt
 
 model:
   _target_: hyperbox.models.mnist_model.MNISTLitModel

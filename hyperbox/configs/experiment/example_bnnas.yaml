@@ -19,7 +19,7 @@ seed: 12345
 
 trainer:
   max_epochs: 200
-  accelerator: horovod
+  strategy: horovod
   gpus: 1
 debug: False
 # logger.wandb.name: test
