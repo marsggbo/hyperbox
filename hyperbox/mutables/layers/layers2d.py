@@ -30,13 +30,13 @@ class Base2DLayer(nn.Module):
             if isinstance(value, ValueSpace):
                 value_spaces[key] = value
                 if value.index is not None:
-                    _v = value.candidates[value.index]
+                    _v = value.candidates_original[value.index]
                 elif value.mask is not None and len(value.mask) != 0:
                     if isinstance(value.mask, torch.Tensor):
                         index = value.mask.clone().detach().cpu().numpy().argmax()
                     else:
                         index = np.array(value.mask).argmax()
-                    _v = value.candidates[index]
+                    _v = value.candidates_original[index]
                 else:
                     _v = value.max_value
                 setattr(self, key, _v)
