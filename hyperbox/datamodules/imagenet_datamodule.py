@@ -87,14 +87,14 @@ class ImagenetDataModule(bolt_imagenet):
 
     def setup(self, stage: Optional[str] = None):
         if stage in ['fit', 'train'] or stage is None:
-            transform_train = self.train_transform() if self.train_transforms is None else self.train_transforms
+            transform_train = self.train_transform()
             self.data_train = ImageFolder(
                 root=os.path.join(self.data_dir, 'train'),
                 transform=transform_train
             )
 
         if stage in ['fit', 'test'] or stage is None:
-            transform_test = self.val_transform() if self.test_transforms is None else self.test_transforms
+            transform_test = self.val_transform()
             self.data_test = ImageFolder(
                 root=os.path.join(self.data_dir, 'val'),
                 transform=transform_test
