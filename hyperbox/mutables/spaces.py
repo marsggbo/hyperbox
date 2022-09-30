@@ -198,7 +198,7 @@ class CategoricalSpace(Mutable):
     def convert_index_by_mask(self, mask):
         '''Only convert index for one-hot mask'''
         if "BoolTensor" in mask.type() and mask.int().sum()==1:
-            self.index = mask.int().argmax()
+            self.index = mask.int().argmax().item()
 
     @property
     def value(self):
