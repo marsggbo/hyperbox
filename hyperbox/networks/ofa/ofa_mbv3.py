@@ -226,6 +226,23 @@ class OFAMobileNetV3(BaseNASNetwork):
             masks[str(c)] = mask
         return masks
 
+    def gen_random_arch(self, mutator=None):
+        if mutator is not None:
+            mask = mutator._cache
+        else:
+            mask = {}
+            for m in self.modules():
+                if isinstance(m, spaces.Mutable):
+                    key = m.key
+                    idx = torch.randint(0, len(m), (1,))[0]
+                    n_classes = torch.tensor(len(m))
+                    val = torch.nn.functional.one_hot(idx, n_classes).bool()
+                    mask[key] = val
+        for key in mask:
+            if '_subMB' in key:
+                mask[key].data = mask[key.split('_subMB')[0]].data
+        return mask
+        
 
 if __name__ == '__main__':
     import json
