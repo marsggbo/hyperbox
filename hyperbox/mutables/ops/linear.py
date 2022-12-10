@@ -82,7 +82,8 @@ class Linear(FinegrainedModule):
         return y
 
     def get_active_weight_bias(self):
-        weight = self.weight.contiguous()
+        weight = self.weight
+        # weight = self.weight.contiguous()
         bias = self.bias
         in_features = None
         out_features = None
