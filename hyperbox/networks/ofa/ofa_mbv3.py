@@ -21,7 +21,7 @@ class OFAMobileNetV3(BaseNASNetwork):
         kernel_size_list: List[int] = [3, 5, 7],
         expand_ratio_list: List[float] = [3, 4, 6],
         depth_list: List[int] = [2, 3, 4],
-        base_stage_width: List[int] = [16, 16, 24, 40, 80, 112, 160, 960, 1280],
+        base_stage_width: List[int] = [16, 16, 24, 40, 80, 112, 160, 960, 1280], # indices in [1,6] are searchable
         stride_stages: List[int] = [1, 2, 2, 2, 1, 2],
         act_stages: List[str] = ['relu', 'relu', 'relu', 'h_swish', 'h_swish', 'h_swish'],
         se_stages: List[bool] = [False, False, True, False, True, True],
@@ -39,7 +39,8 @@ class OFAMobileNetV3(BaseNASNetwork):
         final_expand_width = make_divisible(base_stage_width[-2] * self.width_mult, self.CHANNEL_DIVISIBLE)
         last_channel = make_divisible(base_stage_width[-1] * self.width_mult, self.CHANNEL_DIVISIBLE)
 
-        n_block_list = [1] + [max(self.depth_list)] * 5
+        num_searchable_stages = len(stride_stages) - 1
+        n_block_list = [1] + [max(self.depth_list)] * num_searchable_stages
         width_list = []
         for base_width in base_stage_width[:-2]:
             width = make_divisible(base_width * self.width_mult, self.CHANNEL_DIVISIBLE)
