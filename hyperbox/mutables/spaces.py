@@ -424,18 +424,18 @@ class InputSpace(CategoricalSpace):
         -------
         tuple of torch.Tensor and torch.Tensor or torch.Tensor
         """
+        optional_input_list = optional_inputs
+        if isinstance(optional_inputs, dict):
+            optional_input_list = [optional_inputs[tag] for tag in self.choose_from]
+        assert isinstance(optional_input_list, list), \
+            "Optional input list must be a list, not a {}.".format(type(optional_input_list))
+        assert len(optional_inputs) == self.n_candidates, \
+            "Length of the input list must be equal to number of candidates."
         if self.is_search and hasattr(self, "mutator") and self.mutator._cache:
-            optional_input_list = optional_inputs
-            if isinstance(optional_inputs, dict):
-                optional_input_list = [optional_inputs[tag] for tag in self.choose_from]
-            assert isinstance(optional_input_list, list), \
-                "Optional input list must be a list, not a {}.".format(type(optional_input_list))
-            assert len(optional_inputs) == self.n_candidates, \
-                "Length of the input list must be equal to number of candidates."
             out, mask = self.mutator.on_forward_input_space(self, optional_input_list)
         else:
             mask = self.mask
-            out = self._select_with_mask(lambda x: x, [(t,) for t in optional_inputs], mask)
+            out = self._select_with_mask(lambda x: x, [(t,) for t in optional_input_list], mask)
             out = self._tensor_reduction(self.reduction, out)
         if self.return_mask:
             return out, mask
@@ -495,6 +495,7 @@ class ValueSpace(CategoricalSpace):
         if isinstance(indices, list):
             indices = torch.tensor(indices)
         self._sortIdx = indices
+
 
 if __name__ == '__main__':
     # mask = {'test': torch.tensor([0.5,0.3,0.2,0.1])}

@@ -1,14 +1,20 @@
 from setuptools import setup, find_packages
 
+required_modules  = []
+with open('requirements.txt') as f:
+    required = f.read().splitlines()
+for module in required:
+    if not module.startswith('#'):
+        required_modules.append(module)
 
 setup(
     name="hyperbox",  # you should change "src" to your project name
-    version="1.3.0",
+    version="1.3.1",
     description="Hyperbox: An easy-to-use NAS framework.",
     author="marsggbo",
     url="https://github.com/marsggbo/hyperbox",
     # replace with your own github project link
-    install_requires=["pytorch-lightning>=1.5", "hydra-core>=1.2"],
+    install_requires=required_modules,
     packages=find_packages(),
     include_package_data=True,
 )
