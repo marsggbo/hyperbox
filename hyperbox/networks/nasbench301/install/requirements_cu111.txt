@@ -167,7 +167,7 @@ protobuf==3.14.0
 psutil==5.4.7
 ptyprocess==0.6.0
 pudb==2021.1
-py==1.6.0
+py==1.11.0
 pyasn1==0.4.4
 pyasn1-modules==0.2.2
 pybnn==0.0.5
