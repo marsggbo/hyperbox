@@ -496,6 +496,15 @@ class ValueSpace(CategoricalSpace):
             indices = torch.tensor(indices)
         self._sortIdx = indices
 
+    def __mul__(self, other: int):
+        candidates = [c * other for c in self.candidates]
+        mask = self.mask if not self.is_search else None
+        index = self.index if not self.is_search else None
+        return ValueSpace(candidates, mask=mask, index=index, key=self.key)
+
+    def __rmul__(self, other: int):
+        return self.__mul__(other)
+
 
 if __name__ == '__main__':
     # mask = {'test': torch.tensor([0.5,0.3,0.2,0.1])}
