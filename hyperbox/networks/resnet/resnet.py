@@ -1,5 +1,6 @@
 import os
 import copy
+from typing import Any, Callable, List, Optional, Type, Union
 
 import torch
 import torch.nn as nn
@@ -24,25 +25,30 @@ class BasicBlock(nn.Module):
 
     def __init__(
         self,
-        inplanes,
-        midplanes,
-        outplanes,
-        stride=1,
-        downsample=None,
-        groups=1,
-        dilation=1,
+        inplanes: Union[ValueSpace, int],
+        outplanes: Union[ValueSpace, int],
+        stride: int = 1,
+        downsample: Optional[nn.Module] = None,
+        groups: int = 1,
+        base_width: int = 64,
+        dilation: int = 1,
+        norm_layer: Optional[Callable[..., nn.Module]] = None,
     ):
         super(BasicBlock, self).__init__()
         if dilation > 1:
             raise NotImplementedError("Dilation > 1 not supported in BasicBlock")
+        if groups != 1 or base_width != 64:
+            raise ValueError("BasicBlock only supports groups=1 and base_width=64")
+        if norm_layer is None:
+            norm_layer = BatchNorm2d
         # Both self.conv1 and self.downsample layers downsample the input when stride != 1
         self.conv1 = nn.Sequential(
-            Conv2d(inplanes, midplanes, 3, stride, padding=1),
-            BatchNorm2d(midplanes),
+            Conv2d(inplanes, outplanes, 3, stride, padding=1),
+            norm_layer(outplanes),
             nn.ReLU(inplace=True))
         self.conv2 = nn.Sequential(
-            Conv2d(midplanes, outplanes, 3, 1, padding=1),
-            BatchNorm2d(outplanes),
+            Conv2d(outplanes, outplanes, 3, 1, padding=1),
+            norm_layer(outplanes),
         )
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
@@ -68,27 +74,41 @@ class Bottleneck(nn.Module):
 
     def __init__(
         self,
-        inplanes,
-        planes,
-        stride=1,
-        downsample=None,
-        groups=1,
-        base_width=64,
-        dilation=1,
-        norm_layer=None,
+        inplanes: Union[ValueSpace, int],
+        planes: Union[ValueSpace, int],
+        stride: int = 1,
+        downsample: Optional[nn.Module] = None,
+        groups: int = 1,
+        base_width: int = 64,
+        dilation: int = 1,
+        norm_layer: Optional[Callable[..., nn.Module]] = None,
     ):
         super(Bottleneck, self).__init__()
         if norm_layer is None:
-            norm_layer = nn.BatchNorm2d
-        width = int(planes * (base_width / 64.0)) * groups
+            norm_layer = BatchNorm2d
+        if isinstance(planes, int):
+            width = int(planes * (base_width / 64.0)) * groups
+        else:
+            width = [int(p * (base_width / 64.0)) * groups for p in planes]
+            mask = None if planes.is_search else planes.mask
+            width = ValueSpace(width, key=planes.key, mask=mask)
         # Both self.conv2 and self.downsample layers downsample the input when stride != 1
-        self.conv1 = conv1x1(inplanes, width)
-        self.bn1 = norm_layer(width)
-        self.conv2 = conv3x3(width, width, stride, groups, dilation)
-        self.bn2 = norm_layer(width)
-        self.conv3 = conv1x1(width, planes * self.expansion)
-        self.bn3 = norm_layer(planes * self.expansion)
         self.relu = nn.ReLU(inplace=True)
+        self.conv1 = nn.Sequential(
+            Conv2d(inplanes, width, 1, 1),
+            norm_layer(width),
+            self.relu
+        )
+        self.conv2 = nn.Sequential(
+            Conv2d(width, width, 3, stride, padding=1, groups=groups, dilation=dilation),
+            norm_layer(width),
+            self.relu
+        )
+        expand_outplanes = planes * self.expansion
+        self.conv3 = nn.Sequential(
+            Conv2d(width, expand_outplanes, 1, 1),
+            norm_layer(expand_outplanes),
+        )
         self.downsample = downsample
         self.stride = stride
 
@@ -96,22 +116,14 @@ class Bottleneck(nn.Module):
         identity = x
 
         out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
-
         out = self.conv2(out)
-        out = self.bn2(out)
-        out = self.relu(out)
-
         out = self.conv3(out)
-        out = self.bn3(out)
 
         if self.downsample is not None:
             identity = self.downsample(x)
 
         out += identity
         out = self.relu(out)
-
         return out
 
 
@@ -120,13 +132,15 @@ class ResNet(BaseNASNetwork):
     counter_subnet = 1
     def __init__(
         self,
-        block,
-        layers,
-        num_classes=100,
-        zero_init_residual=False,
-        groups=1,
+        block: Type[Union[BasicBlock, Bottleneck]], # BasicBlock or Bottleneck
+        num_layers: list, # [2, 2, 2, 2] for resnet18
+        num_classes: int=1000, # 10 for CIFAR10, 1000 for ImageNet
+        zero_init_residual: bool=False, # True for ImageNet
+        groups: int=1,
+        width_per_group: int = 64,
         replace_stride_with_dilation=None,
-        mask=None, # bool mask for ValueSpace
+        ratios: list=[0.1, 0.2, 0.5, 0.8, 1], # channel ratios
+        mask: dict=None, # dict of mask
     ):
         super(ResNet, self).__init__(mask)
         self.mask = load_json(mask)
@@ -142,28 +156,27 @@ class ResNet(BaseNASNetwork):
                 "or a 3-element tuple, got {}".format(replace_stride_with_dilation)
             )
         self.groups = groups
+        self.base_width = width_per_group
 
         # CIFAR10: kernel_size 7 -> 3, stride 2 -> 1, padding 3->1
-        self.inplanes = ValueSpace([4, 8, 12, 16], mask=self.mask)
+        self.inplanes = ValueSpace([int(64*x) for x in ratios], mask=self.mask, key='layer1_inplanes')
         self.conv0 = nn.Sequential(
             Conv2d(3, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False),
             BatchNorm2d(self.inplanes),
             nn.ReLU(inplace=True))
-
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, [4, 8, 12, 16], layers[0])
-        self.layer2 = self._make_layer(
-            block,  [4, 8, 12, 16, 20, 24, 28, 32], layers[1], stride=2,
-            dilate=replace_stride_with_dilation[0]
-        )
-        self.layer3 = self._make_layer(
-            block,  [4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56,60, 64],
-            layers[2], stride=2, dilate=replace_stride_with_dilation[1]
-        )
+
+        self.layer1 = self._make_layer(block, [int(64*x) for x in ratios], num_layers[0],
+            stride=1, dilate=False, prefix='layer1')
+        self.layer2 = self._make_layer(block, [int(128*x) for x in ratios], num_layers[1],
+            stride=2, dilate=replace_stride_with_dilation[0], prefix='layer2')
+        self.layer3 = self._make_layer(block, [int(256*x) for x in ratios], num_layers[2],
+            stride=2, dilate=replace_stride_with_dilation[1], prefix='layer3')
+        self.layer4 = self._make_layer(block, [int(512*x) for x in ratios], num_layers[3],
+            stride=2, dilate=replace_stride_with_dilation[2], prefix='layer4')
+
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Sequential(
-            Linear(self.inplanes, num_classes)
-        )
+        self.fc = Linear(self.inplanes, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -185,55 +198,37 @@ class ResNet(BaseNASNetwork):
                 elif isinstance(m, BasicBlock):
                     nn.init.constant_(m.bn2.weight, 0)
 
-    def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
+    def _make_layer(
+        self,
+        block: callable, # BasicBlock or Bottleneck
+        planes: list, # #channel size
+        blocks: int, # num of blocks
+        stride: int=1,
+        dilate: bool=False,
+        prefix: str="", # prefix for layer name
+    ):
         downsample = None
         previous_dilation = self.dilation
         if dilate:
             self.dilation *= stride
             stride = 1
-
-        mid_planes = ValueSpace(planes, mask=self.mask)
-        v_planes1 = ValueSpace(planes, mask=self.mask)
-        # if stride != 1 or self.inplanes.value != v_planes1.value * block.expansion:
-            # downsample = Conv2d(self.inplanes, v_planes1, 1, stride, act_func=None)
-        downsample = nn.Sequential(
-            Conv2d(self.inplanes, v_planes1, 1, stride),
-            BatchNorm2d(v_planes1),
-            # nn.ReLU()
-            )
+            
         layers = []
-        layers.append(
-            block(
-                self.inplanes,
-                mid_planes,
-                v_planes1,
-                stride,
-                downsample,
-                self.groups,
-                previous_dilation,
-            )
-        )
-        inplanes = v_planes1
-        for _ in range(1, blocks):
-            mid_planes = ValueSpace(planes, mask=self.mask)
-            v_planes2 = ValueSpace(planes, mask=self.mask)
+        inplanes = self.inplanes
+        expansion = block.expansion
+        for idx in range(blocks):
+            outplanes = ValueSpace(planes, mask=self.mask, key=prefix+f'_outplanes{idx}')
+            block_outplanes = outplanes * expansion
+            stride = stride if idx == 0 else 1
             downsample = nn.Sequential(
-                Conv2d(inplanes, v_planes2, 1, 1),
-                BatchNorm2d(v_planes2),
-                # nn.ReLU()
+                Conv2d(inplanes, block_outplanes, 1, stride),
+                BatchNorm2d(block_outplanes),
                 )
             layers.append(
-                block(
-                    inplanes,
-                    mid_planes,
-                    v_planes2,
-                    downsample=downsample,
-                    groups=self.groups,
-                    dilation=self.dilation,
-                )
+                block(inplanes, outplanes, stride, downsample, self.groups, self.base_width, self.dilation)
             )
-            inplanes = v_planes2
-        self.inplanes = v_planes2
+            inplanes = block_outplanes
+        self.inplanes = block_outplanes
 
         return nn.Sequential(*layers)
 
@@ -253,6 +248,7 @@ class ResNet(BaseNASNetwork):
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
+        x = self.layer4(x)
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
@@ -316,8 +312,8 @@ class ResNet(BaseNASNetwork):
         super(ResNet, self).load_state_dict(model_dict, **kwargs, strict=False)
 
 
-def _resnet(arch, block, layers, pretrained, progress, device, **kwargs):
-    model = ResNet(block, layers, **kwargs)
+def _resnet(arch, block, num_layers, pretrained, progress, device, **kwargs):
+    model = ResNet(block, num_layers, **kwargs)
     if pretrained:
         script_dir = os.path.dirname(__file__)
         state_dict = torch.load(
@@ -325,7 +321,6 @@ def _resnet(arch, block, layers, pretrained, progress, device, **kwargs):
         )
         model.load_state_dict(state_dict)
     return model
-
 
 def resnet18(pretrained=False, progress=True, device="cpu", **kwargs):
     """Constructs a ResNet-18 model.
@@ -336,7 +331,6 @@ def resnet18(pretrained=False, progress=True, device="cpu", **kwargs):
     return _resnet(
         "resnet18", BasicBlock, [2, 2, 2, 2], pretrained, progress, device, **kwargs
     )
-
 
 def resnet20(pretrained=False, progress=True, device="cpu", **kwargs):
     """Constructs a ResNet-20 model.
@@ -358,7 +352,6 @@ def resnet34(pretrained=False, progress=True, device="cpu", **kwargs):
         "resnet34", BasicBlock, [3, 4, 6, 3], pretrained, progress, device, **kwargs
     )
 
-
 def resnet50(pretrained=False, progress=True, device="cpu", **kwargs):
     """Constructs a ResNet-50 model.
     Args:
@@ -368,3 +361,18 @@ def resnet50(pretrained=False, progress=True, device="cpu", **kwargs):
     return _resnet(
         "resnet50", Bottleneck, [3, 4, 6, 3], pretrained, progress, device, **kwargs
     )
+
+
+if __name__ == '__main__':
+    from hyperbox.mutator import RandomMutator, OnehotMutator, DartsMutator
+    net = resnet34()
+    # net = resnet50()
+    rm = RandomMutator(net)
+    # rm = DartsMutator(net) # ValueSpace-based operations are not compatible with DartsMutator
+    # rm = OnehotMutator(net)
+    x = torch.rand(2, 3, 32, 32)
+    for i in range(10):        
+        rm.reset()
+        y = net(x)
+        print(y.shape)
+        print(rm._cache, len(rm._cache))
