@@ -237,7 +237,7 @@ class ResNet(BaseNASNetwork):
         # _mutables = self.inplanes.mutator.mutables
         # vc = sorted(list(iter(_mutables)), key=lambda x:int(x.key.split('ValueSpace')[1]))
         vc = [m for m in self.modules() if isinstance(m, ValueSpace)]
-        vc = sorted(vc, key=lambda x:int(x.key.split('ValueSpace')[1]))
+        vc = sorted(vc, key=lambda x: x.key)
         self._arch = '-'.join([str(x.value) for x in vc])
         return self._arch
 
@@ -365,7 +365,7 @@ def resnet50(pretrained=False, progress=True, device="cpu", **kwargs):
 
 if __name__ == '__main__':
     from hyperbox.mutator import RandomMutator, OnehotMutator, DartsMutator
-    net = resnet34()
+    net = resnet34(ratios=[0.5, 1])
     # net = resnet50()
     rm = RandomMutator(net)
     # rm = DartsMutator(net) # ValueSpace-based operations are not compatible with DartsMutator
@@ -375,4 +375,5 @@ if __name__ == '__main__':
         rm.reset()
         y = net(x)
         print(y.shape)
-        print(rm._cache, len(rm._cache))
+        arch = net.arch
+        print(arch, len(rm._cache))
