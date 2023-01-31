@@ -285,3 +285,8 @@ class Mutator(BaseMutator):
         for mutable in self.mutables:
             num += 1
         return num
+
+    def cpu_offload(self, device):
+        for mutable in self.mutables:
+            if isinstance(mutable, spaces.OperationSpace):
+                mutable.cpu_offload(self._cache, device)

@@ -7,6 +7,10 @@ import torch
 import torch.nn as nn
 
 from hyperbox.utils.utils import hparams_wrapper
+from hyperbox.utils.logger import get_logger
+
+
+logger = get_logger(__name__, level='INFO')
 
 
 __all__ = [
@@ -96,10 +100,10 @@ class Mutable(nn.Module):
         if getattr(self, 'is_freeze', False) and \
             attribute in getattr(self, 'frozen_attributes', []):
             if getattr(self, 'verbose_freeze', False):
-                print(f"{attribute} has been forzen, you should call `defrost` function before you modify it.")
+                logger.warning(f"{attribute} has been forzen, you should call `defrost` function before you modify it.")
         elif attribute == 'key':
             pass
-            # print(f"'key' attribute assigned, so the operation has been ignored.")
+            # logger.warning(f"'key' attribute assigned, so the operation has been ignored.")
         else:
             super(Mutable, self).__setattr__(attribute, value)
 
@@ -114,6 +118,9 @@ class Mutable(nn.Module):
     def defrost(self):
         self.is_freeze = False
         self.frozen_attributes = []
+
+    def cpu_offload(self):
+        ...
 
 
 class MutableScope(Mutable):
@@ -162,7 +169,7 @@ class CategoricalSpace(Mutable):
 
         if index is not None:
             if mask is not None and len(mask)!=0:
-                print('You only need to specify the valye of mask or index. Index is used by default.')
+                logger.debug('You only need to specify the valye of mask or index. Index is used by default.')
             self.mask = torch.zeros(self.length)
             self.mask[index] = 1
             self.is_search = False
@@ -215,8 +222,8 @@ class CategoricalSpace(Mutable):
             value = max(self.candidates_original)
             return value
         except Expection as e:
-            print(str(e))
-            print("The candidates cannot be compared to get max value, return the first item instead.")
+            logger.warning(str(e))
+            logger.warning("The candidates cannot be compared to get max value, return the first item instead.")
             return self.candidates_original[0]
 
     def forward(self):
@@ -324,6 +331,20 @@ class OperationSpace(CategoricalSpace):
             name = self.__class__.__name__
             _repr = f'{name}(key={repr(self.key)}, value={self.value})'
             return _repr
+
+    def cpu_offload(self, mask: dict, to_device):
+        crt_mask = mask[self.key] # e.g. [True, False, False, False]
+        for op, is_activated in zip(self.candidates, crt_mask):
+            try:
+                device = str(next(op.parameters()).device)
+            except Exception as e:
+                continue
+            if (device == 'cpu' and not is_activated) or (device != 'cpu' and is_activated):
+                continue
+            elif device != 'cpu' and not is_activated:
+                op.to('cpu')
+            elif device == 'cpu' and is_activated:
+                op.to(to_device)
 
 
 class InputSpace(CategoricalSpace):
@@ -486,7 +507,7 @@ class ValueSpace(CategoricalSpace):
     def sortIdx(self):
         if self._sortIdx is None:
             self._sortIdx = torch.tensor(list(range(self.max_value))).to(self.device)
-            # print(f"Use {self._sortIdx} instead. Please use `sortChannels` to get sortIdx.")
+            # logger.warning(f"Use {self._sortIdx} instead. Please use `sortChannels` to get sortIdx.")
             return self._sortIdx
         return self._sortIdx
 
@@ -497,9 +518,9 @@ class ValueSpace(CategoricalSpace):
         self._sortIdx = indices
 
     def __mul__(self, other: int):
-        candidates = [c * other for c in self.candidates]
-        mask = self.mask if not self.is_search else None
+        candidates = [c * other for c in self.candidates_original]
         index = self.index if not self.is_search else None
+        mask = self.mask if index is not None else None
         return ValueSpace(candidates, mask=mask, index=index, key=self.key)
 
     def __rmul__(self, other: int):
