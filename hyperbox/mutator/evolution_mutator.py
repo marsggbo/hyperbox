@@ -14,7 +14,7 @@ from hyperbox.utils.calc_model_size import flops_size_counter
 from hyperbox.utils.logger import get_logger
 
 
-log = get_logger(__name__, level='DEBUG')
+log = get_logger(__name__, level='INFO')
 
 __all__ = [
     'EvolutionMutator',
