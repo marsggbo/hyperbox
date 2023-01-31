@@ -8,8 +8,8 @@ import torch.nn as nn
 from hyperbox.mutables.ops import Conv2d, Linear, BatchNorm2d
 from hyperbox.mutables.spaces import ValueSpace
 from hyperbox.utils.utils import load_json, hparams_wrapper
-
 from hyperbox.networks.base_nas_network import BaseNASNetwork
+
 
 __all__ = [
     "ResNet",
@@ -267,19 +267,7 @@ class ResNet(BaseNASNetwork):
                 model_dict[key] = state_dict[key]
         super(ResNet, self).load_state_dict(model_dict, **kwargs)
 
-    def build_subnet(self, mask):
-        hparams = self.hparams.copy()
-        new_mask = {}
-        len_mask = len(mask)
-        for key in mask:
-            _id = key.split('ValueSpace')[-1]
-            new_id = int(_id) + len_mask * self.counter_subnet
-            new_key = f"ValueSpace{new_id}"
-            new_mask[new_key] = mask[key].clone().detach()
-        hparams['mask'] = new_mask
-        subnet = ResNet(**hparams)
-        self.counter_subnet += 1
-        return subnet
+
 
     def load_from_supernet(self, state_dict, **kwargs):
         def sub_filter_start_end(kernel_size, sub_kernel_size):
@@ -371,9 +359,13 @@ if __name__ == '__main__':
     # rm = DartsMutator(net) # ValueSpace-based operations are not compatible with DartsMutator
     # rm = OnehotMutator(net)
     x = torch.rand(2, 3, 32, 32)
-    for i in range(10):        
+    for i in range(2):        
         rm.reset()
         y = net(x)
         print(y.shape)
         arch = net.arch
         print(arch, len(rm._cache))
+    mask = rm.export()
+    subnet = net.build_subnet(mask)
+    y = subnet(x)
+    print(subnet.arch)
