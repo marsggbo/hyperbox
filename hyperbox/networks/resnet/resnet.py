@@ -268,7 +268,6 @@ class ResNet(BaseNASNetwork):
         super(ResNet, self).load_state_dict(model_dict, **kwargs)
 
 
-
     def load_from_supernet(self, state_dict, **kwargs):
         def sub_filter_start_end(kernel_size, sub_kernel_size):
             center = kernel_size // 2
