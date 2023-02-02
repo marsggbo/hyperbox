@@ -287,7 +287,7 @@ wcwidth==0.1.7
 webencodings==0.5.1
 websocket-client==0.57.0
 websockets==8.1
-Werkzeug==0.14.1
+Werkzeug==0.15.5
 widgetsnbextension==3.4.1
 wrapt==1.10.11
 xautodl==0.9.9
