@@ -15,25 +15,23 @@ def get_logger(name=None, level=logging.INFO, is_rank_zero=True, log2file=True):
         name = 'exp'
     fmt = custom_format
     logger.remove()
-    config = {
-        "handlers": [
-            {"sink": sys.stderr, "format": fmt},
-        ],
-    }
-    logger.configure(**config)
+    kwargs = {'sink': sys.stderr, 'format': fmt, 'level': level, 'colorize': True, 'backtrace': True}
+    handlers = [kwargs]
     logger.opt(exception=True)
     if log2file:
-        logger.add(
-            os.path.join(os.getcwd(), name + '.log'),
-            format=fmt,
-            level=level,
-            colorize=True,
-            backtrace=True
-        )
+        snd_kwargs = {k: v for k, v in kwargs.items() if k != 'sink'}
+        snd_kwargs['sink'] = os.path.join(os.getcwd(), name + '.log')
+        handlers.append(snd_kwargs)
+    config = {"handlers": handlers}
+    logger.configure(**config)
+    logger.info(f'Logger is configured: {logger} {id(logger)}')
     return logger
 
+
 if __name__ == '__main__':
-    log1 = get_logger(None)
-    log1.info('test')
-    log2 = get_logger('test2', is_rank_zero=False)
-    log2.info('test2')
+    log1 = get_logger(None, level=logging.DEBUG, log2file=False)
+    log1.debug('test') # showing
+    log2 = get_logger('test2', level=logging.INFO, is_rank_zero=False, log2file=False)
+    log2.debug('test2') # not showing
+    log1.debug('test') # not showing
+    print(log1 is log2) # True

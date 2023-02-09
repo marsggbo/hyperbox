@@ -2,6 +2,7 @@ import inspect
 import json
 import logging
 import os
+import sys
 import warnings
 from copy import deepcopy
 from importlib.util import find_spec
@@ -18,7 +19,7 @@ from pytorch_lightning import LightningModule
 from pytorch_lightning.loggers.wandb import WandbLogger
 from pytorch_lightning.utilities import rank_zero_only
 
-from .logger import get_logger
+from hyperbox.utils.logger import get_logger
 
 
 class DotDict(dict):
@@ -248,7 +249,11 @@ def hparams_wrapper(cls):
             k:v.default for k,v in signature.parameters.items() \
             if v.default is not inspect.Parameter.empty
         }
-        _args_name = inspect.getfullargspec(cls.__init__).args[1:]
+        py_version = sys.version_info
+        if py_version.major == 3 and py_version.minor >= 9:
+            _args_name = list(signature.parameters.keys())[1:]
+        else:
+            _args_name = inspect.getfullargspec(cls.__init__).args[1:]
         for i, arg in enumerate(args):
             _hparams[_args_name[i]] = arg
         _hparams.update(kwargs)

@@ -359,7 +359,7 @@ class Conv2d(BaseConvNd):
                     _input_filter = _input_filter.view(_input_filter.size(0), _input_filter.size(1), -1)
                     _input_filter = _input_filter.view(-1, _input_filter.size(2))
                     _input_filter = F.linear(
-                        _input_filter, self.__getattr__('%dto%d_matrix' % (src_ks, target_ks)),
+                        _input_filter, getattr(self, '%dto%d_matrix' % (src_ks, target_ks)),
                     )
                     _input_filter = _input_filter.view(filters.size(0), filters.size(1), target_ks ** 2)
                     _input_filter = _input_filter.view(filters.size(0), filters.size(1), target_ks, target_ks)

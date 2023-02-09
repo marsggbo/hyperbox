@@ -1,7 +1,7 @@
 # --------- pytorch --------- #
 torch>=1.8.1
 torchvision
-pytorch-lightning>=1.5.8
+pytorch-lightning==1.8.6
 torchmetrics>=0.3.2
 lightning-bolts>=0.3.3
 
@@ -39,5 +39,6 @@ seaborn
 pudb
 colorlog
 graphviz>=0.20.1
-peewee # for building nasbench-201
-numpy>=1.22.0
+# peewee is for building nasbench-201
+peewee
+#numpy>=1.22.0
