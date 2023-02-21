@@ -10,9 +10,14 @@ def custom_format(record):
     fmt = "<cyan>[{time:YYYY-MM-DD HH:mm:ss}]</cyan> <green>[{level}]</green> <red>[{extra[abspath]}:{line} ({name})]</red> {message}\n{exception}"
     return fmt
 
-def get_logger(name=None, level=logging.INFO, is_rank_zero=True, log2file=True):
+
+LOGGER_DICT = {}
+
+def get_logger(name=None, level=logging.INFO, is_rank_zero=True, log2file=False):
     if is_rank_zero or name is None:
         name = 'exp'
+    if name in LOGGER_DICT:
+        return LOGGER_DICT[name]
     fmt = custom_format
     logger.remove()
     kwargs = {'sink': sys.stderr, 'format': fmt, 'level': level, 'colorize': True, 'backtrace': True}
@@ -24,7 +29,7 @@ def get_logger(name=None, level=logging.INFO, is_rank_zero=True, log2file=True):
         handlers.append(snd_kwargs)
     config = {"handlers": handlers}
     logger.configure(**config)
-    logger.info(f'Logger is configured: {logger} {id(logger)}')
+    LOGGER_DICT[name] = logger
     return logger
 
 
