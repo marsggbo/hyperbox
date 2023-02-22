@@ -227,7 +227,7 @@ class CategoricalSpace(Mutable):
             return self.candidates_original[0]
 
     def forward(self):
-        warnings.warn(f'You should not run forward of {self.__class__.__name__} directly.')
+        logger.warning(f'You should not run forward of {self.__class__.__name__} directly.')
         return self.value
 
     def __getitem__(self, index):
