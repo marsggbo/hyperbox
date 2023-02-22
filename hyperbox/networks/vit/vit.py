@@ -103,7 +103,7 @@ class Attention(nn.Module):
         self.attend = nn.Softmax(dim = -1)
         self.dropout = nn.Dropout(dropout)
 
-        qkv_dim_list = [x*3 for x in self.inner_dim_list]
+        qkv_dim_list = [x*3 for x in self.inner_dim_list.candidates_original]
         qkv_dim_list = spaces.ValueSpace(qkv_dim_list, key=f"{suffix}_inner_dim", mask=self.mask) # coupled with self.inner_dim_list
         self.to_qkv = ops.Linear(dim, qkv_dim_list, bias = False)
 
@@ -150,91 +150,83 @@ class Attention(nn.Module):
         return self.dim_head_list[idx]
 
 
-class Transformer(nn.Module):
+class VitEmbedding(nn.Module):
     def __init__(
         self,
-        dim: int, # dimension of the model
-        depth: int, # depth of the model
-        heads: int, # number of heads
-        dim_head: int, # dimension of each head
-        mlp_dim: int, # dimension of the feedforward layer
-        search_ratio: list, # search ratio for hidden_dim and inner_dim
-        dropout: float= 0., # dropout rate
-        mask: dict = None, # mask for the search space (mutables)
-    ):
-        super().__init__()
-        self.search_ratio = search_ratio
-        self.mask = mask
-        self.layers = nn.ModuleList([])
-        for idx, d in enumerate(range(depth)):
-            attKey = f"att_{idx}"
-            ffKey = f"ff_{idx}"
-            self.layers.append(nn.ModuleList([
-                PreNorm(
-                    dim, Attention(
-                        dim, heads = heads, dim_head = dim_head, search_ratio=self.search_ratio,
-                        dropout = dropout, suffix = attKey, mask = self.mask)
-                ),
-                PreNorm(
-                    dim, FeedForward(
-                        dim, mlp_dim, search_ratio=self.search_ratio, dropout = dropout,
-                        suffix = ffKey, mask = self.mask))
-            ]))
-
-        runtime_depth = [v for v in range(1, depth + 1)]    
-        self.run_depth = spaces.ValueSpace(runtime_depth, key='run_depth', mask=self.mask)
-        
-    def forward(self, x):
-        for attn, ff in self.layers[:self.run_depth.value]:
-            x = attn(x) + x
-            x = ff(x) + x
-        return x
-
-
-class VisionTransformer(BaseNASNetwork):
-    def __init__(
-        self, *, 
         image_size: Union[int, Tuple[int, int]], # image size
         patch_size: Union[int, Tuple[int, int]], # patch size
-        num_classes: int, # number of classes
-        dim: int, # dim of patch embedding
-        depth: int, # depth of transformer
-        heads: int, # number of heads
-        mlp_dim: int, # hidden dim of mlp
-        search_ratio: Optional[List[float]] = None,
-        pool: str = 'cls', # 'cls' or 'mean'
-        channels: int = 3, # number of input channels
-        dim_head: int = 64, # dimension of each attention head
-        dropout: float = 0., # dropout rate
-        emb_dropout: float = 0., # embedding dropout rate
-        mask: dict = None, # mask for the search space (mutables)
+        channels: int, # number of input channels, 3 for RGB images
+        dim: int, # dimension of the model
+        emb_dropout: float = 0.1, # embedding dropout rate
     ):
-        super().__init__(mask = mask)
+        super().__init__()
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
-        if search_ratio is None:
-            search_ratio = [0.5, 0.75, 1]
-        self.search_ratio = search_ratio
-
         assert image_height % patch_height == 0 and image_width % patch_width == 0, \
             'Image dimensions must be divisible by the patch size.'
 
         num_patches = (image_height // patch_height) * (image_width // patch_width)
         patch_dim = channels * patch_height * patch_width
-        assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
         self.to_patch_embedding = nn.Sequential(
             Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_height, p2 = patch_width),
             nn.Linear(patch_dim, dim),
         )
-
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
 
-        self.transformer = Transformer(
-            dim=dim, depth=depth, heads=heads, dim_head=dim_head, mlp_dim=mlp_dim,
-            dropout=dropout, search_ratio=search_ratio, mask=self.mask)
+    def forward(self, x):
+        x = self.to_patch_embedding(x)
+        b, n, _ = x.shape
+
+        cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b = b)
+        x = torch.cat((cls_tokens, x), dim=1)
+        x += self.pos_embedding[:, :(n + 1)]
+        x = self.dropout(x)
+        return x
+
+
+class VitBlock(nn.Module):
+    def __init__(
+        self,
+        dim: int, # dimension of the model
+        heads: int, # number of heads
+        dim_head: int, # dimension of each head
+        mlp_dim: int, # dimension of the feedforward layer
+        search_ratio: list, # search ratio for hidden_dim and inner_dim
+        dropout: float= 0., # dropout rate
+        suffix: str = None, # suffix for the block, r.g., 1, 2, 3, etc.
+        mask: dict = None, # mask for the search space (mutables)
+    ):
+        super().__init__()
+        self.search_ratio = search_ratio
+        self.mask = mask
+        self.suffix = suffix
+        attKey = f"att_{suffix}"
+        ffKey = f"ff_{suffix}"
+        self.attn = PreNorm(dim, Attention(
+            dim, heads = heads, dim_head = dim_head, search_ratio=self.search_ratio,
+            dropout = dropout, suffix = attKey, mask = self.mask))
+        self.ff = PreNorm(dim, FeedForward(
+            dim, mlp_dim, search_ratio=self.search_ratio, dropout = dropout,
+            suffix = ffKey, mask = self.mask))
+
+    def forward(self, x):
+        x = self.attn(x) + x
+        x = self.ff(x) + x
+        return x
+
+
+class VitClsHead(nn.Module):
+    def __init__(
+        self,
+        pool: str, # 'cls' or 'mean'
+        dim: int, # dimension of the model
+        num_classes: int, # number of classes
+    ):
+        super().__init__()
+        assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
         self.pool = pool
         self.to_latent = nn.Identity()
@@ -244,21 +236,62 @@ class VisionTransformer(BaseNASNetwork):
             nn.Linear(dim, num_classes)
         )
 
-    def forward(self, img):
-        x = self.to_patch_embedding(img)
-        b, n, _ = x.shape
-
-        cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b = b)
-        x = torch.cat((cls_tokens, x), dim=1)
-        x += self.pos_embedding[:, :(n + 1)]
-        x = self.dropout(x)
-
-        x = self.transformer(x)
-
+    def forward(self, x):
         x = x.mean(dim = 1) if self.pool == 'mean' else x[:, 0]
 
         x = self.to_latent(x)
         return self.mlp_head(x)
+        
+
+class VisionTransformer(BaseNASNetwork):
+    def __init__(
+        self, *, 
+        image_size: Union[int, Tuple[int, int]], # image size
+        patch_size: Union[int, Tuple[int, int]], # patch size
+        num_classes: int, # number of classes
+        dim: int, # dim of model (hidden dim), each layer has the same dim
+        depth: int, # depth of transformer
+        heads: int, # number of heads
+        mlp_dim: int, # hidden dim of mlp
+        search_ratio: Optional[List[float]] = None,
+        pool: str = 'cls', # 'cls' or 'mean'
+        channels: int = 3, # number of input channels
+        dim_head: int = 64, # dimension of each attention head
+        dropout: float = 0., # dropout rate
+        emb_dropout: float = 0., # embedding dropout rate
+        to_search_depth: bool = False,
+        mask: dict = None, # mask for the search space (mutables)
+    ):
+        super().__init__(mask = mask)
+        self.to_search_path = to_search_depth
+        
+        self.vit_embed = VitEmbedding(image_size, patch_size, channels, dim, emb_dropout)
+
+        if self.to_search_path:
+            runtime_depth = [v for v in range(1, depth + 1)]    
+            self.run_depth = spaces.ValueSpace(runtime_depth, key='run_depth', mask=self.mask)
+
+        vit_blocks = [
+            VitBlock(
+                dim=dim, heads=heads, dim_head=dim_head, mlp_dim=mlp_dim,
+                search_ratio=search_ratio, dropout=dropout, suffix=i, mask=self.mask
+            ) for i in range(depth)]
+        self.vit_blocks = nn.Sequential(*vit_blocks)
+
+        self.vit_cls_head = VitClsHead(pool, dim, num_classes)
+
+    def forward(self, x):
+        out = self.vit_embed(x)
+        if self.to_search_path:
+            vit_blocks = list(self.vit_blocks.children())
+            runtime_depth = self.run_depth.value
+            vit_blocks = vit_blocks[:runtime_depth]
+            vit_blocks = nn.Sequential(*vit_blocks)
+            out = vit_blocks(out)
+        else:
+            out = self.vit_blocks(out)
+        out = self.vit_cls_head(out)
+        return out
 
 
 _vit_s = dict(
@@ -352,16 +385,23 @@ ViT_10B = partial(VisionTransformer, **_vit_10b)
 if __name__ == '__main__':
     from hyperbox.mutator import RandomMutator
     # device = 'cpu'
-    # device = 'mps'
-    device = 'cuda'
+    device = 'mps'
+    # device = 'cuda'
     net = ViT(image_size = 224, patch_size = 16, num_classes = 1000, dim = 1024, 
-        depth = 6, heads = 16, dim_head=1024, mlp_dim = 2048)
+        depth = 6, heads = 4, dim_head=1024, mlp_dim = 2048)
     x = torch.rand(2,3,224,224).to(device)
     net = net.to(device)
     rm = RandomMutator(net)
-    for i in range(10):
+    steps = 2
+    net.eval()
+    for i in range(steps):
         rm.reset()
-        # print(rm._cache)
-        print(net.arch_size((2,3,224,224), convert=False, verbose=True))
+        if i==(steps-1): 
+            print(rm._cache)
+        # print(net.arch_size((2,3,224,224), convert=False, verbose=True))
         y = net(x)
-        print(y.shape, y.device)
+        # print(y.shape, y.device)
+        subnet = net.build_subnet(mask=rm._cache).to(device)
+        subnet.eval()
+        y2 = subnet(x)
+        print((y-y2).abs().sum().item())
