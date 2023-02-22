@@ -276,20 +276,22 @@ class VisionTransformer(BaseNASNetwork):
                 dim=dim, heads=heads, dim_head=dim_head, mlp_dim=mlp_dim,
                 search_ratio=search_ratio, dropout=dropout, suffix=i, mask=self.mask
             ) for i in range(depth)]
+        self.vit_blocks = nn.Sequential(*vit_blocks)
 
         self.vit_cls_head = VitClsHead(pool, dim, num_classes)
-        layers = [self.vit_embed] + vit_blocks + [self.vit_cls_head]
-        self.layers = nn.Sequential(*layers)
 
     def forward(self, x):
+        out = self.vit_embed(x)
         if self.to_search_path:
-            layers = list(self.layers.children())
+            vit_blocks = list(self.vit_blocks.children())
             runtime_depth = self.run_depth.value
-            layers = layers[:runtime_depth+1] + [layers[-1]]
-            layers = nn.Sequential(*layers)
-            return layers(x)
+            vit_blocks = vit_blocks[:runtime_depth]
+            vit_blocks = nn.Sequential(*vit_blocks)
+            out = vit_blocks(out)
         else:
-            return self.layers(x)
+            out = self.vit_blocks(out)
+        out = self.vit_cls_head(out)
+        return out
 
 
 _vit_s = dict(
