@@ -84,7 +84,7 @@ class MobileNet(BaseNASNetwork):
         classifier = LinearLayer(last_channel, classes, dropout_rate=dropout_rate)
 
         self.first_conv = first_conv
-        self.blocks = nn.ModuleList(blocks)
+        self.blocks = nn.Sequential(*blocks)
         self.feature_mix_layer = feature_mix_layer
         self.global_avg_pooling = nn.AdaptiveAvgPool2d(1)
         self.classifier = classifier
@@ -94,8 +94,7 @@ class MobileNet(BaseNASNetwork):
 
     def forward(self, x):
         x = self.first_conv(x)
-        for block in self.blocks:
-            x = block(x)
+        x = self.blocks(x)
         x = self.feature_mix_layer(x)
         x = self.global_avg_pooling(x)
         x = x.view(x.size(0), -1)

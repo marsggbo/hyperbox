@@ -28,6 +28,7 @@ class OFAMobileNetV3(BaseNASNetwork):
         width_mult: float = 1.0,
         num_classes: int = 1000,
         first_stride: int = 1, # 1: CIFAR10 2: Imagenet
+        to_search_depth: bool = False,
         mask=None,
     ):
         super(OFAMobileNetV3, self).__init__(mask)
@@ -51,7 +52,7 @@ class OFAMobileNetV3(BaseNASNetwork):
         if first_stride==2:
             conv = nn.Conv2d(3, first_channels, kernel_size=3, stride=2, padding=1, bias=False) # imagenet
         else:
-            conv = nn.Conv2d(3, first_channels, kernel_size=3, stride=1, padding=0, bias=False) # cifar10
+            conv = nn.Conv2d(3, first_channels, kernel_size=3, stride=1, padding=1, bias=False) # cifar10
         self.stem_layer = nn.Sequential(
             conv,
             nn.BatchNorm2d(first_channels),
@@ -112,32 +113,31 @@ class OFAMobileNetV3(BaseNASNetwork):
         self.classifier = nn.Linear(last_channel, num_classes)
 
         # dynamic depth
-        self.runtime_depth = []
-        for idx, block_group in enumerate(self.block_group_info):
-            self.runtime_depth.append(
-                spaces.ValueSpace(list(range(1, len(block_group)+1)), key=f"depth{idx+1}", mask=self.mask)
-            )
-        self.runtime_depth = nn.Sequential(*self.runtime_depth)
+        if self.to_search_depth:
+            self.runtime_depth = []
+            for idx, block_group in enumerate(self.block_group_info):
+                self.runtime_depth.append(
+                    spaces.ValueSpace(list(range(1, len(block_group)+1)), key=f"depth{idx+1}", mask=self.mask)
+                )
+            self.runtime_depth = nn.Sequential(*self.runtime_depth)
 
-    def forward(self, x, return_feature=False):
-        features = []
+    def forward(self, x):
         x = self.stem_layer(x)
-        x = self.blocks[0](x)
-        # inverted residual blocks
-        for stage_id, block_group in enumerate(self.block_group_info):
-            depth = self.runtime_depth[stage_id].value
-            active_idx = block_group[:depth]
-            for idx in active_idx:
-                x = self.blocks[idx](x)
-        if return_feature: features.append(x)
+        if self.to_search_depth:
+            x = self.blocks[0](x)
+            # inverted residual blocks
+            for stage_id, block_group in enumerate(self.block_group_info):
+                depth = self.runtime_depth[stage_id].value
+                active_idx = block_group[:depth]
+                for idx in active_idx:
+                    x = self.blocks[idx](x)
+        else:
+            x = self.blocks(x)
         x = self.final_expand_layer(x)
-        if return_feature: features.append(x)
         x = x.mean(3, keepdim=True).mean(2, keepdim=True)  # global average pooling
         x = self.feature_mix_layer(x)
-        if return_feature: features.append(x)
         x = x.view(x.size(0), -1)
         x = self.classifier(x)
-        if return_feature: return (x, features)
         return x
 
     @property
@@ -249,15 +249,15 @@ if __name__ == '__main__':
     import json
     from hyperbox.mutator import RandomMutator
     x = torch.rand(2,3,64,64)
-    net = OFAMobileNetV3()
+    net = OFAMobileNetV3(to_search_depth=False)
     rm = RandomMutator(net)
     rm.reset()
     masks = net.build_search_space(rm)
     from hyperbox.utils.utils import TorchTensorEncoder
-    with open('ofa_mbv3_searchspace.json','w') as f:
-        json.dump(masks, f, indent=4, sort_keys=True, cls=TorchTensorEncoder)
+    # with open('ofa_mbv3_searchspace.json','w') as f:
+    #     json.dump(masks, f, indent=4, sort_keys=True, cls=TorchTensorEncoder)
     for i in range(10):
-        m.reset()
+        rm.reset()
         r = net.arch_size((2,3,32,32), True, True)
         y = net(x)
     print(y.shape)

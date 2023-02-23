@@ -15,7 +15,6 @@ from hyperbox.mutables import spaces, ops
 
 __all__ = [
     'Attention',
-    'Transformer',
     'VisionTransformer',
     'ViT',
     'ViT_S',
