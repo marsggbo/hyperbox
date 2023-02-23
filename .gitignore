@@ -136,6 +136,9 @@ dmypy.json
 *.code-workspace
 **/.vscode
 
+### Macbook
+.DS_Store
+
 # JetBrains
 .idea/
 
