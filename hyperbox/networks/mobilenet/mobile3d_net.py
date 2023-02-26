@@ -16,12 +16,23 @@ __all__ = [
 
 
 class Mobile3DNet(BaseNASNetwork):
-    def __init__(self, c_in=3,
-                 width_stages=[24,40,80,96,192,320],
-                 n_cell_stages=[4,4,4,4,4,1],
-                 stride_stages=[2,2,2,1,2,1],
-                 width_mult=1, classes=1000,
-                 dropout_rate=0, bn_param=(0.1, 1e-3), mask=''):
+    OP_LIST = ['3x3_MBConv3', '3x3_MBConv6', '5x5_MBConv3', '5x5_MBConv6',
+        '7x7_MBConv3', '7x7_MBConv6', 'Identity', 'Zero']
+
+    def __init__(
+        self,
+        c_in: int=3,
+        first_stride: int=1,
+        width_stages: list=[24,40,80,96,192,320],
+        n_cell_stages: list=[4,4,4,4,4,1],
+        stride_stages: list()=[2,2,2,1,2,1],
+        op_list: list = None,
+        width_mult: int=1,
+        classes: int()=1000,
+        dropout_rate: float=0,
+        bn_param: tuple=(0.1, 1e-3),
+        mask: dict=None
+    ):
         """
         Parameters
             ----------
@@ -35,18 +46,21 @@ class Mobile3DNet(BaseNASNetwork):
                 the scale factor of width
         """
         super(Mobile3DNet, self).__init__(mask)
+        if op_list is None:
+            self.op_list = self.OP_LIST 
+        else:
+            self.op_list = op_list
         input_channel = make_divisible(32 * width_mult, 8)
         first_cell_width = make_divisible(16 * width_mult, 8)
         for i in range(len(width_stages)):
             width_stages[i] = make_divisible(width_stages[i] * width_mult, 8)
+
         # first conv
-        first_conv = ConvLayer(c_in, input_channel, kernel_size=3, stride=2, use_bn=True, act_func='relu6', ops_order='weight_bn_act')
+        first_conv = ConvLayer(c_in, input_channel, kernel_size=3, stride=first_stride, use_bn=True, act_func='relu6', ops_order='weight_bn_act')
+
         # first block
-        first_block_conv = OPS['3x3_MBConv1'](input_channel, first_cell_width, 1)
-        first_block = first_block_conv
-
+        first_block = OPS['3x3_MBConv1'](input_channel, first_cell_width, 1)
         input_channel = first_cell_width
-
         blocks = [first_block]
 
         stage_cnt = 0
@@ -58,16 +72,7 @@ class Mobile3DNet(BaseNASNetwork):
                     stride = 1
                 calibrate_op = CalibrationLayer(input_channel, width, stride)
                 blocks.append(calibrate_op)
-                op_candidates = [OPS['3x3_MBConv3'](width, width, 1),
-                                 OPS['3x3_MBConv4'](width, width, 1),
-                                 OPS['3x3_MBConv6'](width, width, 1),
-                                 OPS['5x5_MBConv3'](width, width, 1),
-                                 OPS['5x5_MBConv4'](width, width, 1),
-                                 OPS['7x7_MBConv3'](width, width, 1),
-                                 OPS['7x7_MBConv4'](width, width, 1),
-                                 OPS['Identity'](width, width, 1),
-                                 OPS['Zero'](width, width, 1),
-                                 ]
+                op_candidates = [OPS[op](width, width, 1) for op in self.op_list]
                 if stride == 1 and input_channel == width:
                     # if it is not the first one
                     op_candidates += [OPS['Zero'](input_channel, width, stride)]
@@ -92,7 +97,10 @@ class Mobile3DNet(BaseNASNetwork):
         self.first_conv = first_conv
         self.blocks = nn.ModuleList(blocks)
         self.feature_mix_layer = feature_mix_layer
-        self.global_avg_pooling = nn.AdaptiveAvgPool3d(1)
+        self.global_avg_pooling = torch.nn.Sequential(
+            nn.AdaptiveAvgPool3d(1),
+            nn.Flatten(1) # same as x.view(x.size(0), -1)
+        )
         self.classifier = classifier
 
         # set bn param
@@ -105,7 +113,6 @@ class Mobile3DNet(BaseNASNetwork):
             x = block(x)
         x = self.feature_mix_layer(x)
         x = self.global_avg_pooling(x)
-        x = x.view(x.size(0), -1)
         x = self.classifier(x)
         return x
 
@@ -148,3 +155,14 @@ class Mobile3DNet(BaseNASNetwork):
                 index = module.mobile_inverted_conv.mask.cpu().detach().numpy().argmax()
                 arch +=f'{index}-'
         return arch
+
+
+if __name__ == '__main__':
+    from hyperbox.mutator import RandomMutator
+    net = Mobile3DNet()
+    rm = RandomMutator(net)
+    x = torch.randn(2, 3, 32, 64, 64)
+    for i in range(10):
+        rm.reset()
+        y = net(x)
+        print(net.arch)

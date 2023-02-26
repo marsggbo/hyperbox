@@ -129,7 +129,6 @@ class Bottleneck(nn.Module):
 
 @hparams_wrapper
 class ResNet(BaseNASNetwork):
-    counter_subnet = 1
     def __init__(
         self,
         block: Type[Union[BasicBlock, Bottleneck]], # BasicBlock or Bottleneck
