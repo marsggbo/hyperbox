@@ -20,7 +20,7 @@ __all__ = [
 
 
 class EAMutator(RandomMutator):
-    OBJECT_KEY_MAP = {
+    CONSTRAINTS_KEY_MAP = {
         0: 'flops',
         1: 'size',
     }
@@ -34,7 +34,7 @@ class EAMutator(RandomMutator):
         self,
         model: torch.nn.Module,
         target_keys: list = [0],
-        object_keys: list = [0],
+        constraint_keys: list = [0],
         warmup_epochs: int = 10,
         num_population: int = 50,     # total number of individuals in a population
         ratio_selection: int = 0.5,   # ratio of top individuals to select
@@ -53,7 +53,7 @@ class EAMutator(RandomMutator):
         super().__init__(model)
         self.algorithm = algorithm
         self.target_keys = [self.TARGET_KEY_MAP[k] for k in target_keys]
-        self.object_keys = [self.OBJECT_KEY_MAP[k] for k in object_keys]
+        self.constraint_keys = [self.CONSTRAINTS_KEY_MAP[k] for k in constraint_keys]
         self.num_population = num_population # 初始population数量
         self.warmup_epochs  = warmup_epochs
         self.init_population_mode  = init_population_mode # 初始化population的方式
@@ -90,7 +90,7 @@ class EAMutator(RandomMutator):
             self.reset_cache_mask(arch)
         else:
             assert self.num_population == len(self.population), \
-                f"{self.num_population}!={len(self.population)}"
+                f"Expected #population({self.num_population})!=Real #population({len(self.population)})"
             idx = self.idx % self.num_population
             self.reset_cache_mask(self.population[idx]['arch'])
             self.idx += 1
@@ -153,8 +153,8 @@ class EAMutator(RandomMutator):
         targets = np.vstack(targets) if targets else np.random.rand(len(population))
         return targets
 
-    def objectives(self, population, obj_keys):
-        '''根据obj_keys生成对应的object值 (比如flops, acc)
+    def constraints(self, population, obj_keys):
+        '''根据constraint_keys生成对应的constraint值 (比如flops, acc)
         Args:
             population: (dict) {0: {'arch':..., 'flops':23, 'size':12}}
             obj_keys: (list) ['flops', 'size']
@@ -282,8 +282,8 @@ class EAMutator(RandomMutator):
             targets = self.fitness(self.pareto_fronts)
             num_selection = int(round(self.ratio_selection * self.num_population))
             if self.algorithm == 'cars':
-                objectives = self.objectives(self.pareto_fronts, self.object_keys)
-                indices = CARS_NSGA(targets, objectives, num_selection)
+                constraints = self.constraints(self.pareto_fronts, self.constraint_keys)
+                indices = CARS_NSGA(targets, constraints, num_selection)
             else:
                 indices = self.selection(self.pareto_fronts, num_selection)
         except Exception as e:
@@ -438,7 +438,7 @@ class EAMutator(RandomMutator):
             for j, arch in enumerate(self.population.values()):
                 self.reset_cache_mask(arch['arch'])
                 if arch.get('metric') is None:
-                    eval_kwargs.update({'arch': arch, 'network': self.model})
+                    eval_kwargs.update({'mask': arch['arch'], 'network': self.model, 'mutator': self})
                     arch['metric'] = eval_func(**eval_kwargs)
             self.crt_epoch += 1
             if verbose:
@@ -453,7 +453,7 @@ class EAMutator(RandomMutator):
             for j, arch in enumerate(self.history.values()):
                 self.reset_cache_mask(arch['arch'])
                 if arch.get('metric') is None:
-                    eval_kwargs.update({'arch': arch, 'network': self.model})
+                    eval_kwargs.update({'mask': arch['arch'], 'network': self.model, 'mutator': self})
                     arch['metric'] = eval_func(**eval_kwargs)
         if save_ckpt:
             self.save_ckpt()
@@ -486,13 +486,35 @@ class EAMutator(RandomMutator):
 
 if __name__ == '__main__':
     from hyperbox.networks.bnnas.bn_net import BNNet
-    net = BNNet()
-    ea = EAMutator(net)
-    ea.start_evolve = True
-    ea.reset()
-    for i in range(2):
-        for j, arch in enumerate(ea.pools.values()):
-            arch['metric'] = random.random()
-            ea.reset()
-        ea.evolve()
-    pass
+    device = 'mps'
+    net = BNNet().to(device)
+    ea = EAMutator(net, num_population=10, num_pareto_fronts=5, init_population_mode='random')
+    
+    # data_dir = './datasets/cifar10'
+    # dataset = torchvision.datasets.CIFAR10(
+    #     root=data_dir, train=True, download=True, transform=transforms.ToTensor())
+    # dataloader = torch.utils.data.DataLoader(dataset, batch_size=128, shuffle=True, num_workers=4)
+    dataloader = None
+
+    # conduct EA search based on pretrained Supernet
+    def eval_func(dataloader, network, mutator, mask):
+        network.eval()
+        mutator.sample_by_mask(mask)
+        
+        with torch.no_grad():
+            total_acc = 0
+            total_sample = 0
+            # for i, (images, labels) in enumerate(dataloader):
+            images = torch.rand(2,3,32,32)
+            labels = torch.randint(0,10,(2,))
+            for i in range(1):
+                images, labels = images.to(device), labels.to(device)
+                logits = network(images)
+                total_sample += images.size(0)
+                correct = (logits.argmax(dim=1) == labels).float().sum()
+                total_acc += correct
+            # return total_acc / total_sample
+            return torch.rand(1).item()
+    eval_kwargs = {'dataloader': dataloader}
+    ea.search(2, eval_func, eval_kwargs, verbose=True, filling_history=True, save_ckpt=True)
+
