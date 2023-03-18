@@ -1,6 +1,7 @@
 import inspect
 import json
 import logging
+import functools
 import os
 import sys
 import warnings
@@ -245,23 +246,24 @@ def hparams_wrapper(cls):
 
     def __new__(cls, *args, **kwargs):
         signature = inspect.signature(cls.__init__)
+        # 1. get default values of __init__ func, i.e., {'c': 2, 'd': 4} for above example
         _hparams = {
             k:v.default for k,v in signature.parameters.items() \
             if v.default is not inspect.Parameter.empty
         }
-        py_version = sys.version_info
-        if py_version.major == 3 and py_version.minor >= 9:
-            _args_name = list(signature.parameters.keys())[1:]
-        else:
-            _args_name = inspect.getfullargspec(cls.__init__).args[1:]
+        # 2. get input arguments of __init__ func, i.e., ['a', 'b', 'c', 'd'] for above example
+        _args_name = list(inspect.signature(cls.__init__).parameters.keys())[1:]
+        # 3. update the default values with input arguments
         for i, arg in enumerate(args):
             _hparams[_args_name[i]] = arg
         _hparams.update(kwargs)
+        # 4. create a new instance of the class
         if not isinstance(cls, type):
             self = origin__new__(type(cls))
         else:
             self = origin__new__(cls)
         self._hparams = _hparams
+        # 5. set the input arguments as attributes of the class
         for key, value in self._hparams.items():
             try:
                 setattr(self, key, value)

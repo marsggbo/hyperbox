@@ -34,6 +34,7 @@ pyrootutils
 rich
 pytest
 sh
+einops
 scikit-learn
 seaborn
 pudb
