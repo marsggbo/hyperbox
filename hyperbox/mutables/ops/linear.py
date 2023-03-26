@@ -56,9 +56,9 @@ class Linear(FinegrainedModule):
         self.search_out_features = False
         if all([not vs.is_search for vs in self.value_spaces.values()]):
             return False
-        if  is_searchable(getattr(self.value_spaces, 'in_features', None)):
+        if is_searchable(getattr(self.value_spaces, 'in_features', None)):
             self.search_in_features = True
-        if  is_searchable(getattr(self.value_spaces, 'out_features', None)):
+        if is_searchable(getattr(self.value_spaces, 'out_features', None)):
             self.search_out_features = True
         return True
 

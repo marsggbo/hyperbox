@@ -305,7 +305,7 @@ class Conv2d(BaseConvNd):
             self.init_kernel_transform_matrix()
 
     def init_kernel_transform_matrix(self):
-        kernel_size = self.value_spaces['kernel_size'].candidates
+        kernel_size = self.value_spaces['kernel_size'].candidates_original
         # register scaling parameters
         # 7to5_matrix, 5to3_matrix
         scale_params = {}
