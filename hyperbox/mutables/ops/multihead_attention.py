@@ -65,7 +65,7 @@ class MultiheadAttention(FinegrainedModule):
         else:
             self.bias_k = self.bias_v = None
 
-        if self.transform_params_method != 'disable':
+        if getattr(self.value_spaces, 'embed_dim', False) and self.transform_params_method != 'disable':
             self.init_transform_matrix()
 
         self._reset_parameters()
