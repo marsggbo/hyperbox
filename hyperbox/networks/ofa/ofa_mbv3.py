@@ -106,9 +106,11 @@ class OFAMobileNetV3(BaseNASNetwork):
             nn.BatchNorm2d(final_expand_width),
             Hswish()
         )
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.feature_mix_layer = nn.Sequential(
             nn.Conv2d(final_expand_width, last_channel, kernel_size=1, bias=False),
-            Hswish()
+            Hswish(),
+            nn.Flatten(1)
         )
         self.classifier = nn.Linear(last_channel, num_classes)
 
@@ -134,9 +136,8 @@ class OFAMobileNetV3(BaseNASNetwork):
         else:
             x = self.blocks(x)
         x = self.final_expand_layer(x)
-        x = x.mean(3, keepdim=True).mean(2, keepdim=True)  # global average pooling
+        x = self.avg_pool(x)
         x = self.feature_mix_layer(x)
-        x = x.view(x.size(0), -1)
         x = self.classifier(x)
         return x
 

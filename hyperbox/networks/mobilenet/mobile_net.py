@@ -20,10 +20,10 @@ class MobileNet(BaseNASNetwork):
         first_stride: int=1,
         width_stages: list=[24,40,80,96,192,320],
         n_cell_stages: list=[4,4,4,4,4,1],
-        stride_stages: list()=[2,2,2,1,2,1],
+        stride_stages: list=[2,2,2,1,2,1],
         op_list: list = None,
         width_mult: int=1,
-        classes: int()=1000,
+        classes: int=1000,
         dropout_rate: float=0,
         bn_param: tuple=(0.1, 1e-3),
         mask: dict=None
@@ -68,10 +68,6 @@ class MobileNet(BaseNASNetwork):
                 calibrate_op = CalibrationLayer(input_channel, width, stride)
                 blocks.append(calibrate_op)
                 op_candidates = [OPS[op](width, width, 1) for op in self.op_list]
-                if stride == 1 and input_channel == width:
-                    # if it is not the first one
-                    op_candidates += [OPS['Zero'](input_channel, width, stride)]
-                if self.mask: op_candidates = [op_candidates[self.mask[f"s{stage_cnt}_c{i}"].argmax()]]
                 conv_op = OperationSpace(op_candidates, return_mask=True, key="s{}_c{}".format(stage_cnt, i), mask=self.mask)
                 # shortcut
                 if stride == 1 and input_channel == width:

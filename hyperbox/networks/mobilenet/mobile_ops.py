@@ -297,10 +297,13 @@ class MBInvertedConvLayer(nn.Module):
         ]))
 
     def forward(self, x):
+        identity = x
         if self.inverted_bottleneck:
             x = self.inverted_bottleneck(x)
         x = self.depth_conv(x)
         x = self.point_linear(x)
+        if self.stride == 1 and x.shape == identity.shape:
+            x = x + identity
         return x
 
     @staticmethod
@@ -312,14 +315,16 @@ class CalibrationLayer(nn.Module):
 
     def __init__(self, in_channels, out_channels, stride):
         super(CalibrationLayer, self).__init__()
-        if stride == 1:
-            conv = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1)
-        elif stride == 2:
-            conv = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=2)
+        self.stride = stride
+        conv = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride)
         self.conv = conv
+        self.bn = nn.BatchNorm2d(out_channels)
+        self.act = nn.ReLU6(inplace=True)
 
     def forward(self, x):
-        out = self.conv(x)
+        out = self.act(self.bn(self.conv(x)))
+        if self.stride == 1 and x.shape == out.shape:
+            out = x + out
         return out
 
 
