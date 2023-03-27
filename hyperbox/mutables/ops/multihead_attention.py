@@ -30,7 +30,7 @@ class MultiheadAttention(FinegrainedModule):
                             # 2. `Large2Small`: multiply two matrices left [256, 512] and right [256, 128], e.g., new_weight = left @ weight @ right
                             # 3. `TruncatedLinear`: first truncated and multiply a matrix A [128, 128] and plus a vector B [128]
                             #    , i.e., new_weight = weight[:256, :128] @ A + B
-        device=None, dtype=None
+        device=None, dtype=None,
     ) -> None:
         r"""Allows the model to jointly attend to information from different representation subspaces.
         
@@ -85,62 +85,62 @@ class MultiheadAttention(FinegrainedModule):
                 # in_proj_weight
                 left_param_name = f'in_proj_weight_left_TM_{max_embed_dim}to{dim_small}'
                 right_param_name = f'in_proj_weight_right_TM_{max_embed_dim}to{dim_small}'
-                matrices[left_param_name] = Parameter(torch.eye((dim_small, 3*max_embed_dim)))
-                matrices[right_param_name] = Parameter(torch.eye((max_embed_dim, dim_small)))                
+                matrices[left_param_name] = Parameter(torch.eye(3*dim_small, 3*max_embed_dim))
+                matrices[right_param_name] = Parameter(torch.eye(max_embed_dim, dim_small))               
                 
                 # out_proj_weight
                 left_param_name = f'out_proj_weight_left_TM_{max_embed_dim}to{dim_small}'
                 right_param_name = f'out_proj_weight_right_TM_{max_embed_dim}to{dim_small}'
-                matrices[left_param_name] = Parameter(torch.eye((dim_small, max_embed_dim)))
-                matrices[right_param_name] = Parameter(torch.eye((max_embed_dim, dim_small)))
+                matrices[left_param_name] = Parameter(torch.eye(dim_small, max_embed_dim))
+                matrices[right_param_name] = Parameter(torch.eye(max_embed_dim, dim_small))
 
                 # in_proj_bias
                 if self.in_proj_bias is not None:
                     param_name = f'in_proj_bias_TM_{max_embed_dim}to{dim_small}'
-                    matrices[param_name] = Parameter(torch.eye((3*max_embed_dim, 3*dim_small)))
+                    matrices[param_name] = Parameter(torch.eye(3*max_embed_dim, 3*dim_small))
 
                 # out_proj_bias
                 if self.out_proj.bias is not None:
                     param_name = f'out_proj_bias_TM_{max_embed_dim}to{dim_small}'
-                    matrices[param_name] = Parameter(torch.eye((max_embed_dim, dim_small)))
+                    matrices[param_name] = Parameter(torch.eye(max_embed_dim, dim_small))
 
                 # bias_k
                 if self.bias_k is not None:
                     param_name = f'bias_k_TM_{max_embed_dim}to{dim_small}'
-                    matrices[param_name] = Parameter(torch.eye((max_embed_dim, dim_small)))
+                    matrices[param_name] = Parameter(torch.eye(max_embed_dim, dim_small))
 
                 # bias_v
                 if self.bias_v is not None:
                     param_name = f'bias_v_TM_{max_embed_dim}to{dim_small}'
-                    matrices[param_name] = Parameter(torch.eye((max_embed_dim, dim_small)))
+                    matrices[param_name] = Parameter(torch.eye(max_embed_dim, dim_small))
             elif self.transform_params_method == 'TruncatedLinear':
                 # in_proj_weight
                 param_name = f'in_proj_weight_TM_{dim_small}'
-                matrices[param_name] = Parameter(torch.eye((3*dim_small, 3*dim_small)))
+                matrices[param_name] = Parameter(torch.eye(3*dim_small, 3*dim_small))
 
                 # out_proj_weight
                 param_name = f'out_proj_weight_TM_{dim_small}'
-                matrices[param_name] = Parameter(torch.eye((dim_small, max_embed_dim)))
+                matrices[param_name] = Parameter(torch.eye(dim_small, max_embed_dim))
 
                 # in_proj_bias
                 if self.in_proj_bias is not None:
                     param_name = f'in_proj_bias_TM_{dim_small}'
-                    matrices[param_name] = Parameter(torch.eye((3*dim_small, 3*dim_small)))
+                    matrices[param_name] = Parameter(torch.eye(3*dim_small, 3*dim_small))
 
                 # out_proj_bias
                 if self.out_proj.bias is not None:
                     param_name = f'out_proj_bias_TM_{dim_small}'
-                    matrices[param_name] = Parameter(torch.eye((dim_small, dim_small)))
+                    matrices[param_name] = Parameter(torch.eye(dim_small, dim_small))
 
                 # bias_k
                 if self.bias_k is not None:
                     param_name = f'bias_k_TM_{dim_small}'
-                    matrices[param_name] = Parameter(torch.eye((dim_small, dim_small)))
+                    matrices[param_name] = Parameter(torch.eye(dim_small, dim_small))
 
                 # bias_v
                 if self.bias_v is not None:
                     param_name = f'bias_v_TM_{dim_small}'
-                    matrices[param_name] = Parameter(torch.eye((dim_small, dim_small)))
+                    matrices[param_name] = Parameter(torch.eye(dim_small, dim_small))
             else:
                 raise NotImplementedError
                 
@@ -177,8 +177,12 @@ class MultiheadAttention(FinegrainedModule):
             
             if self.search_num_heads:
                 num_heads = self.value_spaces['num_heads'].value
+            else:
+                num_heads = self.num_heads
             if self.search_embed_dim:
                 embed_dim = self.value_spaces['embed_dim'].value
+            else:
+                embed_dim = self.embed_dim
             in_proj_weight, in_proj_bias, bias_k, bias_v, out_proj_weight, out_proj_bias = self.transform_params(embed_dim)
 
             attn_output, attn_output_weights = F.multi_head_attention_forward(
@@ -195,22 +199,24 @@ class MultiheadAttention(FinegrainedModule):
             return attn_output, attn_output_weights
 
     def transform_params(self, embed_dim):
+        if embed_dim == self.embed_dim:
+            return self.in_proj_weight, self.in_proj_bias, self.bias_k, self.bias_v, self.out_proj.weight, self.out_proj.bias
         if self.transform_params_method == 'Large2Small':
             # weights
             in_proj_weight = self.param_transform_via_TM(
                 self.in_proj_weight,
-                L_transform_matrix=getattr(self, f'in_proj_weight_Left_TM_{self.embed_dim}to{embed_dim}'),
-                R_transform_matrix=getattr(self, f'in_proj_weight_Right_TM_{self.embed_dim}to{embed_dim}'))
+                L_transform_matrix=getattr(self, f'in_proj_weight_left_TM_{self.embed_dim}to{embed_dim}'),
+                R_transform_matrix=getattr(self, f'in_proj_weight_right_TM_{self.embed_dim}to{embed_dim}'))
             out_proj_weight = self.param_transform_via_TM(
-                self.out_proj_weight,
-                L_transform_matrix=getattr(self, f'out_proj_weight_Left_TM_{self.embed_dim}to{embed_dim}'),
-                R_transform_matrix=getattr(self, f'out_proj_weight_Right_TM_{self.embed_dim}to{embed_dim}'))
+                self.out_proj.weight,
+                L_transform_matrix=getattr(self, f'out_proj_weight_left_TM_{self.embed_dim}to{embed_dim}'),
+                R_transform_matrix=getattr(self, f'out_proj_weight_right_TM_{self.embed_dim}to{embed_dim}'))
 
             # biases
             in_proj_bias = self.param_transform_via_TM(
                 self.in_proj_bias, R_transform_matrix=getattr(self, f'in_proj_bias_TM_{self.embed_dim}to{embed_dim}')
             ) if self.in_proj_bias is not None else None
-            out_proj_weight = self.param_transform_via_TM(
+            out_proj_bias = self.param_transform_via_TM(
                 self.out_proj.bias, R_transform_matrix=getattr(self, f'out_proj_bias_TM_{self.embed_dim}to{embed_dim}')
             ) if self.out_proj.bias is not None else None
             bias_k = self.param_transform_via_TM(
