@@ -517,14 +517,47 @@ class ValueSpace(CategoricalSpace):
             indices = torch.tensor(indices)
         self._sortIdx = indices
 
-    def __mul__(self, other: int):
+    def __mul__(self, other: Union[int, float], set_new_vs: bool = False, suffix: str=None, new_key: str=None):
+        if isinstance(self.candidates_original[0], str):
+            assert isinstance(other, int), "string candidates are not supported to multiplication."
         candidates = [c * other for c in self.candidates_original]
+        if isinstance(self.candidates_original[0], int):
+            candidates = [int(c) for c in candidates]
         index = self.index if not self.is_search else None
         mask = self.mask if index is not None else None
-        return ValueSpace(candidates, mask=mask, index=index, key=self.key)
+        if not set_new_vs:
+            key = self.key
+        else:
+            if new_key is not None:
+                key = new_key
+            else:
+                key = f"{self.key}_mul_{other}"
+                if suffix is not None: key += f"_{suffix}"
+        return ValueSpace(candidates, mask=mask, index=index, key=key)
 
-    def __rmul__(self, other: int):
-        return self.__mul__(other)
+    def __rmul__(self, other: Union[int, float], set_new_vs: bool = False, suffix: str=None, new_key: str=None):
+        return self.__mul__(other, set_new_vs, suffix, new_key)
+
+    def __truediv__(self, other: Union[int, float], set_new_vs: bool = False, suffix: str=None, new_key: str=None):
+        return self.__mul__(1/other, set_new_vs, suffix, new_key)
+
+    def __add__(self, other: Union[int, float, 'ValueSpace', list], suffix: str=None, new_key: str=None):
+        if isinstance(other, ValueSpace):
+            other = other.candidates_original
+        elif isinstance(other, (int, float)):
+            other = [other]
+        candidates = sorted(self.candidates_original + other)
+        index = self.index if not self.is_search else None
+        mask = self.mask if index is not None else None
+        if new_key is not None:
+            key = new_key
+        else:
+            key = self.key + f"_add_{other}"
+            if suffix is not None: key += f"_{suffix}"
+        return ValueSpace(candidates, mask=mask, index=index, key=key)
+
+    def __radd__(self, other: int):
+        return self.__add__(other)
 
 
 if __name__ == '__main__':
