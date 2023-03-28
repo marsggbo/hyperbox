@@ -5,3 +5,4 @@ from .batchnorm import *
 from .multihead_attention import *
 from .embedding import *
 from .layernorm import *
+from .groupnorm import *
