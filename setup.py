@@ -9,7 +9,7 @@ for module in required:
 
 setup(
     name="hyperbox",  # you should change "src" to your project name
-    version="1.4.2",
+    version="1.4.2.a",
     description="Hyperbox: An easy-to-use NAS framework.",
     author="marsggbo",
     url="https://github.com/marsggbo/hyperbox",
