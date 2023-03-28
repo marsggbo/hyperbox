@@ -167,7 +167,6 @@ def empty(*args, **kwargs):
     pass
 
 
-@rank_zero_only
 def log_hyperparameters(
     config: DictConfig,
     model: 'pl.LightningModule',
@@ -181,6 +180,9 @@ def log_hyperparameters(
     Additionaly saves:
         - number of trainable model parameters
     """
+    rank = os.environ.get("LOCAL_RANK", 0)
+    if rank != 0:
+        return
 
     hparams = {}
 
