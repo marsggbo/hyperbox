@@ -122,9 +122,14 @@ class BNNet(BaseNASNetwork):
             params.requires_grad = False
 
 if __name__ == '__main__':
+    def seed_everything(seed):
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     from hyperbox.mutator import RandomMutator
-    from pytorch_lightning.utilities.seed import seed_everything
     net = BNNet(search_depth=False, is_only_train_bn=False, num_classes=10,
         channels_list=[32],
         num_blocks=[2],

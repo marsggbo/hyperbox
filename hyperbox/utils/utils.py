@@ -1,7 +1,7 @@
+import functools
 import inspect
 import json
 import logging
-import functools
 import os
 import sys
 import warnings
@@ -10,15 +10,11 @@ from importlib.util import find_spec
 from typing import List, Sequence
 
 import numpy as np
-import pytorch_lightning as pl
 import rich.syntax
 import rich.tree
 import torch
 import wandb
 from omegaconf import DictConfig, OmegaConf
-from pytorch_lightning import LightningModule
-from pytorch_lightning.loggers.wandb import WandbLogger
-from pytorch_lightning.utilities import rank_zero_only
 
 from hyperbox.utils.logger import get_logger
 
@@ -127,7 +123,6 @@ def extras(config: DictConfig) -> None:
     OmegaConf.set_struct(config, True)
 
 
-@rank_zero_only
 def print_config(
     config: DictConfig,
     fields: Sequence[str] = (
@@ -148,7 +143,9 @@ def print_config(
         be printed and in what order.
         resolve (bool, optional): Whether to resolve reference fields of DictConfig.
     """
-
+    rank = os.environ.get("LOCAL_RANK", 0)
+    if rank != 0:
+        return
     style = "dim"
     tree = rich.tree.Tree(":gear: CONFIG", style=style, guide_style=style)
 
@@ -173,11 +170,11 @@ def empty(*args, **kwargs):
 @rank_zero_only
 def log_hyperparameters(
     config: DictConfig,
-    model: pl.LightningModule,
-    datamodule: pl.LightningDataModule,
-    trainer: pl.Trainer,
-    callbacks: List[pl.Callback],
-    logger: List[pl.loggers.LightningLoggerBase],
+    model: 'pl.LightningModule',
+    datamodule: 'pl.LightningDataModule',
+    trainer: 'pl.Trainer',
+    callbacks: 'List[pl.Callback]',
+    logger: 'List[pl.loggers.LightningLoggerBase]',
 ) -> None:
     """This method controls which parameters from Hydra config are saved by Lightning loggers.
 
@@ -216,17 +213,18 @@ def log_hyperparameters(
 
 def finish(
     config: DictConfig,
-    model: pl.LightningModule,
-    datamodule: pl.LightningDataModule,
-    trainer: pl.Trainer,
-    callbacks: List[pl.Callback],
-    logger: List[pl.loggers.LightningLoggerBase],
+    model: 'pl.LightningModule',
+    datamodule: 'pl.LightningDataModule',
+    trainer: 'pl.Trainer',
+    callbacks: 'List[pl.Callback]',
+    logger: 'List[pl.loggers.LightningLoggerBase]',
 ) -> None:
     """Makes sure everything closed properly."""
 
     # without this sweeps with wandb logger might crash!
+    from pytorch_lightning.loggers.wandb import WandbLogger
     for lg in logger:
-        if isinstance(lg, pl.loggers.wandb.WandbLogger):
+        if isinstance(lg, WandbLogger):
             import wandb
             wandb.finish()
 
@@ -280,7 +278,7 @@ def hparams_wrapper(cls):
 
 
 def load_pretrained_weights(
-    config: DictConfig, model: LightningModule, ckpt_path: str
+    config: DictConfig, model: 'pl.LightningModule', ckpt_path: str
 ):
     """
     Load pretrained weights from a checkpoint.

@@ -26,20 +26,25 @@ black
 isort
 flake8
 
+# --------- cores --------- #
+loguru>=0.6.0
+einops
+colorlog
+scikit-learn
+#numpy>=1.22.0
+
+# --------- visualization --------- #
+graphviz>=0.20.1
+
+# --------- for building nasbench-201 --------- #
+peewee
+
 # --------- others --------- #
 ipdb>=0.13.9
-loguru>=0.6.0
 jupyterlab
 pyrootutils
 rich
 pytest
 sh
-einops
-scikit-learn
 seaborn
 pudb
-colorlog
-graphviz>=0.20.1
-# peewee is for building nasbench-201
-peewee
-#numpy>=1.22.0
