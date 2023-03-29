@@ -33,8 +33,8 @@ pip install hyperbox
 ```
 git clone https://github.com/marsggbo/hyperbox
 cd hyperbox
+pip install -r requirements.txt
 python setup.py develop
-python install -r requirements.txt
 ```
 
 </details>
