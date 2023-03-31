@@ -200,3 +200,13 @@ class BaseNASNetwork(nn.Module):
         '''
         to_copy_weight = extract_net_from_ckpt(ckpt)
         self.load_state_dict(to_copy_weight)
+
+    def to_pipeline_layers(self):
+        '''convert to pipeline network'''
+        layers = []
+        for name, m in self.named_children():
+            if isinstance(m, nn.Sequential):
+                layers.append(*m)
+            else:
+                layers.append(m)
+        return m
