@@ -59,7 +59,16 @@ class BaseConvNd(_ConvNd, FinegrainedModule):
         _stride = stride.max_value if isinstance(stride, ValueSpace) else stride
         _padding = padding.max_value if isinstance(padding, ValueSpace) else padding
         _dilation = dilation.min_value if isinstance(dilation, ValueSpace) else dilation
-        _groups = groups.min_value if isinstance(groups, ValueSpace) else groups
+
+        _groups = groups
+        if isinstance(groups, ValueSpace):
+            if isinstance(in_channels, ValueSpace):
+                if groups is not in_channels:
+                    print('groups must be the same as in_channels when in_channels is ValueSpace')
+                    groups = in_channels
+                _groups = groups.max_value
+            else:
+                _groups = groups.min_value
 
         self.format_args(_kernel_size, _stride, _padding, _dilation)
         conv_kwargs = kwargs
@@ -199,7 +208,7 @@ class BaseConvNd(_ConvNd, FinegrainedModule):
             filters = filters[:out_channels, ...]
         if self.search_kernel_size:
             filters = self.transform_kernel_size(filters)
-        if self.search_groups:
+        if self.search_groups and not self.search_in_channel:
             filters = self.get_filters_by_groups(filters, in_channels, groups).contiguous()
         if self.auto_padding:
             kernel_size = filters.shape[2:]
@@ -222,15 +231,6 @@ class BaseConvNd(_ConvNd, FinegrainedModule):
             start = part_id * sub_in_channels
             filter_crops.append(sub_filter[:, start:start + sub_in_channels, :, :])
         filters = torch.cat(filter_crops, dim=0)
-
-        # indices = []
-        # for i in range(groups):
-        #     part_id = i % sub_ratio
-        #     start = part_id * sub_in_channels
-        #     indices.extend(list(range(start, start + sub_in_channels)))
-        # print(f"groups={groups}, in_channels={in_channels}, indices={indices}")
-        # filters = filters[:, indices, :, :]
-        print(f"groups={groups}, in_channels={in_channels}, filters.shape={filters.shape}")
         return filters
 
     def transform_kernel_size(self, filters):        
