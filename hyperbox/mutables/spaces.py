@@ -223,6 +223,16 @@ class CategoricalSpace(Mutable):
             return value
         except Expection as e:
             logger.warning(str(e))
+            logger.warning("The candidates cannot be compared to get max value, return the last item instead.")
+            return self.candidates_original[-1]
+
+    @property
+    def min_value(self):
+        try:
+            value = min(self.candidates_original)
+            return value
+        except Expection as e:
+            logger.warning(str(e))
             logger.warning("The candidates cannot be compared to get max value, return the first item instead.")
             return self.candidates_original[0]
 

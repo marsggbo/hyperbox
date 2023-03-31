@@ -60,16 +60,7 @@ class SELayer(Base2DLayer):
         self.reduction = SELayer.REDUCTION if reduction is None else reduction
 
         if isinstance(channel, ValueSpace):
-            num_mid = []
-            for c in channel.candidates:
-                num_mid.append(
-                    make_divisible(c // self.reduction, divisor=self.CHANNEL_DIVISIBLE)
-                )
-            if prefix is None:
-                key = channel.key + '_subSE_mc'
-            else:
-                key = prefix + '_subSE_mc'
-            num_mid = ValueSpace(num_mid, key=key)
+            num_mid = channel * self.reduction
         else:
             num_mid = make_divisible(channel // self.reduction, divisor=self.CHANNEL_DIVISIBLE)
 
@@ -106,28 +97,19 @@ class MBConvLayer(Base2DLayer):
         super(MBConvLayer, self).__init__()
 
         # build modules
-        if isinstance(in_channels, ValueSpace):
-            middle_channels = []
-            for c in in_channels.candidates:
-                middle_channels.append(
-                    make_divisible(round(c * self.expand_ratio), self.CHANNEL_DIVISIBLE)
-                )
-            if prefix is None:
-                key = in_channels.key + '_subMB_mc'
-            else:
-                key = prefix + '_subMB_mc'
-            middle_channels = ValueSpace(middle_channels, key=key)
-        elif isinstance(expand_ratio, ValueSpace):
-            middle_channels = []
-            for e in expand_ratio.candidates:
-                middle_channels.append(
-                    make_divisible(round(self.in_channels * e), self.CHANNEL_DIVISIBLE)
-                )
-            if prefix is None:
-                key = expand_ratio.key + '_subMB_mc'
-            else:
-                key = prefix + '_subMB_mc'
-            middle_channels = ValueSpace(middle_channels, key=key)
+        if isinstance(in_channels, ValueSpace) and not isinstance(expand_ratio, ValueSpace):
+            middle_channels = self.expand_ratio * in_channels
+        elif isinstance(expand_ratio, ValueSpace) and not isinstance(in_channels, ValueSpace):
+            middle_channels = expand_ratio * self.in_channels
+        # Todo: support in_channels and expand_ratio both be ValueSpace
+        # elif isinstance(in_channels, ValueSpace) and isinstance(expand_ratio, ValueSpace):
+        #     in_channels_candidates = in_channels.candidates_original
+        #     expand_ratio_candidates = expand_ratio.candidates_original
+        #     middle_channels_candidates = []
+        #     for i, c in enumerate(in_channels_candidates):
+        #         for j, r in enumerate(expand_ratio_candidates):
+        #             middle_channels_candidates.append(c * r)
+        #     middle_channels = ValueSpace(middle_channels_candidates, key=prefix + '_subMBConv_mc')  
         else:
             middle_channels = make_divisible(
                 round(self.in_channels * self.expand_ratio), self.CHANNEL_DIVISIBLE)

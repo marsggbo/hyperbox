@@ -22,6 +22,9 @@ class FinegrainedModule(nn.Module):
     def getValueSpaces(self, kwargs):
         value_spaces = nn.ModuleDict()
         for key, value in kwargs.items():
+            if key in ['weight', 'bias']:
+                if hasattr(self, key): delattr(self, key)
+                key = '_' + key
             if isinstance(value, ValueSpace):
                 value_spaces[key] = value
                 if value.index is not None:
