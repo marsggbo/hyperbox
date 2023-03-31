@@ -248,17 +248,74 @@ class OFAMobileNetV3(BaseNASNetwork):
 
 if __name__ == '__main__':
     import json
+    import types
     from hyperbox.mutator import RandomMutator
-    x = torch.rand(2,3,64,64)
-    net = OFAMobileNetV3(to_search_depth=False)
+    from torch.profiler import profile, record_function, ProfilerActivity
+    device = 'cuda'
+    x = torch.rand(8,3,224,224).to(device)
+    net = OFAMobileNetV3(to_search_depth=False).to(device)
     rm = RandomMutator(net)
     rm.reset()
-    masks = net.build_search_space(rm)
-    from hyperbox.utils.utils import TorchTensorEncoder
+    # masks = net.build_search_space(rm)
+    # from hyperbox.utils.utils import TorchTensorEncoder
     # with open('ofa_mbv3_searchspace.json','w') as f:
     #     json.dump(masks, f, indent=4, sort_keys=True, cls=TorchTensorEncoder)
-    for i in range(10):
+
+    def forward_profile(self, x):
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                    # schedule=torch.profiler.schedule(wait=1, warmup=2, active=2),
+                    on_trace_ready=torch.profiler.tensorboard_trace_handler('./result/stem_layer', worker_name='worker0'),
+                    record_shapes=True, profile_memory=True, with_stack=True) as prof:
+            with record_function("stem_layer"):
+                x = self.stem_layer(x)
+        print('stem_layer\n', prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=10))
+        if self.to_search_depth:
+            x = self.blocks[0](x)
+            # inverted residual blocks
+            for stage_id, block_group in enumerate(self.block_group_info):
+                depth = self.runtime_depth[stage_id].value
+                active_idx = block_group[:depth]
+                for idx in active_idx:
+                    x = self.blocks[idx](x)
+        else:
+            for idx, block in enumerate(self.blocks):
+                with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],        
+                    # schedule=torch.profiler.schedule(wait=1, warmup=2, active=2),
+                    on_trace_ready=torch.profiler.tensorboard_trace_handler(f'./result/block{idx}', worker_name='worker0'),
+                    record_shapes=True, profile_memory=True, with_stack=True) as prof:
+                    with record_function(f"block{idx}"):
+                        x = block(x)
+                print(f'block{idx}', prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=10))
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                    # schedule=torch.profiler.schedule(wait=1, warmup=2, active=2),
+                    on_trace_ready=torch.profiler.tensorboard_trace_handler('./result/final_feature', worker_name='worker0'),
+                    record_shapes=True, profile_memory=True, with_stack=True) as prof:
+            with record_function("final_feature"):
+                x = self.final_expand_layer(x)
+                x = self.avg_pool(x)
+                x = self.feature_mix_layer(x)
+        print('final_feature\n',prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=10))
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                    # schedule=torch.profiler.schedule(wait=1, warmup=2, active=2),
+                    on_trace_ready=torch.profiler.tensorboard_trace_handler('./result/classifier', worker_name='worker0'),
+                    record_shapes=True, profile_memory=True, with_stack=True) as prof:
+            with record_function("classifier"):
+                x = self.classifier(x)
+        print('classifier\n', prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=10))
+        return x
+    net.forward_profile = types.MethodType(forward_profile, net)
+    for i in range(7):
         rm.reset()
-        r = net.arch_size((2,3,32,32), True, True)
-        y = net(x)
-    print(y.shape)
+        # r = net.arch_size((2,3,32,32), True, True)
+        # with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+        #             # schedule=torch.profiler.schedule(wait=1, warmup=2, active=2),
+        #             # on_trace_ready=torch.profiler.tensorboard_trace_handler('./result', worker_name='worker0'),
+        #             record_shapes=True, profile_memory=True, with_stack=True) as prof:
+        #         net(x)
+        # print(prof.key_averages(group_by_input_shape=True).table(sort_by="self_self_cuda_time_total", row_limit=20))
+        if i <=5:
+            net(x)
+        else:
+            net.forward_profile(x)
+        print(f"Iteration {i} finished")
+        print("*"*50)
