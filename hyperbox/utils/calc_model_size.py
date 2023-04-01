@@ -34,14 +34,14 @@ def count_FG_convNd(m, _, y):
     cin = m.value_spaces['in_channels'].value if m.search_in_channel else m.in_channels
     kernel_size = m.value_spaces['kernel_size'].value if m.search_kernel_size else m.kernel_size
     if isinstance(kernel_size, int):
-        dim = int(m.conv_dim[0])
+        dim = int(m.conv_dim)
         kernel_ops = kernel_size**dim
     elif isinstance(kernel_size, (list, tuple)):
         kernel_ops = torch.prod(torch.Tensor(kernel_size))
     ops_per_element = kernel_ops
     groups = m.value_spaces['groups'].value if m.search_groups else m.groups
     output_elements = y.nelement()
-    total_ops = cin * output_elements * ops_per_element // groups  # cout x oW x oH
+    total_ops = torch.div(cin * output_elements * ops_per_element, groups)
     m.total_ops = torch.Tensor([int(total_ops)])
     m.module_used = torch.tensor([1])
 
@@ -55,6 +55,52 @@ def count_FG_linear(m, _, __):
     m.total_ops = torch.Tensor([int(total_ops)])
     m.module_used = torch.tensor([1])
 
+# Todo: add more FG ops
+# def count_FG_Embedding(m, _, __):
+#     num_embeddings = m.value_spaces['num_embeddings'].value if m.search_num_embeddings \
+#         else m.num_embeddings
+#     embedding_dim = m.value_spaces['embedding_dim'].value if m.search_embedding_dim \
+#         else m.embedding_dim
+#     total_ops = num_embeddings * embedding_dim
+#     m.total_ops = torch.Tensor([int(total_ops)])
+#     m.module_used = torch.tensor([1])
+
+
+# def count_FG_GroupNorm(m, _, __):
+#     num_channels = m.value_spaces['num_channels'].value if m.search_num_channels \
+#         else m.num_channels
+#     num_groups = m.value_spaces['num_groups'].value if m.search_num_groups \
+#         else m.num_groups
+#     total_ops = num_channels * num_groups
+#     m.total_ops = torch.Tensor([int(total_ops)])
+#     m.module_used = torch.tensor([1])
+
+
+# def count_FG_LayerNorm(m, _, __):
+#     normalized_shape = m.value_spaces['normalized_shape'].value if m.search_normalized_shape \
+#         else m.normalized_shape
+#     total_ops = torch.prod(torch.Tensor(normalized_shape))
+#     m.total_ops = torch.Tensor([int(total_ops)])
+#     m.module_used = torch.tensor([1])
+
+
+# def count_FG_MultiheadAttention(m, _, __):
+#     total_ops = 0
+#     if m.search_in_features:
+#         in_features = m.value_spaces['in_features'].value
+#         total_ops += in_features
+#     if m.search_out_features:
+#         out_features = m.value_spaces['out_features'].value
+#         total_ops += out_features
+#     if m.search_num_heads:
+#         num_heads = m.value_spaces['num_heads'].value
+#         total_ops += num_heads
+#     if m.search_dropout:
+#         dropout = m.value_spaces['dropout'].value
+#         total_ops += dropout
+#     m.total_ops = torch.Tensor([int(total_ops)])
+#     m.module_used = torch.tensor([1])
+
 
 register_hooks = {
     nn.Conv1d: count_convNd,
@@ -65,6 +111,10 @@ register_hooks = {
     hyperbox.mutables.ops.conv.Conv2d: count_FG_convNd,
     hyperbox.mutables.ops.conv.Conv3d: count_FG_convNd,
     hyperbox.mutables.ops.linear.Linear: count_FG_linear,
+    # hyperbox.mutables.ops.embedding.Embedding: count_FG_Embedding,
+    # hyperbox.mutables.ops.GroupNorm: count_FG_GroupNorm,
+    # hyperbox.mutables.ops.LayerNorm: count_FG_LayerNorm,
+    # hyperbox.mutables.ops.MultiheadAttention: count_FG_MultiheadAttention,
 }
 
 

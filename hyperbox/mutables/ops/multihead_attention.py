@@ -368,6 +368,26 @@ class MultiheadAttention(FinegrainedModule):
         if self.bias_v is not None:
             xavier_normal_(self.bias_v)
 
+    @property
+    def params(self):
+        in_proj_weight = self.in_proj_weight
+        in_proj_bias = self.in_proj_bias
+        out_proj_weight = self.out_proj.weight
+        out_proj_bias = self.out_proj.bias
+        bias_k = self.bias_k
+        bias_v = self.bias_v
+        if self.search_embed_dim:
+            embed_dim = self.value_spaces['embed_dim'].value
+            in_proj_weight = in_proj_weight[:3 * embed_dim, :embed_dim]
+            in_proj_bias = in_proj_bias[:3 * embed_dim] if in_proj_bias is not None else None
+            out_proj_weight = out_proj_weight[:embed_dim, :embed_dim]
+            out_proj_bias = out_proj_bias[:embed_dim] if out_proj_bias is not None else None
+            bias_k = bias_k[:, :, :embed_dim] if bias_k is not None else None
+            bias_v = bias_v[:, :, :embed_dim] if bias_v is not None else None
+        parameters = [in_proj_weight, in_proj_bias, out_proj_weight, out_proj_bias, bias_k, bias_v]
+        size = sum([p.numel() for p in parameters if p is not None])
+        return size
+        
 
 if __name__ == '__main__':
     import timeit

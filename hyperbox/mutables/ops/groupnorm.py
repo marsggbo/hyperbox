@@ -37,6 +37,17 @@ class GroupNorm(nn.GroupNorm, FinegrainedModule):
             n_channels = self.value_spaces['num_channels'].value if self.search_num_channels else self.num_channels
             return F.group_norm(input, n_groups, self.weight[:n_channels], self.bias[:n_channels], self.eps)
 
+    @property
+    def params(self):
+        weight = self.weight
+        bias = self.bias
+        if self.search_num_channels:
+            weight = weight[:self.value_spaces['num_channels'].value]
+            bias = bias[:self.value_spaces['num_channels'].value] if bias is not None else None
+        parameters = [weight, bias]
+        params = sum([p.numel() for p in parameters if p is not None])
+        return params
+
 
 if __name__ == '__main__':
     from hyperbox.mutator import RandomMutator

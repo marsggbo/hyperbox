@@ -50,6 +50,14 @@ class Embedding(nn.Embedding, FinegrainedModule):
             self.search_embedding_dim = True
         return True
 
+    @property
+    def params(self):
+        weight = self.weight
+        if self.search_embedding_dim:
+            weight = weight[:, :self.value_spaces['embedding_dim'].value]
+        size = weight.numel()
+        return size
+
 
 if __name__ == "__main__":
     from hyperbox.mutator import RandomMutator

@@ -86,6 +86,17 @@ class LayerNorm(nn.LayerNorm, FinegrainedModule):
             self.search_normalized_shape = True
         return True
 
+    @property
+    def params(self):
+        weight = self.weight
+        bias = self.bias
+        if self.search_normalized_shape:
+            weight = self.weight[:self.value_spaces["normalized_shape"].value]
+            bias = self.bias[:self.value_spaces["normalized_shape"].value] if self.bias is not None else None
+        parameters = [weight, bias]
+        size = sum([p.numel() for p in parameters if p is not None])
+        return size
+
 
 if __name__ == "__main__":
     # NLP Searchable Example
