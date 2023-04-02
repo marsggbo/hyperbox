@@ -56,7 +56,7 @@ class FeedForward(nn.Module):
         super().__init__()
         self.mask = mask
         hidden_dim_list = keepPositiveList([int(r*hidden_dim) for r in search_ratio])
-        hidden_dim_list = spaces.ValueSpace(hidden_dim_list, key=f"{suffix}_hidden_dim", mask=self.mask)
+        hidden_dim_list = spaces.ValueSpace(hidden_dim_list, key=f"{suffix}_hidden_dim", mask=self.mask) if len(hidden_dim_list) > 1 else hidden_dim_list[0]
         self.net = nn.Sequential(
             ops.Linear(dim, hidden_dim_list),
             nn.GELU(),
@@ -97,13 +97,17 @@ class Attention(nn.Module):
                 self.heads_idx_map[count] = h_idx
                 self.dim_head_idx_map[count] = d_idx
                 count += 1
-        self.inner_dim_list = spaces.ValueSpace(self.inner_dim_list, key=f"{suffix}_inner_dim", mask=self.mask)
+        self.inner_dim_list = spaces.ValueSpace(self.inner_dim_list, key=f"{suffix}_inner_dim", mask=self.mask) \
+            if len(self.inner_dim_list) > 1 else self.inner_dim_list[0]
         
         self.attend = nn.Softmax(dim = -1)
         self.dropout = nn.Dropout(dropout)
 
-        qkv_dim_list = [x*3 for x in self.inner_dim_list.candidates_original]
-        qkv_dim_list = spaces.ValueSpace(qkv_dim_list, key=f"{suffix}_inner_dim", mask=self.mask) # coupled with self.inner_dim_list
+        if isinstance(self.inner_dim_list, spaces.ValueSpace):
+            qkv_dim_list = [x*3 for x in self.inner_dim_list.candidates_original]
+            qkv_dim_list = spaces.ValueSpace(qkv_dim_list, key=f"{suffix}_inner_dim", mask=self.mask) # coupled with self.inner_dim_list
+        else:
+            qkv_dim_list = self.inner_dim_list * 3
         self.to_qkv = ops.Linear(dim, qkv_dim_list, bias = False)
 
         self.to_out = nn.Sequential(
@@ -126,19 +130,25 @@ class Attention(nn.Module):
 
     @property
     def heads(self):
-        idx = self.inner_dim_list.index
-        if idx is None:
-            idx = self.inner_dim_list.mask.float().argmax().item()
-        idx = self.heads_idx_map[idx]
-        return self.heads_list[idx]
+        if isinstance(self.inner_dim_list, spaces.ValueSpace):
+            idx = self.inner_dim_list.index
+            if idx is None:
+                idx = self.inner_dim_list.mask.float().argmax().item()
+            idx = self.heads_idx_map[idx]
+            return self.heads_list[idx]
+        else:
+            return self.heads_list[0]
     
     @property
     def scale(self):
-        idx = self.inner_dim_list.index
-        if idx is None:
-            idx = self.inner_dim_list.mask.float().argmax().item()
-        idx = self.dim_head_idx_map[idx]
-        return self.scale_list[idx]
+        if isinstance(self.inner_dim_list, spaces.ValueSpace):
+            idx = self.inner_dim_list.index
+            if idx is None:
+                idx = self.inner_dim_list.mask.float().argmax().item()
+            idx = self.dim_head_idx_map[idx]
+            return self.scale_list[idx]
+        else:
+            return self.scale_list[0]
 
     @property
     def dim_head(self):
