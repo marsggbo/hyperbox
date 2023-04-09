@@ -38,9 +38,9 @@ class BaseConvNd(_ConvNd, FinegrainedModule):
         padding_mode: str,
         device=None,
         dtype=None,
+        auto_padding: bool = False,
         transposed: bool = False,
         output_padding: Tuple[int, ...] = 0,
-        auto_padding: bool = False,
         **kwargs
     ):
         '''Base Conv Module

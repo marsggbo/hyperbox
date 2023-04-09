@@ -85,7 +85,7 @@ class Attention(nn.Module):
         self.heads_list = keepPositiveList([int(r*heads) for r in search_ratio])
         self.dim_head_list = keepPositiveList([int(r*dim_head) for r in search_ratio])
         self.scale_list = [dh**-0.5 for dh in self.dim_head_list]
-        
+
         self.inner_dim_list = []
         self.heads_idx_map = {}
         self.dim_head_idx_map = {}
@@ -196,6 +196,15 @@ class VitEmbedding(nn.Module):
         return x
 
 
+class ResidualBlock(nn.Module):
+    def __init__(self, block):
+        super().__init__()
+        self.block = block
+
+    def forward(self, x):
+        return self.block(x) + x
+
+
 class VitBlock(nn.Module):
     def __init__(
         self,
@@ -214,16 +223,16 @@ class VitBlock(nn.Module):
         self.suffix = suffix
         attKey = f"att_{suffix}"
         ffKey = f"ff_{suffix}"
-        self.attn = PreNorm(dim, Attention(
+        self.attn = ResidualBlock(PreNorm(dim, Attention(
             dim, heads = heads, dim_head = dim_head, search_ratio=self.search_ratio,
-            dropout = dropout, suffix = attKey, mask = self.mask))
-        self.ff = PreNorm(dim, FeedForward(
+            dropout = dropout, suffix = attKey, mask = self.mask)))
+        self.ff = ResidualBlock(PreNorm(dim, FeedForward(
             dim, mlp_dim, search_ratio=self.search_ratio, dropout = dropout,
-            suffix = ffKey, mask = self.mask))
+            suffix = ffKey, mask = self.mask)))
 
     def forward(self, x):
-        x = self.attn(x) + x
-        x = self.ff(x) + x
+        x = self.attn(x)
+        x = self.ff(x)
         return x
 
 
@@ -276,10 +285,6 @@ class VisionTransformer(BaseNASNetwork):
         
         self.vit_embed = VitEmbedding(image_size, patch_size, channels, dim, emb_dropout)
 
-        if self.to_search_path:
-            runtime_depth = [v for v in range(1, depth + 1)]    
-            self.run_depth = spaces.ValueSpace(runtime_depth, key='run_depth', mask=self.mask)
-
         vit_blocks = [
             VitBlock(
                 dim=dim, heads=heads, dim_head=dim_head, mlp_dim=mlp_dim,
@@ -288,6 +293,10 @@ class VisionTransformer(BaseNASNetwork):
         self.vit_blocks = nn.Sequential(*vit_blocks)
 
         self.vit_cls_head = VitClsHead(pool, dim, num_classes)
+
+        if self.to_search_path:
+            runtime_depth = [v for v in range(1, depth + 1)]    
+            self.run_depth = spaces.ValueSpace(runtime_depth, key='run_depth', mask=self.mask)
 
     def forward(self, x):
         out = self.vit_embed(x)
