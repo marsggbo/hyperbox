@@ -70,6 +70,7 @@ class ShuffleLayer(nn.Module):
         x = x.view(batchsize, -1, height, width)
         return x
 
+
 class Base2DLayer(nn.Module):
     
     def __init__(self, in_channels, out_channels,
@@ -313,10 +314,10 @@ class MBInvertedConvLayer(nn.Module):
 
 class CalibrationLayer(nn.Module):
 
-    def __init__(self, in_channels, out_channels, stride):
+    def __init__(self, in_channels, out_channels, stride, kernel_size=1):
         super(CalibrationLayer, self).__init__()
         self.stride = stride
-        conv = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride)
+        conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=1, bias=False)
         self.conv = conv
         self.bn = nn.BatchNorm2d(out_channels)
         self.act = nn.ReLU6(inplace=True)

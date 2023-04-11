@@ -18,7 +18,8 @@ class ShuffleNASNetV2(BaseNASNetwork):
         self,
         stage_repeats: list=[4, 4, 8, 4],
         stage_out_channels: list=[-1, 16, 64, 160, 320, 640, 1024],
-        n_class: int=1000,
+        num_classes: int=1000,
+        dropout_rate: float=0.,
         mask=None
     ):
         super(ShuffleNASNetV2, self).__init__(mask)
@@ -68,10 +69,12 @@ class ShuffleNASNetV2(BaseNASNetwork):
             nn.BatchNorm2d(self.stage_out_channels[-1], affine=False),
             nn.ReLU(inplace=True),
         )
-        self.globalpool = nn.AdaptiveAvgPool2d(1)
-        self.dropout = nn.Dropout(0.1)
+        self.globalpool = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Flatten())
+        self.dropout = nn.Dropout(dropout_rate)
         self.classifier = nn.Sequential(
-            nn.Linear(self.stage_out_channels[-1], n_class, bias=False))
+            nn.Linear(self.stage_out_channels[-1], num_classes, bias=False))
         self._initialize_weights()
 
     def forward(self, x):
@@ -85,7 +88,6 @@ class ShuffleNASNetV2(BaseNASNetwork):
         x = self.globalpool(x)
 
         x = self.dropout(x)
-        x = x.contiguous().view(-1, self.stage_out_channels[-1])
         x = self.classifier(x)
         return x
 
