@@ -24,6 +24,7 @@ class Linear(FinegrainedModule):
     ) -> None:
         super(Linear, self).__init__()
         linear_kwargs = {key: getattr(self, key, None) for key in ['in_features', 'out_features', 'bias']}
+        linear_kwargs['bias'] = bias
         self.init_ops(**linear_kwargs)
         self.is_search = self.isSearchLinear()
 
@@ -128,3 +129,8 @@ class Linear(FinegrainedModule):
         parameters = [weight, bias]
         size = sum([p.numel() for p in parameters if p is not None])
         return size
+
+    def extra_repr(self) -> str:
+        return 'in_features={}, out_features={}, bias={}'.format(
+            self.in_features, self.out_features, self.bias is not None
+        )
