@@ -1,10 +1,10 @@
 
 from typing import Union, Optional, Set, Tuple
+import math
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.modules.conv import _ConvNd
 from torch.nn.common_types import _size_1_t, _size_2_t, _size_3_t
 from torch.nn.modules.utils import _single, _pair, _triple
 from torch.nn.parameter import Parameter
@@ -22,10 +22,10 @@ __all__ = [
 ]
 
 
-class BaseConvNd(_ConvNd, FinegrainedModule):
+class BaseConvNd(FinegrainedModule):
     KERNEL_TRANSFORM_MODE = 1 # None or 1 or other settings
 
-    def __init__(
+    def init(
         self,
         in_channels: Union[int, tuple, ValueSpace],
         out_channels: Union[int, tuple, ValueSpace],
@@ -49,9 +49,11 @@ class BaseConvNd(_ConvNd, FinegrainedModule):
                 For example, if kernel size is 3, the padding size is 1;
                 if kernel_size is (3,7), the padding size is (1, 3)
         '''
+        super(BaseConvNd, self).__init__()
         self.conv_dim = self.__class__.__name__[-2]
         assert self.conv_dim in ['1', '2', '3'], 'conv_dim must be 1, 2 or 3'
         self.conv_dim = int(self.conv_dim)
+        factory_kwargs = {'device': device, 'dtype': dtype}
         
         _in_channels = in_channels.max_value if isinstance(in_channels, ValueSpace) else in_channels
         _out_channels = out_channels.max_value if isinstance(out_channels, ValueSpace) else out_channels
@@ -71,43 +73,28 @@ class BaseConvNd(_ConvNd, FinegrainedModule):
                 _groups = groups.min_value
 
         self.format_args(_kernel_size, _stride, _padding, _dilation)
-        conv_kwargs = kwargs
-        conv_kwargs.update({
+        self.conv_kwargs = kwargs
+        self.conv_kwargs.update({
             'in_channels': _in_channels,
             'out_channels': _out_channels,
             'kernel_size': self.kernel_size,
             'stride': self.stride,
             'padding': self.padding,
             'dilation': self.dilation,
-            'transposed': transposed,
-            'output_padding': self.output_padding,
             'groups': _groups,
             'bias': bias,
             'padding_mode': padding_mode,
+            # 'transposed': transposed,
+            # 'output_padding': self.output_padding,
             'device': device,
             'dtype': dtype,
         })
-        super(BaseConvNd, self).__init__(**conv_kwargs)
         self.is_search = self.isSearchConv()
 
         if isinstance(kernel_size, ValueSpace) and \
             self.KERNEL_TRANSFORM_MODE is not None:
                 self.init_kernel_transform_matrix()
     
-    def weight_standardization(self, weight):
-        self.WS_EPS = 1e-8
-        weight_mean = (
-            weight.mean(dim=1, keepdim=True)
-            .mean(dim=2, keepdim=True)
-            .mean(dim=3, keepdim=True)
-        )
-        weight = weight - weight_mean
-        std = (
-            weight.view(weight.size(0), -1).std(dim=1).view(-1, 1, 1, 1)
-            + self.WS_EPS
-        )
-        weight = weight / std.expand_as(weight)
-        return weight
 
     def init_kernel_transform_matrix(self):
         # register scaling parameters
@@ -316,7 +303,7 @@ class BaseConvNd(_ConvNd, FinegrainedModule):
         return params
 
 
-class Conv1d(BaseConvNd):
+class Conv1d(nn.Conv1d, BaseConvNd):
     def __init__(
         self,
         in_channels: Union[int, tuple, ValueSpace],
@@ -333,8 +320,8 @@ class Conv1d(BaseConvNd):
         auto_padding: bool = False,
         **kwargs
     ):
-        super(Conv1d, self).__init__(in_channels, out_channels, kernel_size, stride, padding,
-            dilation, groups, bias, padding_mode, device, dtype, auto_padding, **kwargs)
+        self.init(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, padding_mode)
+        nn.Conv1d.__init__(self, **self.conv_kwargs)
 
     def format_args(
         self,
@@ -352,7 +339,7 @@ class Conv1d(BaseConvNd):
         self.conv = F.conv1d
 
 
-class Conv2d(BaseConvNd):
+class Conv2d(nn.Conv2d, BaseConvNd):
     def __init__(
         self,
         in_channels: Union[int, tuple, ValueSpace],
@@ -369,8 +356,8 @@ class Conv2d(BaseConvNd):
         dtype=None,
         **kwargs
     ):
-        super(Conv2d, self).__init__(in_channels, out_channels, kernel_size, stride, padding,
-            dilation, groups, bias, padding_mode, device, dtype, auto_padding, **kwargs)
+        self.init(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, padding_mode)
+        nn.Conv2d.__init__(self, **self.conv_kwargs)
 
     def format_args(
         self,
@@ -388,7 +375,7 @@ class Conv2d(BaseConvNd):
         self.conv = F.conv2d
 
 
-class Conv3d(BaseConvNd):
+class Conv3d(nn.Conv3d, BaseConvNd):
     def __init__(
         self,
         in_channels: Union[int, ValueSpace],
@@ -405,8 +392,8 @@ class Conv3d(BaseConvNd):
         dtype=None,
         **kwargs
     ):
-        super(Conv3d, self).__init__(in_channels, out_channels, kernel_size, stride, padding,
-            dilation, groups, bias, padding_mode, device, dtype, auto_padding, **kwargs)
+        self.init(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, padding_mode)
+        nn.Conv3d.__init__(self, **self.conv_kwargs)
 
 
     def format_args(
@@ -432,20 +419,20 @@ if __name__ == '__main__':
     from hyperbox.mutator import RandomMutator
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     steps = 50
-    # # 1d
-    # oc = ValueSpace(candidates=[3,10])
-    # ks = ValueSpace(candidates=[3,5,7])
-    # op = Conv1d(in_channels=3, out_channels=oc, kernel_size=ks, bias=True).to(device)
-    # rm = RandomMutator(op)
-    # print('*'*80)
-    # x = torch.rand(2,3,16).to(device)
-    # start = time()
-    # for i in range(steps):
-    #     rm.reset()
-    #     y = op(x)
-    #     # print(y.shape)
-    # end = time()
-    # print(f"testing 1d {op}, cost {end-start:.2f} s")
+    # 1d
+    oc = ValueSpace(candidates=[3,10])
+    ks = ValueSpace(candidates=[3,5,7])
+    op = Conv1d(in_channels=3, out_channels=oc, kernel_size=ks, bias=True).to(device)
+    rm = RandomMutator(op)
+    print('*'*80)
+    x = torch.rand(2,3,16).to(device)
+    start = time()
+    for i in range(steps):
+        rm.reset()
+        y = op(x)
+        # print(y.shape)
+    end = time()
+    print(f"testing 1d {op}, cost {end-start:.2f} s")
 
     # 2d
     oc = ValueSpace(candidates=[9,18])
@@ -462,6 +449,7 @@ if __name__ == '__main__':
         # print(y.shape)
     end = time()
     print(f"testing 2d {op}, cost {end-start:.2f} s")
+
     # 3d
     oc = ValueSpace(candidates=[3,10])
     ks = ValueSpace(candidates=[3,5,7])

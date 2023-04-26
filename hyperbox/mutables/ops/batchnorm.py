@@ -2,7 +2,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.modules.batchnorm import _BatchNorm
 
 from hyperbox.mutables.spaces import ValueSpace
 
@@ -18,17 +17,7 @@ __all__ = [
 ]
 
 
-class BaseBatchNorm(_BatchNorm, FinegrainedModule):
-    def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True, track_running_stats=True):
-        FinegrainedModule.__init__(self)
-        _BatchNorm.__init__(
-            self, self.num_features, self.eps, self.momentum, self.affine, self.track_running_stats)
-        self.is_search = is_searchable(getattr(self.value_spaces, 'num_features', None))
-
-    ###########################################
-    # property
-    ###########################################
-
+class BaseBatchNorm(FinegrainedModule):
     @property
     def params(self):
         '''The number of the trainable parameters'''
@@ -41,14 +30,6 @@ class BaseBatchNorm(_BatchNorm, FinegrainedModule):
             bn_bias = bn_bias[:num_features]
         size = sum([p.numel() for p in [bn_weight, bn_bias] if p is not None])
         return size
-
-    def forward(self, x):
-        out = None
-        if not self.is_search:
-            out = _BatchNorm.forward(self, x)
-        else:
-            out = self.forward_bn(x)
-        return out
 
     def forward_bn(self, x):
         num_features = getattr(self.value_spaces, 'num_features', self.num_features)
@@ -78,31 +59,46 @@ class BaseBatchNorm(_BatchNorm, FinegrainedModule):
             module.running_var.data = torch.index_select(module.running_var.data, 0, idx)
 
 
-class BatchNorm1d(BaseBatchNorm):
+class BatchNorm1d(nn.BatchNorm1d, BaseBatchNorm):
     def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True, track_running_stats=True):
+        _num_features = num_features.max_value if isinstance(num_features, ValueSpace) else num_features
         super(BatchNorm1d, self).__init__(
-            num_features, eps, momentum, affine, track_running_stats)
+            _num_features, eps, momentum, affine, track_running_stats)
+        self.is_search = is_searchable(getattr(self.value_spaces, 'num_features', None))
 
-    def _check_input_dim(self, input):
-        if input.dim() != 2 and input.dim() != 3:
-            raise ValueError(
-                "expected 2D or 3D input (got {}D input)".format(input.dim())
-            )
+    def forward(self, x):
+        if not self.is_search:
+            out = nn.BatchNorm1d.forward(self, x)
+        else:
+            out = self.forward_bn(x)
+        return out
 
-class BatchNorm2d(BaseBatchNorm):
+
+class BatchNorm2d(nn.BatchNorm2d, BaseBatchNorm):
     def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True, track_running_stats=True):
+        _num_features = num_features.max_value if isinstance(num_features, ValueSpace) else num_features
         super(BatchNorm2d, self).__init__(
-            num_features, eps, momentum, affine, track_running_stats)
+            _num_features, eps, momentum, affine, track_running_stats)
+        self.is_search = is_searchable(getattr(self.value_spaces, 'num_features', None))
 
-    def _check_input_dim(self, input):
-        if input.dim() != 4:
-            raise ValueError("expected 4D input (got {}D input)".format(input.dim()))
+    def forward(self, x):
+        if not self.is_search:
+            out = nn.BatchNorm2d.forward(self, x)
+        else:
+            out = self.forward_bn(x)
+        return out
 
-class BatchNorm3d(BaseBatchNorm):
+
+class BatchNorm3d(nn.BatchNorm3d, BaseBatchNorm):
     def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True, track_running_stats=True):
+        _num_features = num_features.max_value if isinstance(num_features, ValueSpace) else num_features
         super(BatchNorm3d, self).__init__(
-            num_features, eps, momentum, affine, track_running_stats)
+            _num_features, eps, momentum, affine, track_running_stats)
+        self.is_search = is_searchable(getattr(self.value_spaces, 'num_features', None))
 
-    def _check_input_dim(self, input):
-        if input.dim() != 5:
-            raise ValueError("expected 5D input (got {}D input)".format(input.dim()))
+    def forward(self, x):
+        if not self.is_search:
+            out = nn.BatchNorm3d.forward(self, x)
+        else:
+            out = self.forward_bn(x)
+        return out
