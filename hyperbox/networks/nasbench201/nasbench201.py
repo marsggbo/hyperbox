@@ -77,7 +77,6 @@ class NASBench201Network(BaseNASNetwork):
         )
         self.global_pooling = nn.AdaptiveAvgPool2d(1)
         self.classifier = nn.Linear(C_prev, self.num_classes)
-        self.init_weights()
 
     def forward(self, inputs):
         out = self.stem(inputs)
@@ -479,5 +478,6 @@ if __name__ == "__main__":
         print(net.arch_size((2,3,64,64)))
         arch_json = net.arch 
         acc = net.query_by_key()
+        print(acc)
         for t in query_nb201_trial_stats(arch_json, 200, 'cifar10'):
             pprint.pprint(t)

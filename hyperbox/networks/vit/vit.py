@@ -191,7 +191,7 @@ class VitEmbedding(nn.Module):
 
         cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b = b)
         x = torch.cat((cls_tokens, x), dim=1)
-        x += self.position_embeddings[:, :(n + 1)]
+        x = x + self.position_embeddings
         x = self.dropout(x)
         return x
 
