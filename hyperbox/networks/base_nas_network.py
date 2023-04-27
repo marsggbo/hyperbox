@@ -173,14 +173,20 @@ class BaseNASNetwork(nn.Module):
                     if dim >= 3:
                         # e.g., conv weight
                         _out, _in, k = shape[:3]
-                        k_larger = state_dict[key].shape[-1]
-                        start, end = sub_filter_start_end(k_larger, k)
-                        if dim == 3: # conv1d
-                            model_dict[key].data = state_dict[key].data[:_out, :_in, start:end]
-                        elif dim == 4: #conv2d
-                            model_dict[key].data = state_dict[key].data[:_out, :_in, start:end, start:end]
-                        else:
-                            model_dict[key].data = state_dict[key].data[:_out, :_in, start:end, start:end, start:end]
+                        weight = state_dict[key].data[:_out, :_in, ...]
+                        if hasattr(module.value_spaces, 'kernel_size'):
+                            ks_set = module.value_spaces['kernel_size'].candidates_original
+                            for i in range(len(ks_set)-1, 0, -1):
+                                src_ks = ks_set[i]
+                                if src_ks <= k:
+                                    # if src_ks <= k, then no transformation is needed
+                                    break
+                                target_ks = ks_set[i - 1]
+                                transform_name = f"{src_ks}to{target_ks}_matrix"
+                                matrix_name = f"{name}.{transform_name}"
+                                getattr(module, transform_name).data = state_dict[matrix_name].data
+                            weight = module.transform_kernel_size(weight, k, ks_set[-1])
+                        model_dict[key].data = weight.data
         super(BaseNASNetwork, self).load_state_dict(model_dict, **kwargs, strict=False)
 
     def init_weights(self):

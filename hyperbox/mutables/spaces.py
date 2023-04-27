@@ -218,6 +218,8 @@ class CategoricalSpace(Mutable):
 
     @property
     def max_value(self):
+        if not self.is_search:
+            return self.value
         try:
             value = max(self.candidates_original)
             return value
@@ -228,6 +230,8 @@ class CategoricalSpace(Mutable):
 
     @property
     def min_value(self):
+        if not self.is_search:
+            return self.value
         try:
             value = min(self.candidates_original)
             return value

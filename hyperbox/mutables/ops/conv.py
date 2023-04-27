@@ -202,20 +202,23 @@ class BaseConvNd(FinegrainedModule):
         filters = torch.cat(filter_crops, dim=0)
         return filters
 
-    def transform_kernel_size(self, filters):        
+    def transform_kernel_size(self, filters, sub_kernel_size=None, max_kernel_size=None):
         if self.KERNEL_TRANSFORM_MODE is None:
             # print('vanilla transform_kernel_size')
-            sub_kernel_size = self.value_spaces['kernel_size'].value
+            if sub_kernel_size is None:
+                sub_kernel_size = self.value_spaces['kernel_size'].value
             start, end = sub_filter_start_end(self.kernel_size, sub_kernel_size)
             if self.conv_dim==1: filters = filters[:, :, start:end]
             if self.conv_dim==2: filters = filters[:, :, start:end, start:end]
             if self.conv_dim==3: filters = filters[:, :, start:end, start:end, start:end]
         else:
-            max_kernel_size = self.kernel_size
+            if max_kernel_size is None:
+                max_kernel_size = self.kernel_size
             if isinstance(max_kernel_size, (tuple, list)):
                 max_kernel_size = max(max_kernel_size)
-            sub_kernel_size = self.value_spaces['kernel_size'].value
-            ks_set = self.value_spaces['kernel_size'].candidates
+            if sub_kernel_size is None:
+                sub_kernel_size = self.value_spaces['kernel_size'].value
+            ks_set = self.value_spaces['kernel_size'].candidates_original
             if sub_kernel_size < max_kernel_size:
                 start_filter = filters
                 for i in range(len(ks_set)-1, 0, -1):
@@ -496,3 +499,18 @@ if __name__ == '__main__':
         # print(y.shape)
     end = time()
     print(f"testing 3d {op}, cost {end-start:.2f} s")
+
+    from hyperbox.networks.ofa import OFAMobileNetV3
+    from hyperbox.mutator import RandomMutator
+    net = OFAMobileNetV3()
+    rm = RandomMutator(net)
+    mask = rm.reset()
+    subnet = net.build_subnet(mask=mask)
+    net.eval()
+    subnet.eval()
+    with torch.no_grad():
+        for i in range(10):
+            x = torch.rand(2,3,32,32)
+            y1 = net(x)
+            y2 = subnet(x)
+            assert torch.allclose(y1, y2), 'error'
