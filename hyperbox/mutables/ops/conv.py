@@ -61,7 +61,6 @@ class BaseConvNd(FinegrainedModule):
         _stride = stride.max_value if isinstance(stride, ValueSpace) else stride
         _padding = padding.max_value if isinstance(padding, ValueSpace) else padding
         _dilation = dilation.min_value if isinstance(dilation, ValueSpace) else dilation
-
         _groups = groups
         if isinstance(groups, ValueSpace):
             if isinstance(in_channels, ValueSpace):
@@ -84,19 +83,17 @@ class BaseConvNd(FinegrainedModule):
             'groups': _groups,
             'bias': bias,
             'padding_mode': padding_mode,
-            # 'transposed': transposed,
-            # 'output_padding': self.output_padding,
             'device': device,
             'dtype': dtype,
+            # 'transposed': transposed,
+            # 'output_padding': self.output_padding,
         })
         self.is_search = self.isSearchConv()
-
-        if isinstance(kernel_size, ValueSpace) and \
-            self.KERNEL_TRANSFORM_MODE is not None:
-                self.init_kernel_transform_matrix()
     
-
-    def init_kernel_transform_matrix(self):
+    def init_kernel_transform_matrix(self, kernel_size):
+        if not isinstance(kernel_size, ValueSpace) or \
+            self.KERNEL_TRANSFORM_MODE is None:
+                return
         # register scaling parameters
         # 7to5_matrix, 5to3_matrix
         kernel_size = self.value_spaces['kernel_size'].candidates_original
@@ -159,21 +156,6 @@ class BaseConvNd(FinegrainedModule):
     # - forward_conv
     #   - transform_kernel_size
     ###########################################
-
-    def forward(self, x):
-        out = None
-        if not self.is_search:
-            padding = self.padding
-            if self.auto_padding:
-                kernel_size = self.weight.shape[2:]
-                padding = []
-                for k in kernel_size:
-                    padding.append(k//2)
-            out = self.conv(x, self.weight, self.bias, self.stride,
-                padding, self.dilation, self.groups)
-        else:
-            out = self.forward_conv(x)
-        return out
 
     def forward_conv(self, x):
         filters = self.weight.contiguous()
@@ -323,6 +305,22 @@ class Conv1d(nn.Conv1d, BaseConvNd):
         self.init(in_channels, out_channels, kernel_size, stride, padding,
             dilation, groups, bias, padding_mode, auto_padding, device, dtype, **kwargs)
         nn.Conv1d.__init__(self, **self.conv_kwargs)
+        self.init_kernel_transform_matrix(kernel_size)
+
+    def forward(self, x):
+        out = None
+        if not self.is_search:
+            padding = self.padding
+            if self.auto_padding:
+                kernel_size = self.weight.shape[2:]
+                padding = []
+                for k in kernel_size:
+                    padding.append(k//2)
+                self.padding = padding
+            out = nn.Conv1d.forward(self, x)
+        else:
+            out = self.forward_conv(x)
+        return out
 
     def format_args(
         self,
@@ -360,6 +358,7 @@ class Conv2d(nn.Conv2d, BaseConvNd):
         self.init(in_channels, out_channels, kernel_size, stride, padding,
             dilation, groups, bias, padding_mode, auto_padding, device, dtype, **kwargs)
         nn.Conv2d.__init__(self, **self.conv_kwargs)
+        self.init_kernel_transform_matrix(kernel_size)
 
     def format_args(
         self,
@@ -397,7 +396,7 @@ class Conv3d(nn.Conv3d, BaseConvNd):
         self.init(in_channels, out_channels, kernel_size, stride, padding,
             dilation, groups, bias, padding_mode, auto_padding, device, dtype, **kwargs)
         nn.Conv3d.__init__(self, **self.conv_kwargs)
-
+        self.init_kernel_transform_matrix(kernel_size)
 
     def format_args(
         self, 
@@ -425,7 +424,7 @@ if __name__ == '__main__':
     # 1d
     oc = ValueSpace(candidates=[3,10])
     ks = ValueSpace(candidates=[3,5,7])
-    op = Conv1d(in_channels=3, out_channels=oc, kernel_size=ks, bias=True).to(device)
+    op = Conv1d(in_channels=3, out_channels=oc, kernel_size=ks, bias=True, auto_padding=True).to(device)
     rm = RandomMutator(op)
     print('*'*80)
     x = torch.rand(2,3,16).to(device)
