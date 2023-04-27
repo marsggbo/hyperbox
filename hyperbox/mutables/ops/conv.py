@@ -360,6 +360,21 @@ class Conv2d(nn.Conv2d, BaseConvNd):
         nn.Conv2d.__init__(self, **self.conv_kwargs)
         self.init_kernel_transform_matrix(kernel_size)
 
+    def forward(self, x):
+        out = None
+        if not self.is_search:
+            padding = self.padding
+            if self.auto_padding:
+                kernel_size = self.weight.shape[2:]
+                padding = []
+                for k in kernel_size:
+                    padding.append(k//2)
+                self.padding = padding
+            out = nn.Conv2d.forward(self, x)
+        else:
+            out = self.forward_conv(x)
+        return out
+
     def format_args(
         self,
         kernel_size: _size_2_t,
@@ -397,6 +412,21 @@ class Conv3d(nn.Conv3d, BaseConvNd):
             dilation, groups, bias, padding_mode, auto_padding, device, dtype, **kwargs)
         nn.Conv3d.__init__(self, **self.conv_kwargs)
         self.init_kernel_transform_matrix(kernel_size)
+
+    def forward(self, x):
+        out = None
+        if not self.is_search:
+            padding = self.padding
+            if self.auto_padding:
+                kernel_size = self.weight.shape[2:]
+                padding = []
+                for k in kernel_size:
+                    padding.append(k//2)
+                self.padding = padding
+            out = nn.Conv3d.forward(self, x)
+        else:
+            out = self.forward_conv(x)
+        return out
 
     def format_args(
         self, 
