@@ -36,9 +36,9 @@ class BaseConvNd(FinegrainedModule):
         groups: Union[int, ValueSpace],
         bias: bool,
         padding_mode: str,
+        auto_padding: bool = False,
         device=None,
         dtype=None,
-        auto_padding: bool = False,
         transposed: bool = False,
         output_padding: Tuple[int, ...] = 0,
         **kwargs
@@ -320,7 +320,8 @@ class Conv1d(nn.Conv1d, BaseConvNd):
         auto_padding: bool = False,
         **kwargs
     ):
-        self.init(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, padding_mode)
+        self.init(in_channels, out_channels, kernel_size, stride, padding,
+            dilation, groups, bias, padding_mode, auto_padding, device, dtype, **kwargs)
         nn.Conv1d.__init__(self, **self.conv_kwargs)
 
     def format_args(
@@ -356,7 +357,8 @@ class Conv2d(nn.Conv2d, BaseConvNd):
         dtype=None,
         **kwargs
     ):
-        self.init(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, padding_mode)
+        self.init(in_channels, out_channels, kernel_size, stride, padding,
+            dilation, groups, bias, padding_mode, auto_padding, device, dtype, **kwargs)
         nn.Conv2d.__init__(self, **self.conv_kwargs)
 
     def format_args(
@@ -392,7 +394,8 @@ class Conv3d(nn.Conv3d, BaseConvNd):
         dtype=None,
         **kwargs
     ):
-        self.init(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, padding_mode)
+        self.init(in_channels, out_channels, kernel_size, stride, padding,
+            dilation, groups, bias, padding_mode, auto_padding, device, dtype, **kwargs)
         nn.Conv3d.__init__(self, **self.conv_kwargs)
 
 
