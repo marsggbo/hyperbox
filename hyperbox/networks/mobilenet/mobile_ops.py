@@ -14,6 +14,9 @@ OPS = {
     '3x3_MBConv4': lambda in_C, out_C, stride: MBInvertedConvLayer(in_C, out_C, 3, stride, 4),
     '3x3_MBConv5': lambda in_C, out_C, stride: MBInvertedConvLayer(in_C, out_C, 3, stride, 5),
     '3x3_MBConv6': lambda in_C, out_C, stride: MBInvertedConvLayer(in_C, out_C, 3, stride, 6),
+    '3x3_MBConv7': lambda in_C, out_C, stride: MBInvertedConvLayer(in_C, out_C, 3, stride, 7),
+    '3x3_MBConv8': lambda in_C, out_C, stride: MBInvertedConvLayer(in_C, out_C, 3, stride, 8),
+    '3x3_MBConv9': lambda in_C, out_C, stride: MBInvertedConvLayer(in_C, out_C, 3, stride, 9),
     '5x5_MBConv1': lambda in_C, out_C, stride: MBInvertedConvLayer(in_C, out_C, 5, stride, 1),
     '5x5_MBConv2': lambda in_C, out_C, stride: MBInvertedConvLayer(in_C, out_C, 5, stride, 2),
     '5x5_MBConv3': lambda in_C, out_C, stride: MBInvertedConvLayer(in_C, out_C, 5, stride, 3),
@@ -317,7 +320,7 @@ class CalibrationLayer(nn.Module):
     def __init__(self, in_channels, out_channels, stride, kernel_size=1):
         super(CalibrationLayer, self).__init__()
         self.stride = stride
-        conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=1, bias=False)
+        conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=kernel_size//2, bias=False)
         self.conv = conv
         self.bn = nn.BatchNorm2d(out_channels)
         self.act = nn.ReLU6(inplace=True)

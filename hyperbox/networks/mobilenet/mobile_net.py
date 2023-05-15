@@ -65,8 +65,9 @@ class MobileNet(BaseNASNetwork):
                     stride = s
                 else:
                     stride = 1
-                calibrate_op = CalibrationLayer(input_channel, width, stride)
-                blocks.append(calibrate_op)
+                if input_channel != width:
+                    calibrate_op = CalibrationLayer(input_channel, width, stride)
+                    blocks.append(calibrate_op)
                 op_candidates = [OPS[op](width, width, 1) for op in self.op_list]
                 conv_op = OperationSpace(op_candidates, return_mask=True, key="s{}_c{}".format(stage_cnt, i), mask=self.mask)
                 # shortcut
