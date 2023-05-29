@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from hyperbox.mutables.spaces import InputSpace, OperationSpace, ValueSpace
 from hyperbox.mutator.default_mutator import Mutator
 from hyperbox.mutator.random_mutator import RandomMutator
-from hyperbox.mutator.utils import CARS_NSGA, NonDominatedSorting, nsga2_select
+from hyperbox.mutator.utils import nsga2_select, non_dominated_sort
 from hyperbox.utils.calc_model_size import flops_size_counter
 from hyperbox.utils.logger import get_logger
 
@@ -44,9 +44,6 @@ class EvolutionMutator(RandomMutator):
     def __init__(
         self,
         model,
-        eval_func: callable, # evaluation function of arch performance
-        eval_kwargs: dict,   # kwargs of eval_func
-        eval_metrics_order: dict, # order of eval metrics, e.g. {'accuracy': 'max', 'f1-score': 'max'}
         warmup_epochs: int=0,
         evolution_epochs: int=100,
         population_num: int=50,
@@ -56,23 +53,11 @@ class EvolutionMutator(RandomMutator):
         crossover_prob: float=0.3,
         mutation_num: Optional[Union[int, float]]=0.5,
         mutation_prob: float=0.3,
-        flops_limit: Optional[Union[list, float]]=None, # MFLOPs, None means no limit
-        size_limit: Optional[Union[list, float]]=None, # MB, None means no limit
-        log_dir: str='evolution_logs',
         topk: Optional[Union[int, float]]=10,
-        resume_from_checkpoint: Optional[str]=None,
-        to_save_checkpoint: bool=True,
-        to_plot_pareto: bool=True,
-        figname: str='evolution_pareto.pdf',
         *args, **kwargs
     ):
         '''Init Args:
             model: model (Supernet) to be searched
-
-            ####Evaluation function####
-            eval_func: evaluation function of arch performance
-            eval_kwargs: kwargs of eval_func, must contain arguments of `model` and `mutator`
-            eval_metrics_order: order of eval metrics, e.g. {'accuracy': 'max', 'f1-score': 'max'}
 
             ####Evolution parameters####
             warmup_epochs: number of warmup epochs
@@ -86,24 +71,12 @@ class EvolutionMutator(RandomMutator):
             crossover_prob: crossover probability
             mutation_num: mutation num for each epoch
             mutation_prob: mutation probability
-            flops_limit: flops limit for each epoch
-            size_limit: size limit for each epoch
-
-            ####Logging parameters####
-            log_dir: log directory
             topk: top k candidates
-            resume_from_checkpoint: resume from checkpoint
-            to_save_checkpoint: save checkpoint or not
-            to_plot_pareto: plot pareto or not
-            figname: pareto figure name
         '''
         super(EvolutionMutator, self).__init__(model)
         if selection_alg=='best' and len(eval_metrics_order)>1:
             raise ValueError('`selection_alg` must be `nsga2` when there are more than one eval metrics')
             
-        self.eval_func = eval_func
-        self.eval_kwargs = eval_kwargs
-        self.eval_metrics_order = eval_metrics_order
         self.warmup_epochs = warmup_epochs
         self.evolution_epochs = evolution_epochs
         self.selection_alg = selection_alg 
@@ -114,15 +87,7 @@ class EvolutionMutator(RandomMutator):
         self.mutation_num = get_int_num(mutation_num, population_num)
         self.mutation_prob = mutation_prob
         self.random_num = population_num - (self.crossover_num + self.mutation_num)
-        self.flops_limit = flops_limit
-        self.size_limit = size_limit
-        self.log_dir = os.path.join(os.getcwd(), log_dir)
-        self.checkpoint_name = os.path.join(self.log_dir, 'checkpoint.pth.tar')
         self.topk = get_int_num(topk, population_num)
-        self.resume_from_checkpoint = resume_from_checkpoint
-        self.to_save_checkpoint = to_save_checkpoint
-        self.to_plot_pareto = to_plot_pareto
-        self.figname = figname
 
         self.memory = []
         self.vis_dict = {}
@@ -159,7 +124,50 @@ class EvolutionMutator(RandomMutator):
         log.info(f'load checkpoint from {self.resume_from_checkpoint}')
         return True
 
-    def search(self):
+    def search(
+        self,
+        eval_func: callable, # evaluation function of arch performance
+        eval_kwargs: dict,   # kwargs of eval_func
+        eval_metrics_order: dict, # order of eval metrics, e.g. {'accuracy': 'max', 'f1-score': 'max'}
+        flops_limit: Optional[Union[list, float]]=None, # MFLOPs, None means no limit
+        size_limit: Optional[Union[list, float]]=None, # MB, None means no limit
+        log_dir: str='evolution_logs',
+        resume_from_checkpoint: Optional[str]=None,
+        to_save_checkpoint: bool=True,
+        to_plot_pareto: bool=True,
+        figname: str='evolution_pareto.pdf',
+    ):
+        '''Args:        
+            ####Evaluation function####
+            eval_func: evaluation function of arch performance
+            eval_kwargs: kwargs of eval_func, must contain arguments of `model` and `mutator`
+            eval_metrics_order: order of eval metrics, e.g. {'accuracy': 'max', 'f1-score': 'max'}
+
+            ####Limitation####
+            flops_limit: flops limit for each epoch
+            size_limit: size limit for each epoch
+
+            ####Logging parameters####
+            log_dir: log directory
+            resume_from_checkpoint: resume from checkpoint
+            to_save_checkpoint: save checkpoint or not
+            to_plot_pareto: plot pareto or not
+            figname: pareto figure name
+        '''
+        self.eval_func = eval_func
+        self.eval_kwargs = eval_kwargs
+        self.eval_metrics_order = eval_metrics_order
+
+        self.flops_limit = flops_limit
+        self.size_limit = size_limit
+
+        self.log_dir = os.path.join(os.getcwd(), log_dir)
+        self.resume_from_checkpoint = resume_from_checkpoint
+        self.to_save_checkpoint = to_save_checkpoint
+        self.to_plot_pareto = to_plot_pareto
+        self.figname = figname
+        self.checkpoint_name = os.path.join(self.log_dir, 'checkpoint.pth.tar')
+
         log.info(f'''
         Evolution Mutator start searching for {self.evolution_epochs} epochs with parameters:
             - population_num: {self.population_num}
@@ -217,21 +225,17 @@ class EvolutionMutator(RandomMutator):
                 objx = np.array([cand[name_objx] for cand in self.vis_dict.values() if 'is_filtered' not in cand])
                 indices = np.argsort(objx)
                 objx = objx[indices]
+                objx_for_rank = objx.reshape(-1, 1)
 
-                objys = []
-                for name_objy in self.eval_metrics_order:
+                for name_objy, order_objy in self.eval_metrics_order.items():
                     objy = np.array([cand['performance'][name_objy] for cand in self.vis_dict.values() if 'is_filtered' not in cand])
                     objy = objy[indices]
 
-                    # method1: pareto
-                    # pareto_keys = [cand['encoding'] for cand in self.keep_top_k[self.topk]]
-                    # pareto_indices = [i for i, encoding in enumerate(self.vis_dict.keys()) if encoding in pareto_keys]
-                    # pareto_indices = np.array(pareto_indices)
-                    # resort_by_size_indices = objx[pareto_indices].argsort()
-                    # pareto_indices = pareto_indices[resort_by_size_indices]
-
-                    # method2: pareto
-                    pareto_lists = NonDominatedSorting( np.vstack( (1/objy, objx) ) )
+                    objy_for_rank = objy
+                    if order_objy == 'max':
+                        objy_for_rank = -1 * objy
+                    objy_for_rank = objy_for_rank.reshape(-1, 1)
+                    pareto_lists = non_dominated_sort( np.hstack( (objy_for_rank, objx_for_rank) ) )
                     pareto_indices = pareto_lists[0]
                     log.info(f"Information of pareto models:")
                     for i, idx in enumerate(pareto_indices):
@@ -240,6 +244,7 @@ class EvolutionMutator(RandomMutator):
                     self.plot_pareto_fronts(
                         objx, objy, pareto_indices, name_objx, name_objy, figname=f'pareto_{name_objx}_{name_objy}.pdf'
                     )
+        return self.keep_top_k[self.topk]
 
     def get_random(self, num):
         log.info('random select ........')
@@ -348,15 +353,21 @@ class EvolutionMutator(RandomMutator):
                     value = cand['performance'][metric_name]
                     if metric_order == 'max':
                         value = -1 * value # nsga2 is a minimization algorithm, the smaller the better
-                    cand_targets.append(cand['performance'][metric_name])
+                    cand_targets.append(value)
                 targets.append(cand_targets)
             targets = np.array(targets) # (num, num_metrics)
             if self.flops_limit is not None:
                 constraints.append(np.array([cand['flops'] for cand in tmp]).reshape(-1, 1))
             if self.size_limit is not None:
                 constraints.append(np.array([cand['size'] for cand in tmp]).reshape(-1, 1))
-            constraints = np.concatenate(constraints, 1) # (num, num_objectives)
-            fitnesses = np.hstack(tuple([targets, constraints]))
+            if len(constraints) == 0:
+                fitnesses = targets
+            elif len(constraints) == 1:
+                constraints = np.array(constraints).reshape(-1, 1)
+                fitnesses = np.hstack((targets, constraints))
+            else:
+                constraints = np.concatenate(constraints, 1) # (num, num_objectives)
+                fitnesses = np.hstack((targets, constraints))
             indices = nsga2_select(fitnesses, k)
             self.keep_top_k[k] = [tmp[idx] for idx in indices]
 
@@ -506,8 +517,9 @@ if __name__ == '__main__':
         # 'best'
     ]
     eval_metrics_order_list = [
-        # {'acc': 'max'}, 
-        {'acc': 'max', 'loss': 'min'}]
+        {'acc': 'max'}, 
+        # {'acc': 'max', 'loss': 'min'}
+    ]
 
     for alg in selection_alg_list:
         for order in eval_metrics_order_list:
@@ -517,27 +529,32 @@ if __name__ == '__main__':
         
             em = EvolutionMutator(
                 net,
-                eval_func=eval_func,
-                eval_kwargs={'da':352,'gs':32,'gsrh':764},
-                eval_metrics_order=order,
                 warmup_epochs=0,
-                evolution_epochs=1,
-                population_num=10,
+                evolution_epochs=2,
+                population_num=30,
                 selection_alg=alg,
                 selection_num=0.8,
                 crossover_num=0.2,
                 crossover_prob=0.3,
                 mutation_num=0.2,
                 mutation_prob=0.3,
-                flops_limit=330, # MFLOPs
-                size_limit=50, # MB
+                topk=5,
+            )
+
+            topk = em.search(
+                eval_func=eval_func,
+                eval_kwargs={'da':352,'gs':32,'gsrh':764},
+                eval_metrics_order=order,
+                # flops_limit=330, # MFLOPs
+                # size_limit=50, # MB
                 log_dir='evolution_logs',
-                topk=10,
                 to_save_checkpoint=True,
                 to_plot_pareto=True,
                 figname='evolution_pareto.pdf'
             )
-
-
-            em.search()
-        
+            for i, subnet_info in enumerate(topk):
+                acc = subnet_info['performance']['acc']
+                size = subnet_info['size']
+                flops = subnet_info['flops']
+                loss = subnet_info['performance']['loss']
+                print(f'{i}: acc={acc:.2f}, loss={loss:.2f}, size={size:.2f}MB, flops={flops:.2f}MFlops')
