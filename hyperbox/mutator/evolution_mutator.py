@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from hyperbox.mutables.spaces import InputSpace, OperationSpace, ValueSpace
 from hyperbox.mutator.default_mutator import Mutator
 from hyperbox.mutator.random_mutator import RandomMutator
-from hyperbox.mutator.utils import CARS_NSGA, NonDominatedSorting
+from hyperbox.mutator.utils import CARS_NSGA, NonDominatedSorting, nsga2_select
 from hyperbox.utils.calc_model_size import flops_size_counter
 from hyperbox.utils.logger import get_logger
 
@@ -44,6 +44,9 @@ class EvolutionMutator(RandomMutator):
     def __init__(
         self,
         model,
+        eval_func: callable, # evaluation function of arch performance
+        eval_kwargs: dict,   # kwargs of eval_func
+        eval_metrics_order: dict, # order of eval metrics, e.g. {'accuracy': 'max', 'f1-score': 'max'}
         warmup_epochs: int=0,
         evolution_epochs: int=100,
         population_num: int=50,
@@ -53,8 +56,8 @@ class EvolutionMutator(RandomMutator):
         crossover_prob: float=0.3,
         mutation_num: Optional[Union[int, float]]=0.5,
         mutation_prob: float=0.3,
-        flops_limit: Optional[Union[list, float]]=5000*1e6, # MFLOPs
-        size_limit: Optional[Union[list, float]]=800, # MB
+        flops_limit: Optional[Union[list, float]]=None, # MFLOPs, None means no limit
+        size_limit: Optional[Union[list, float]]=None, # MB, None means no limit
         log_dir: str='evolution_logs',
         topk: Optional[Union[int, float]]=10,
         resume_from_checkpoint: Optional[str]=None,
@@ -63,15 +66,20 @@ class EvolutionMutator(RandomMutator):
         figname: str='evolution_pareto.pdf',
         *args, **kwargs
     ):
-        '''
-        Args:
+        '''Init Args:
             model: model (Supernet) to be searched
+
+            ####Evaluation function####
+            eval_func: evaluation function of arch performance
+            eval_kwargs: kwargs of eval_func, must contain arguments of `model` and `mutator`
+            eval_metrics_order: order of eval metrics, e.g. {'accuracy': 'max', 'f1-score': 'max'}
+
+            ####Evolution parameters####
             warmup_epochs: number of warmup epochs
             evolution_epochs: number of evolution epochs
             selection_alg: 'best' or 'nsga2'
                 - best: select the best candidate
                 - nsga2: select the best candidate according to NSGA-II
-                - cars: select the best candidate according to CARS
             selection_num: select num for each epoch
             population_num: population num for each epoch
             crossover_num: crossover num for each epoch
@@ -80,6 +88,8 @@ class EvolutionMutator(RandomMutator):
             mutation_prob: mutation probability
             flops_limit: flops limit for each epoch
             size_limit: size limit for each epoch
+
+            ####Logging parameters####
             log_dir: log directory
             topk: top k candidates
             resume_from_checkpoint: resume from checkpoint
@@ -88,6 +98,12 @@ class EvolutionMutator(RandomMutator):
             figname: pareto figure name
         '''
         super(EvolutionMutator, self).__init__(model)
+        if selection_alg=='best' and len(eval_metrics_order)>1:
+            raise ValueError('`selection_alg` must be `nsga2` when there are more than one eval metrics')
+            
+        self.eval_func = eval_func
+        self.eval_kwargs = eval_kwargs
+        self.eval_metrics_order = eval_metrics_order
         self.warmup_epochs = warmup_epochs
         self.evolution_epochs = evolution_epochs
         self.selection_alg = selection_alg 
@@ -114,7 +130,7 @@ class EvolutionMutator(RandomMutator):
         self.epoch = 0
         self.candidates = []
 
-    def save_checkpoint(self):
+    def save_checkpoint(self, epoch=None):
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
         info = {}
@@ -123,8 +139,12 @@ class EvolutionMutator(RandomMutator):
         info['vis_dict'] = self.vis_dict
         info['keep_top_k'] = self.keep_top_k
         info['epoch'] = self.epoch
-        torch.save(info, self.checkpoint_name)
-        log.info(f'save checkpoint to {self.checkpoint_name}')
+        if epoch is not None:
+            ckpt_name = f"{self.log_dir}/checkpoint_{epoch}.pth.tar"
+        else:
+            ckpt_name = f"{self.log_dir}/{self.checkpoint_name}"
+        torch.save(info, ckpt_name)
+        log.info(f'save checkpoint to {ckpt_name}')
 
     def load_checkpoint(self):
         if not os.path.exists(self.resume_from_checkpoint):
@@ -136,7 +156,7 @@ class EvolutionMutator(RandomMutator):
         self.keep_top_k = info['keep_top_k']
         self.epoch = info['epoch']
 
-        log.info(f'load checkpoint from {self.checkpoint_name}')
+        log.info(f'load checkpoint from {self.resume_from_checkpoint}')
         return True
 
     def search(self):
@@ -163,17 +183,17 @@ class EvolutionMutator(RandomMutator):
             for cand in self.candidates:
                 self.memory[-1].append(cand)
 
-            self.update_top_k(
-                self.candidates, k=self.selection_num, key=lambda x: x['performance'])
-            self.update_top_k(
-                self.candidates, k=self.topk, key=lambda x: x['performance'])
+            # selection step
+            self.update_top_k(self.candidates, k=self.selection_num)
+            # update top k individuals globally
+            self.update_top_k(self.candidates, k=self.topk)
 
             log.info(f'evolution epoch {self.epoch}/{self.evolution_epochs}: top {self.topk} results:')
             for i, cand in enumerate(self.keep_top_k[self.topk]):
                 encoding = cand["encoding"]
                 performance = cand['performance']
                 size = cand['size']
-                log.info(f'No.{i + 1} {encoding} Top-1 performance(acc) = {performance} size={size} MB')
+                log.info(f'No.{i + 1} {encoding} performance={performance} size={size} MB')
 
             mutation = self.get_mutation(
                 self.selection_num, self.mutation_num, self.mutation_prob)
@@ -185,32 +205,41 @@ class EvolutionMutator(RandomMutator):
 
             self.epoch += 1
 
-        if self.to_save_checkpoint:
-            self.save_checkpoint()
+            if self.to_save_checkpoint:
+                self.save_checkpoint(self.epoch)
         if self.to_plot_pareto:
-            objx = np.array([cand['size'] for cand in self.vis_dict.values() if 'is_filtered' not in cand])
-            objy = np.array([cand['performance'] for cand in self.vis_dict.values() if 'is_filtered' not in cand])
-            indices = np.argsort(objx)
-            objx = objx[indices]
-            objy = objy[indices]
+            name_objx_list = []
+            if self.flops_limit is not None:
+                name_objx_list.append('flops')
+            if self.size_limit is not None:
+                name_objx_list.append('size')
+            for name_objx in name_objx_list:
+                objx = np.array([cand[name_objx] for cand in self.vis_dict.values() if 'is_filtered' not in cand])
+                indices = np.argsort(objx)
+                objx = objx[indices]
 
-            # method1: pareto
-            # pareto_keys = [cand['encoding'] for cand in self.keep_top_k[self.topk]]
-            # pareto_indices = [i for i, encoding in enumerate(self.vis_dict.keys()) if encoding in pareto_keys]
-            # pareto_indices = np.array(pareto_indices)
-            # resort_by_size_indices = objx[pareto_indices].argsort()
-            # pareto_indices = pareto_indices[resort_by_size_indices]
+                objys = []
+                for name_objy in self.eval_metrics_order:
+                    objy = np.array([cand['performance'][name_objy] for cand in self.vis_dict.values() if 'is_filtered' not in cand])
+                    objy = objy[indices]
 
-            # method2: pareto
-            pareto_lists = NonDominatedSorting( np.vstack( (1/objy, objx) ) )
-            pareto_indices = pareto_lists[0]
-            log.info(f"Information of pareto models:")
-            for i, idx in enumerate(pareto_indices):
-                log.info(f"{i} size:{objx[idx]} perf:{objy[idx]}")
+                    # method1: pareto
+                    # pareto_keys = [cand['encoding'] for cand in self.keep_top_k[self.topk]]
+                    # pareto_indices = [i for i, encoding in enumerate(self.vis_dict.keys()) if encoding in pareto_keys]
+                    # pareto_indices = np.array(pareto_indices)
+                    # resort_by_size_indices = objx[pareto_indices].argsort()
+                    # pareto_indices = pareto_indices[resort_by_size_indices]
 
-            self.plot_pareto_fronts(
-                objx, objy, pareto_indices, 'size', 'performance', figname='evolution_pareto.png'
-            )
+                    # method2: pareto
+                    pareto_lists = NonDominatedSorting( np.vstack( (1/objy, objx) ) )
+                    pareto_indices = pareto_lists[0]
+                    log.info(f"Information of pareto models:")
+                    for i, idx in enumerate(pareto_indices):
+                        log.info(f"{i} {name_objx}:{objx[idx]} {name_objy}:{objy[idx]}")
+
+                    self.plot_pareto_fronts(
+                        objx, objy, pareto_indices, name_objx, name_objy, figname=f'pareto_{name_objx}_{name_objy}.pdf'
+                    )
 
     def get_random(self, num):
         log.info('random select ........')
@@ -244,31 +273,24 @@ class EvolutionMutator(RandomMutator):
             flops, size = flops_size['flops'], flops_size['size']
             info['flops'] = flops # MFLOPs
             info['size'] = size # MB
-            # info['flops'] = np.random.rand() # MFLOPs
-            # info['size'] = np.random.rand() + np.random.rand() # MB
 
-        if is_constraint_satisfied(info['flops'], self.flops_limit):
+        if self.flops_limit is not None and is_constraint_satisfied(info['flops'], self.flops_limit):
             log.debug('flops limit exceed')
             info['is_filtered'] = True
             log.debug(f"{encoding} flops = {info['flops']} MFLOPs size={info['size']} MB")
             return False
-        elif is_constraint_satisfied(info['size'], self.size_limit):
+        elif self.size_limit is not None and is_constraint_satisfied(info['size'], self.size_limit):
             log.debug('size limit exceed')
             info['is_filtered'] = True
             log.debug(f"{encoding} flops = {info['flops']} MFLOPs size={info['size']} MB")
             return False
 
         info['visited'] = True
-        info['performance'] = self.query_performance(arch)
+        eval_kwargs = deepcopy(self.eval_kwargs)
+        eval_kwargs.update({'network': self.model, 'mutator': self})
+        info['performance'] = self.eval_func(**eval_kwargs)
         log.debug(f"{encoding} flops = {info['flops']} MFLOPs size={info['size']} MB perf={info['performance']}")
-        # info['performance'] = get_cand_err(self.model, cand, self.args) # todo
         return True
-
-    def query_performance(self, arch: dict):
-        return self.query_api(arch)
-
-    def query_api(self, *args, **kwargs):
-        raise NotImplementedError
 
     def arch2encoding(self, arch: dict):
         '''
@@ -304,36 +326,39 @@ class EvolutionMutator(RandomMutator):
         else:
             return None
 
-    def update_top_k(self, candidates, *, k, key, reverse=True):
+    def update_top_k(self, candidates, k):
         assert k in self.keep_top_k
         log.info(f'update top-{k} models......')
         tmp = self.keep_top_k[k]
         tmp += candidates
         if self.selection_alg == 'best':
+            cand_sample = tmp[0]
+            performance = cand_sample['performance']
+            metric_name, metric_order = next(iter(self.eval_metrics_order.items())) # e.g., accuracy, max
+            key = lambda x: x['performance'][metric_name]
+            reverse = True if metric_order == 'max' else False
             tmp.sort(key=key, reverse=reverse)
             self.keep_top_k[k] = tmp[:k]
         elif self.selection_alg == 'nsga2':
-            targets = np.array([1./cand['performance'] for cand in tmp]).reshape(1, -1)
-            objectives = np.array([cand['size'] for cand in tmp]).reshape(-1, targets.shape[1])
-            pareto_lists = NonDominatedSorting(np.vstack((targets, objectives)))
-            
-            tmp_list = []
-            tmp_num = k
-            for indices_list in pareto_lists:
-                if tmp_num <= 0:
-                    break
-                elif len(indices_list) < tmp_num:
-                    tmp_list += [tmp[i] for i in indices_list]
-                    tmp_num -= len(indices_list)
-                else:
-                    tmp_list += [tmp[i] for i in indices_list[:tmp_num]]
-                    tmp_num -= tmp_num
-            self.keep_top_k[k] = tmp_list
-        elif self.selection_alg == 'cars':
-            targets = np.array([1./cand['performance'] for cand in tmp]).reshape(1, -1)
-            objectives = np.array([cand['size'] for cand in tmp]).reshape(-1, targets.shape[1])
-            indices = CARS_NSGA(targets, objectives, k)
-            self.keep_top_k[k] = [tmp[i] for i in indices]
+            targets = []
+            constraints = []
+            for cand in tmp:
+                cand_targets = []
+                for metric_name, metric_order in self.eval_metrics_order.items():
+                    value = cand['performance'][metric_name]
+                    if metric_order == 'max':
+                        value = -1 * value # nsga2 is a minimization algorithm, the smaller the better
+                    cand_targets.append(cand['performance'][metric_name])
+                targets.append(cand_targets)
+            targets = np.array(targets) # (num, num_metrics)
+            if self.flops_limit is not None:
+                constraints.append(np.array([cand['flops'] for cand in tmp]).reshape(-1, 1))
+            if self.size_limit is not None:
+                constraints.append(np.array([cand['size'] for cand in tmp]).reshape(-1, 1))
+            constraints = np.concatenate(constraints, 1) # (num, num_objectives)
+            fitnesses = np.hstack(tuple([targets, constraints]))
+            indices = nsga2_select(fitnesses, k)
+            self.keep_top_k[k] = [tmp[idx] for idx in indices]
 
     def get_mutation(self, k, mutation_num, mutation_prob):
         assert k in self.keep_top_k
@@ -420,18 +445,20 @@ class EvolutionMutator(RandomMutator):
         import matplotlib.pyplot as plt
         import seaborn as sns
         import pandas as pd
+        plt.clf()  # 清空当前figure下所有axes中的内容
         fig, ax = plt.subplots(figsize=figsize)
         data = pd.DataFrame({name_objx: proxy_metrics, name_objy: real_metrics})
         sns.regplot(x=name_objx,y=name_objy,data=data)
         if figname is None:
             figname = 'real_proxy_metrics.pdf'
         if not os.path.isdir(figname):
-            figname = os.path.join(os.getcwd(), figname)
+            figname = os.path.join(self.log_dir, figname)
+        os.makedirs(self.log_dir, exist_ok=True)
         fig.savefig(figname)
+        plt.close(fig)
 
-    @classmethod
     def plot_pareto_fronts(
-        cls,
+        self,
         objx: np.array,
         objy: np.array,
         pareto_indices: np.array,
@@ -447,7 +474,8 @@ class EvolutionMutator(RandomMutator):
             objy = np.array(objy)
         objx_pareto = [x for x in objx[pareto_indices]]
         objy_pareto = [x for x in objy[pareto_indices]]
-        fig = plt.figure(num=1, figsize=figsize)
+        fig = plt.figure(figsize=figsize)
+        plt.clf()  # 清空当前figure下所有axes中的内容
         ax1 = fig.add_subplot(111)
         ax1.scatter(objx, objy)
         ax1.plot(objx_pareto, objy_pareto)
@@ -457,40 +485,59 @@ class EvolutionMutator(RandomMutator):
         if figname is None:
             figname = self.figname
         if not os.path.isdir(figname):
-            figname = os.path.join(os.getcwd(), figname)
+            figname = os.path.join(self.log_dir, figname)
+        os.makedirs(self.log_dir, exist_ok=True)
         fig.savefig(figname)
+        plt.close(fig)
 
 
 if __name__ == '__main__':
-    from types import MethodType
     from hyperbox.networks.nasbench201.nasbench201 import NASBench201Network
     from hyperbox.networks.nasbench_mbnet.network import NASBenchMBNet
-    net = NASBench201Network(num_classes=10).cuda()
-    # net = NASBenchMBNet(num_classes=10).cuda()
-    em = EvolutionMutator(
-        net,
-        warmup_epochs=0,
-        evolution_epochs=50,
-        population_num=10,
-        selection_alg='nsga2',
-        selection_num=0.8,
-        crossover_num=0.2,
-        crossover_prob=0.3,
-        mutation_num=0.2,
-        mutation_prob=0.3,
-        flops_limit=330*1e6, # MFLOPs
-        size_limit=50, # MB
-        log_dir='evolution_logs',
-        topk=10,
-        to_save_checkpoint=True,
-        to_plot_pareto=True,
-        figname='evolution_pareto.pdf'
-    )
 
-    def query_api(self, arch):
-        return np.random.rand() * 10 + np.random.rand()
 
-    ea.query_api = MethodType(query_api, ea)
+    def eval_func(mutator, network, da=32,gs=5432,gsrh=764):
+        return {
+            'acc': np.random.rand(), 'loss': np.random.rand()
+            }
 
-    em.search()
-    
+    selection_alg_list = [
+        'nsga2', 
+        # 'best'
+    ]
+    eval_metrics_order_list = [
+        # {'acc': 'max'}, 
+        {'acc': 'max', 'loss': 'min'}]
+
+    for alg in selection_alg_list:
+        for order in eval_metrics_order_list:
+            print(f'alg = {alg}, order = {order}')
+            net = NASBench201Network(num_classes=10).cuda()
+            # net = NASBenchMBNet(num_classes=10).cuda()
+        
+            em = EvolutionMutator(
+                net,
+                eval_func=eval_func,
+                eval_kwargs={'da':352,'gs':32,'gsrh':764},
+                eval_metrics_order=order,
+                warmup_epochs=0,
+                evolution_epochs=1,
+                population_num=10,
+                selection_alg=alg,
+                selection_num=0.8,
+                crossover_num=0.2,
+                crossover_prob=0.3,
+                mutation_num=0.2,
+                mutation_prob=0.3,
+                flops_limit=330, # MFLOPs
+                size_limit=50, # MB
+                log_dir='evolution_logs',
+                topk=10,
+                to_save_checkpoint=True,
+                to_plot_pareto=True,
+                figname='evolution_pareto.pdf'
+            )
+
+
+            em.search()
+        

@@ -1,7 +1,6 @@
 from .base_mutator import BaseMutator
 from .default_mutator import Mutator
 from .darts_mutator import DartsMutator
-from .ea_mutator import EAMutator
 from .evolution_mutator import EvolutionMutator
 from .enas_mutator import EnasMutator
 from .onehot_mutator import OnehotMutator

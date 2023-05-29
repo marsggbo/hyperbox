@@ -2,108 +2,112 @@ import numpy as np
 import random
 
 
-def Dominates(x, y):
-    """Check if x dominates y.
-
-    :param x: a sample
-    :type x: array
-    :param y: a sample
-    :type y: array
-
-    the smaller value, the better performance
+def dominates(a: np.array, b: np.array):
     """
-    return np.all(x <= y) & np.any(x < y)
-
-def NonDominatedSorting(pop):
-    """Perform non-dominated sorting.
-
-    :param pop: the current population
-    :type pop: array
+    Returns True if individual a dominates individual b, False otherwise.
+    The smaller, the better.
     """
-    _, npop = pop.shape
-    rank = np.zeros(npop)
-    dominatedCount = np.zeros(npop) # 记录每个个体其被支配的数量
-    # 记录每个个个体被哪些个体支配了
-    # 例如 [[1,2],[3],[0]]表示 第一个个体被 [1,2] 个体支配
-    dominatedSet = [[] for i in range(npop)]
-    front = [[]]
-    # 更新 dominatedCount 和 dominatedSet
-    for i in range(npop):
-        for j in range(i + 1, npop):
-            crt_objs = pop[:, i]
-            next_objs = pop[:, j]
-            if Dominates(crt_objs, next_objs):
-                dominatedSet[i].append(j)
-                dominatedCount[j] += 1
-            if Dominates(next_objs, crt_objs):
-                dominatedSet[j].append(i)
-                dominatedCount[i] += 1
-        if dominatedCount[i] == 0:
-            rank[i] = 1
-            front[0].append(i)
-    # 求解出不同批次的支配解 
-    # 比如 [ [1,3], [0], [2] ] 表示 [1,3] 不被任何个体支配，0 只被一个个体支配， 2被两个个体支配
-    k = 0
-    while (True):
-        Q = []
-        for i in front[k]:
-            crt_objs = pop[:, i]
-            for j in dominatedSet[i]:
-                dominatedCount[j] -= 1
-                if dominatedCount[j] == 0:
-                    Q.append(j)
-                    rank[j] = k + 1
-        if len(Q) == 0:
-            break
-        front.append(Q)
-        k += 1
-    return front
+    return np.all(a <= b) and not np.all(a == b)
 
-def CARS_NSGA(targets, objs, N):
-    """pNSGA-III (CARS-NSGA).
-
-        :param targets: the first objective, e.g. accuracy
-        :type targets: array
-        :param objs: the other objective, e.g. FLOPs, number of parameteres
-        :type objs: array
-        :param N: number of population
-        :type N: int
-        :return: The selected samples
-        :rtype: array
+def non_dominated_sort(fitnesses: np.ndarray):
+    """
+    Performs non-dominated sorting on a set of fitness matrix with shape of (num_samples, num_objectives).
+    Returns a list of fronts, where each front is a list of indices into the fitness values array.
+    """
+    population_size = len(fitnesses) # number of samples
+    fronts = [[]] # initialize the pareto-front list
+    dominating_set = [set() for _ in range(population_size)] # dominating_set[i] means the set of individuals that i-th individual dominates
+    num_dominated = np.zeros(population_size) # num_dominated[i] means the number of individuals that dominate i-th individual
     
-        Example:
-        targets = np.random.rand(1,10)  # accuracy
-        objs = np.random.rand(2,10)     # model size, FLOPs
-        pareto_front = CARS_NSGA(targets, objs, 5) # get top-5
+    # Compute the domination relationships for each individual in the population
+    for p in range(population_size):
+        for q in range(population_size):
+            if dominates(fitnesses[p], fitnesses[q]):
+                dominating_set[p].add(q)
+            elif dominates(fitnesses[q], fitnesses[p]):
+                num_dominated[p] += 1
+        # If individual p is not dominated by any other individual, add it to the current Pareto front
+        if num_dominated[p] == 0:
+            fronts[-1].append(p)
+
+    # Build subsequent Pareto fronts
+    while len(fronts[-1]) > 0:
+        new_front = []
+        for p in fronts[-1]:
+            for q in dominating_set[p]:
+                num_dominated[q] -= 1
+                # If individual q is no longer dominated by any other individual,
+                # add it to the new Pareto front
+                if num_dominated[q] == 0:
+                    new_front.append(q)
+        fronts.append(new_front)
+
+    return fronts[:-1] # remove the last empty front
+
+def crowding_distance(fitnesses: np.ndarray, front: list):
     """
-    if len(targets.shape) == 1:
-        length = targets.shape[0]
-    else:
-        length = targets.shape[1]
-    selected = np.zeros(length)
-    fronts = []
-    for target in targets:
-        for obj in objs:
-            fronts.append(NonDominatedSorting(np.vstack((1 / (target + 1e-10), obj))))
-            # fronts.append(NonDominatedSorting(np.vstack((1 / (target + 1e-10), 1 / (obj + 1e-10)))))
-    stage = 0
-    while (np.sum(selected) < N):
-        current_front = []
-        for i in range(len(fronts)):
-            if stage < len(fronts[i]):
-                current_front.append(fronts[i][stage])
-        current_front = [np.array(c) for c in current_front]
-        current_front = np.hstack(current_front)
-        current_front = list(set(current_front))
-        if np.sum(selected) + len(current_front) <= N:
-            for i in current_front:
-                selected[i] = 1
+    Computes the crowding distance for each individual in a front.
+    Returns an array of crowding distances.
+    """
+    distances = np.zeros(len(fitnesses))
+    num_objectives = fitnesses.shape[1]
+    
+    # Calculate crowding distance for each objective
+    for m in range(num_objectives):
+        # Sort the front based on the objective m values
+        sorted_front = sorted(front, key=lambda i: fitnesses[i][m])
+
+        # Assign infinite crowding distance to boundary individuals to ensure they are always selected
+        distances[sorted_front[0]] = float('inf')
+        distances[sorted_front[-1]] = float('inf')
+        
+        # Calculate the minimum and maximum fitnesses for objective m
+        f_min = fitnesses[sorted_front[0]][m]
+        f_max = fitnesses[sorted_front[-1]][m]
+        
+        # Calculate crowding distance for intermediate individuals
+        for i in range(1, len(sorted_front) - 1):
+            distances[sorted_front[i]] += (fitnesses[sorted_front[i+1]][m] - fitnesses[sorted_front[i-1]][m]) / (f_max - f_min)
+    
+    return distances
+
+def nsga2_select(fitnesses: np.array, num_selection: int):
+    # Perform non-dominated sorting
+    fronts = non_dominated_sort(fitnesses)
+    
+    selected_indices = []
+    # Iterate through fronts
+    for front in fronts:
+        # If adding the entire front does not exceed the selection limit, 
+        # add the whole front to the selected indices
+        if len(selected_indices) + len(front) <= num_selection:
+            selected_indices.extend(front)
         else:
-            not_selected_indices = np.arange(len(selected))[selected==0]
-            crt_front = [index for index in current_front if index in not_selected_indices]
-            num_to_select = N - np.sum(selected).astype(np.int32)
-            current_front = crt_front if len(crt_front) <= num_to_select else random.sample(crt_front, num_to_select)
-            for i in current_front:
-                selected[i] = 1
-        stage += 1
-    return np.where(selected == 1)[0]
+            # Compute crowding distances
+            distances = crowding_distance(fitnesses, front)
+            
+            # Sort indices by descending crowding distance
+            front_sorted_by_crowding = sorted(front, key=lambda i: distances[i], reverse=True)
+            
+            # Select remaining individuals
+            remaining = num_selection - len(selected_indices)
+            selected_indices.extend(front_sorted_by_crowding[:remaining])
+            break
+    
+    # Return the indicies of selected individuals
+    return selected_indices
+
+
+if __name__ == '__main__':
+    fitnesses = np.array([
+        #  1/acc, model size
+        [1/90, 15],
+        [1/80,65],
+        [1/95,16],
+        [1/98,10],
+        [1/60,66],
+        [1/80,96]
+    ])
+    population = {i: f"model{i}" for i in range(len(fitnesses))}
+    selected = nsga2_select(population, fitnesses, 3)
+    print(selected)
