@@ -1,0 +1,14 @@
+name: hyperbox
+
+channels:
+  - pytorch
+  - conda-forge
+
+dependencies:
+  - python=3.10
+  - pip
+  - cudatoolkit
+  - pytorch=1.12.1
+  - torchvision=0.13.1
+  - pip:
+      - -r requirements.txt
