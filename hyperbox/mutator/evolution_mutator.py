@@ -41,9 +41,15 @@ def is_constraint_satisfied(constraint, obj):
 
 
 class EvolutionMutator(RandomMutator):
-    def __init__(
+    def __init__(self, model):
+        super(EvolutionMutator, self).__init__(model)
+
+    def search(
         self,
-        model,
+        eval_func: callable, # evaluation function of arch performance
+        eval_kwargs: dict,   # kwargs of eval_func
+        eval_metrics_order: dict, # order of eval metrics, e.g. {'accuracy': 'max', 'f1-score': 'max'}
+        
         warmup_epochs: int=0,
         evolution_epochs: int=100,
         population_num: int=50,
@@ -54,11 +60,16 @@ class EvolutionMutator(RandomMutator):
         mutation_num: Optional[Union[int, float]]=0.5,
         mutation_prob: float=0.3,
         topk: Optional[Union[int, float]]=10,
-        *args, **kwargs
-    ):
-        '''Init Args:
-            model: model (Supernet) to be searched
 
+        flops_limit: Optional[Union[list, float]]=None, # MFLOPs, None means no limit
+        size_limit: Optional[Union[list, float]]=None, # MB, None means no limit
+        log_dir: str='evolution_logs',
+        resume_from_checkpoint: Optional[str]=None,
+        to_save_checkpoint: bool=True,
+        to_plot_pareto: bool=True,
+        figname: str='evolution_pareto.pdf'        
+    ):
+        '''Args:
             ####Evolution parameters####
             warmup_epochs: number of warmup epochs
             evolution_epochs: number of evolution epochs
@@ -72,72 +83,7 @@ class EvolutionMutator(RandomMutator):
             mutation_num: mutation num for each epoch
             mutation_prob: mutation probability
             topk: top k candidates
-        '''
-        super(EvolutionMutator, self).__init__(model)
-        if selection_alg=='best' and len(eval_metrics_order)>1:
-            raise ValueError('`selection_alg` must be `nsga2` when there are more than one eval metrics')
             
-        self.warmup_epochs = warmup_epochs
-        self.evolution_epochs = evolution_epochs
-        self.selection_alg = selection_alg 
-        self.selection_num = get_int_num(selection_num, population_num)
-        self.population_num = population_num
-        self.crossover_num = get_int_num(crossover_num, population_num)
-        self.crossover_prob = crossover_prob
-        self.mutation_num = get_int_num(mutation_num, population_num)
-        self.mutation_prob = mutation_prob
-        self.random_num = population_num - (self.crossover_num + self.mutation_num)
-        self.topk = get_int_num(topk, population_num)
-
-        self.memory = []
-        self.vis_dict = {}
-        self.keep_top_k = {self.selection_num: [], self.topk: []}
-        self.epoch = 0
-        self.candidates = []
-
-    def save_checkpoint(self, epoch=None):
-        if not os.path.exists(self.log_dir):
-            os.makedirs(self.log_dir)
-        info = {}
-        info['memory'] = self.memory
-        info['candidates'] = self.candidates
-        info['vis_dict'] = self.vis_dict
-        info['keep_top_k'] = self.keep_top_k
-        info['epoch'] = self.epoch
-        if epoch is not None:
-            ckpt_name = f"{self.log_dir}/checkpoint_{epoch}.pth.tar"
-        else:
-            ckpt_name = f"{self.log_dir}/{self.checkpoint_name}"
-        torch.save(info, ckpt_name)
-        log.info(f'save checkpoint to {ckpt_name}')
-
-    def load_checkpoint(self):
-        if not os.path.exists(self.resume_from_checkpoint):
-            return False
-        info = torch.load(self.resume_from_checkpoint)
-        self.memory = info['memory']
-        self.candidates = info['candidates']
-        self.vis_dict = info['vis_dict']
-        self.keep_top_k = info['keep_top_k']
-        self.epoch = info['epoch']
-
-        log.info(f'load checkpoint from {self.resume_from_checkpoint}')
-        return True
-
-    def search(
-        self,
-        eval_func: callable, # evaluation function of arch performance
-        eval_kwargs: dict,   # kwargs of eval_func
-        eval_metrics_order: dict, # order of eval metrics, e.g. {'accuracy': 'max', 'f1-score': 'max'}
-        flops_limit: Optional[Union[list, float]]=None, # MFLOPs, None means no limit
-        size_limit: Optional[Union[list, float]]=None, # MB, None means no limit
-        log_dir: str='evolution_logs',
-        resume_from_checkpoint: Optional[str]=None,
-        to_save_checkpoint: bool=True,
-        to_plot_pareto: bool=True,
-        figname: str='evolution_pareto.pdf',
-    ):
-        '''Args:        
             ####Evaluation function####
             eval_func: evaluation function of arch performance
             eval_kwargs: kwargs of eval_func, must contain arguments of `model` and `mutator`
@@ -154,6 +100,28 @@ class EvolutionMutator(RandomMutator):
             to_plot_pareto: plot pareto or not
             figname: pareto figure name
         '''
+        if selection_alg=='best' and len(eval_metrics_order)>1:
+            raise ValueError('`selection_alg` must be `nsga2` when there are more than one eval metrics')
+            
+        self.warmup_epochs = warmup_epochs
+        self.evolution_epochs = evolution_epochs
+        self.selection_alg = selection_alg 
+        self.selection_num = get_int_num(selection_num, population_num)
+        self.population_num = population_num
+        self.crossover_num = get_int_num(crossover_num, population_num)
+        self.crossover_prob = crossover_prob
+        self.mutation_num = get_int_num(mutation_num, population_num)
+        self.mutation_prob = mutation_prob
+        self.random_num = population_num - (self.crossover_num + self.mutation_num)
+
+        self.memory = []
+        self.vis_dict = {}
+        self.epoch = 0
+        self.candidates = []
+
+        self.topk = get_int_num(topk, self.population_num)
+        self.keep_top_k = {self.selection_num: [], self.topk: []}
+
         self.eval_func = eval_func
         self.eval_kwargs = eval_kwargs
         self.eval_metrics_order = eval_metrics_order
@@ -434,6 +402,35 @@ class EvolutionMutator(RandomMutator):
                 cross_arch[key] = deepcopy(arch2[key])
         return cross_arch
 
+    def save_checkpoint(self, epoch=None):
+        if not os.path.exists(self.log_dir):
+            os.makedirs(self.log_dir)
+        info = {}
+        info['memory'] = self.memory
+        info['candidates'] = self.candidates
+        info['vis_dict'] = self.vis_dict
+        info['keep_top_k'] = self.keep_top_k
+        info['epoch'] = self.epoch
+        if epoch is not None:
+            ckpt_name = f"{self.log_dir}/checkpoint_{epoch}.pth.tar"
+        else:
+            ckpt_name = f"{self.log_dir}/{self.checkpoint_name}"
+        torch.save(info, ckpt_name)
+        log.info(f'save checkpoint to {ckpt_name}')
+
+    def load_checkpoint(self):
+        if not os.path.exists(self.resume_from_checkpoint):
+            return False
+        info = torch.load(self.resume_from_checkpoint)
+        self.memory = info['memory']
+        self.candidates = info['candidates']
+        self.vis_dict = info['vis_dict']
+        self.keep_top_k = info['keep_top_k']
+        self.epoch = info['epoch']
+
+        log.info(f'load checkpoint from {self.resume_from_checkpoint}')
+        return True
+
     @classmethod
     def plot_real_proxy_metrics(
         cls,
@@ -527,8 +524,9 @@ if __name__ == '__main__':
             net = NASBench201Network(num_classes=10).cuda()
             # net = NASBenchMBNet(num_classes=10).cuda()
         
-            em = EvolutionMutator(
-                net,
+            em = EvolutionMutator(net)
+
+            topk = em.search(
                 warmup_epochs=0,
                 evolution_epochs=2,
                 population_num=30,
@@ -539,9 +537,6 @@ if __name__ == '__main__':
                 mutation_num=0.2,
                 mutation_prob=0.3,
                 topk=5,
-            )
-
-            topk = em.search(
                 eval_func=eval_func,
                 eval_kwargs={'da':352,'gs':32,'gsrh':764},
                 eval_metrics_order=order,
