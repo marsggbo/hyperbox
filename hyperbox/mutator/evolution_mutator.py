@@ -214,7 +214,7 @@ class EvolutionMutator(RandomMutator):
                     )
         return self.keep_top_k[self.topk]
 
-    def get_random(self, num):
+    def get_random(self, num: int):
         log.info('random select ........')
         while len(self.candidates) < num:
             arch = self.sample_search() # type: dict
@@ -299,7 +299,7 @@ class EvolutionMutator(RandomMutator):
         else:
             return None
 
-    def update_top_k(self, candidates, k):
+    def update_top_k(self, candidates: list[dict], k: int):
         assert k in self.keep_top_k
         log.info(f'update top-{k} models......')
         tmp = self.keep_top_k[k]
@@ -339,7 +339,7 @@ class EvolutionMutator(RandomMutator):
             indices = nsga2_select(fitnesses, k)
             self.keep_top_k[k] = [tmp[idx] for idx in indices]
 
-    def get_mutation(self, k, mutation_num, mutation_prob):
+    def get_mutation(self, k: int, mutation_num: int, mutation_prob: float):
         assert k in self.keep_top_k
         log.info('mutation ......')
         res = []
@@ -359,7 +359,7 @@ class EvolutionMutator(RandomMutator):
         log.debug('mutation_num = {}'.format(len(res)))
         return res
 
-    def mutation(self, arch, mutation_prob):
+    def mutation(self, arch: dict, mutation_prob: float):
         '''Mutate a single network architecture'''
         new_arch = deepcopy(arch)
         for key in arch:
@@ -371,7 +371,7 @@ class EvolutionMutator(RandomMutator):
                 new_arch[key] = F.one_hot(index, num_classes=length).view(-1).bool()
         return new_arch
 
-    def get_crossover(self, k, crossover_num, crossover_prob):
+    def get_crossover(self, k: int, crossover_num: int, crossover_prob: float):
         assert k in self.keep_top_k
         log.info('crossover ......')
         res = []
@@ -392,7 +392,7 @@ class EvolutionMutator(RandomMutator):
         log.debug('crossover_num = {}'.format(len(res)))
         return res
 
-    def crossover(self, arch1, arch2, crossover_prob):
+    def crossover(self, arch1: dict, arch2: dict, crossover_prob: float):
         '''Crossover step
         Generate a new arch by randomly crossover part of architectures of two parent individuals
         '''
