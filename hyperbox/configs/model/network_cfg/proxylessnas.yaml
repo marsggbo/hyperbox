@@ -1,0 +1,9 @@
+_target_: hyperbox_app.distributed.networks.proxylessnas.network.ProxylessNAS
+width_stages: [24,40,80,96,192,320]
+n_cell_stages: [4,4,4,4,4,1]
+stride_stages: [2,2,2,1,2,1]
+width_mult: 1
+num_classes: 1000
+dropout_rate: 0
+bn_param: [0.1,1e-3]
+mask: null
