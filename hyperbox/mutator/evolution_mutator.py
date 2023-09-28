@@ -1,6 +1,6 @@
 import os
 from copy import deepcopy
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional, Union, Dict
 
 import numpy as np
 import torch
@@ -299,7 +299,7 @@ class EvolutionMutator(RandomMutator):
         else:
             return None
 
-    def update_top_k(self, candidates: list[dict], k: int):
+    def update_top_k(self, candidates: List[Dict], k: int):
         assert k in self.keep_top_k
         log.info(f'update top-{k} models......')
         tmp = self.keep_top_k[k]
