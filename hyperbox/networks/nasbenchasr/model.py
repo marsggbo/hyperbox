@@ -120,7 +120,7 @@ class NASBenchASR(BaseNASNetwork):
         scells_per_block: list = [3, 4, 5, 6], # the number of cells per block
         num_nodes: int=3, # number of nodes per cell
         num_classes: int=48,
-        use_rnn: bool=False,
+        use_rnn: bool=True,
         use_norm: bool=True,
         dropout_rate: float=0.0,
         mask: dict=None
