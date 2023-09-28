@@ -18,8 +18,6 @@ class Node(nn.Module):
     def __init__(
         self,
         filters,
-        # op_ctor,
-        # branch_op_ctors,
         node_index: int,
         prefix: str="",
         dropout_rate=0.0,
@@ -43,8 +41,6 @@ class Node(nn.Module):
                 spaces.OperationSpace(branch_op_list, mask=mask, key=f"{prefix}_node{node_index}_skip{s_idx}")
             )
         self.branch_ops = nn.Sequential(*self.branch_ops)
-        # self.op = op_ctor(filters, filters, dropout_rate=dropout_rate)
-        # self.branch_ops = [ctor() for ctor in branch_op_ctors]
 
     def forward(self, input_list):
         assert len(input_list) == len(self.branch_ops), 'Branch op and input list have different lenghts'
@@ -62,7 +58,6 @@ class SearchCell(nn.Module):
     def __init__(
         self,
         filters: int,
-        # node_configs,
         num_nodes: int=3,
         dropout_rate: float=0.0,
         use_norm: bool=True,
@@ -77,21 +72,6 @@ class SearchCell(nn.Module):
         for node_index in range(self.num_nodes):
             node = Node(filters=filters, node_index=node_index, prefix=prefix, dropout_rate=dropout_rate, mask=mask)
             self.nodes.append(node)
-
-        # for node_config in node_configs:
-        #     node_op_name, *node_branch_ops = node_config
-        #     try:
-        #         node_op_ctor = _ops[node_op_name]
-        #     except KeyError:
-        #         raise ValueError(f'Operation "{node_op_name}" is not implemented')
-
-        #     try:
-        #         node_branch_ctors = [_branch_ops[branch_op] for branch_op in node_branch_ops]
-        #     except KeyError:
-        #         raise ValueError(f'Invalid branch operations: {node_branch_ops}, expected is a vector of 0 (no skip-con.) and 1 (skip-con. present)')
-
-        #     node = Node(filters=filters, op_ctor=node_op_ctor, branch_op_ctors=node_branch_ctors, dropout_rate=dropout_rate)
-            # self.nodes.append(node)
 
         self.use_norm = use_norm
         if self.use_norm:
@@ -208,27 +188,6 @@ class NASBenchASR(BaseNASNetwork):
         # self._model = nn.Sequential(*layers)
         self.model = layers
 
-    def get_prunable_copy(self, bn=False, masks=None, mask=None): 
-        # bn, masks are not used in this func. 
-        # Keeping them to make the code work with predictive.py
-        model_new = NASBenchASR(
-            num_blocks=self.num_blocks,
-            features=self.features,
-            filters=self.filters,
-            cnn_time_reduction_kernels=self.cnn_time_reduction_kernels,
-            cnn_time_reduction_strides=self.cnn_time_reduction_strides,
-            scells_per_block=self.scells_per_block,
-            num_nodes=self.num_nodes,
-            num_classes=self.num_classes,
-            use_rnn=self.use_rnn,
-            use_norm=bn,
-            dropout_rate=self.dropout_rate,
-            mask=self.mask
-        )
-        model_new.load_state_dict(self.state_dict(), strict=False)
-        model_new.train()
-        return model_new
-
     def forward(self, input): # input is (B, F, T)
         for xx in self.model:
             if isinstance(xx, nn.LSTM):
@@ -247,15 +206,25 @@ class NASBenchASR(BaseNASNetwork):
         return input
 
     def build_query(
-        self, folder=None, max_epochs=None,
-        seeds=None, devices=None, include_static_info=True, validate_data=True):
-        if not hasattr(self, "_query"):
-            if folder is None:
-                folder = self.NASBenchASR_DATAPATH
-            self._query = from_folder(folder, max_epochs, seeds, devices, include_static_info, validate_data)
+        self,
+        folder=None,
+        max_epochs=None,
+        seeds=None, 
+        devices=None,
+        include_static_info=True,
+        validate_data=True,
+        others:dict =None
+    ):
+        folder = others.get('folder', self.NASBenchASR_DATAPATH)
+        max_epochs = others.get('max_epochs', None)
+        seeds = others.get('seeds', None)
+        devices = others.get('devices', None)
+        include_static_info = others.get('include_static_info', True)
+        validate_data = others.get('validate_data', True)
+        self._query = from_folder(folder, max_epochs, seeds, devices, include_static_info, validate_data)
         return self._query
 
-    def query_full_info(self, **kwargs):        
+    def query_full_info(self, **kwargs):
         default_kwargs = {
             "arch": self.arch,
             "include_static_info": True,
@@ -264,8 +233,9 @@ class NASBenchASR(BaseNASNetwork):
             "include_static_info":None,
             "return_dict":True,
         }
-        default_kwargs.update(kwargs)
-        query = self.build_query()
+        default_kwargs.update({key:value for key, value in kwargs.items() if key in default_kwargs})
+        
+        query = self.build_query(others=kwargs)
         return query.full_info(**default_kwargs)
 
     def query_test_acc(self, **kwargs):
@@ -273,8 +243,8 @@ class NASBenchASR(BaseNASNetwork):
             "arch": self.arch,
             "seed":None,
         }
-        default_kwargs.update(kwargs)
-        query = self.build_query()
+        default_kwargs.update({key:value for key, value in kwargs.items() if key in default_kwargs})
+        query = self.build_query(others=kwargs)
         return query.test_acc(**default_kwargs)
 
     def query_val_acc(self, **kwargs):
@@ -284,8 +254,8 @@ class NASBenchASR(BaseNASNetwork):
             "best": True,
             "seed":None,
         }
-        default_kwargs.update(kwargs)
-        query = self.build_query()
+        default_kwargs.update({key:value for key, value in kwargs.items() if key in default_kwargs})
+        query = self.build_query(others=kwargs)
         return query.val_acc(**default_kwargs)
 
     def query_latency(self, **kwargs):
@@ -294,24 +264,24 @@ class NASBenchASR(BaseNASNetwork):
             "devices": None,
             "return_dict": True
         }
-        default_kwargs.update(kwargs)
-        query = self.build_query()
+        default_kwargs.update({key:value for key, value in kwargs.items() if key in default_kwargs})
+        query = self.build_query(others=kwargs)
         return query.latency(**default_kwargs)
 
     def query_params(self, **kwargs):
         default_kwargs = {
             "arch": self.arch
         }
-        default_kwargs.update(kwargs)
-        query = self.build_query()
+        default_kwargs.update({key:value for key, value in kwargs.items() if key in default_kwargs})
+        query = self.build_query(others=kwargs)
         return query.params(**default_kwargs)
 
     def query_flops(self, **kwargs):
         default_kwargs = {
             "arch": self.arch
         }
-        default_kwargs.update(kwargs)
-        query = self.build_query()
+        default_kwargs.update({key:value for key, value in kwargs.items() if key in default_kwargs})
+        query = self.build_query(others=kwargs)
         return query.flops(**default_kwargs)
 
     @property
@@ -407,7 +377,7 @@ if __name__ == '__main__':
     y = model(x)
     print(NASBenchASR.dict_mask_to_list_desc(mask))
 
-    print(model2.query_full_info())
+    print(model2.query_full_info(max_epochs=5))
     print(model2.query_flops())
     print(model2.query_latency())
     print(model2.query_params())
