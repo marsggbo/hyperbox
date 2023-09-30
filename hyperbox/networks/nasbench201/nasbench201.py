@@ -139,6 +139,25 @@ class NASBench201Network(BaseNASNetwork):
                     print(op.key, op.mask)
 
     def query_by_key(self, key='test_acc', arch=None, num_epochs=200, dataset='cifar10', reduction='mean'):
+        DATABASE_DIR = os.environ.get("NASBENCHMARK_DIR", os.path.expanduser("~/.hyperbox/nasbench201"))
+        if not os.path.exists(DATABASE_DIR) or len(os.listdir(DATABASE_DIR)) <=0:
+            # prepare nasbench201 datasets
+            os.makedirs(DATABASE_DIR)
+            os.system('gdown https://drive.google.com/uc\?id\=16Y0UwGisiouVRxW-W5hEtbxmcHw_0hF_ -O nb201.pth')
+            os.system('mv nb201.pth {}'.format(DATABASE_DIR))
+
+            # get abs path of current file
+            current_script_path = os.path.abspath(__file__)
+
+            # build relative path of db_gen.py
+            relative_path_to_b = "db_gen/db_gen.py"
+
+            # convert rel-path to abs-path for db_gen.py
+            absolute_path_to_b = os.path.join(os.path.dirname(current_script_path), relative_path_to_b)
+
+            # 执行'python /path/to/b.py'
+            os.system(f"python {absolute_path_to_b} {DATABASE_DIR}/nb201.pth")
+
         if arch is None:
             arch = self.arch
         self.arch_info = next(query_nb201_trial_stats(arch, num_epochs, dataset, reduction))
