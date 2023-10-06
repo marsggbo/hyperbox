@@ -15,18 +15,27 @@ from __future__ import print_function
 
 import numpy as np
 import math
-
+import os
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+# tf1.x https://github.com/google-research/nasbench.git
+# tf2.x https://github.com/gabikadlecova/nasbench.git
+from nasbench import api
 
 from hyperbox.networks.base_nas_network import BaseNASNetwork
 from hyperbox.networks.nasbench101.base_ops import *
 from hyperbox.mutables.spaces import ValueSpace
 
 
-class Network(BaseNASNetwork):
+class NASBench101Network(BaseNASNetwork):
+    ROOT_PATH = os.path.expanduser('~/.hyperbox/nasbench101')
+    TFRECORD_FULL_PATH = os.path.join(ROOT_PATH, 'nasbench_full.tfrecord')
+    TFRECORD_108_PATH = os.path.join(ROOT_PATH, 'nasbench_only_108.tfrecord')
+    DB_PATH = os.path.join(ROOT_PATH, 'nasbench101.db')
+
     def __init__(
         self,
         spec,
@@ -34,35 +43,44 @@ class Network(BaseNASNetwork):
         num_stacks: int=3,
         num_modules_per_stack: int=3,
         num_classes: int=10,
+        query_type: str='tfrecord',
         query_file: str=None,
-        query_type: str='original',
         mask=None
     ):
-        super(Network, self).__init__(mask)
+        super(NASBench101Network, self).__init__(mask)
         self.query_api = None
         self.layers = nn.ModuleList([])
 
         in_channels = 3
-        out_channels = self.stem_out_channels
+        out_channels = stem_out_channels
+
+        self.query_type = query_type
+        if query_file is None:
+            self.query_file = query_file
+        else:
+            if query_type == 'tfrecord':
+                self.query_file = self.TFRECORD_FULL_PATH
+            else:
+                self.query_file = self.DB_PATH
 
         # initial stem convolution
         stem_conv = ConvBnRelu(in_channels, out_channels, 3, 1, 1)
         self.layers.append(stem_conv)
 
         in_channels = out_channels
-        for stack_num in range(self.num_stacks):
+        for stack_num in range(num_stacks):
             if stack_num > 0:
                 downsample = nn.MaxPool2d(kernel_size=2, stride=2)
                 self.layers.append(downsample)
 
                 out_channels *= 2
 
-            for module_num in range(self.num_modules_per_stack):
+            for module_num in range(num_modules_per_stack):
                 cell = Cell(spec, in_channels, out_channels)
                 self.layers.append(cell)
                 in_channels = out_channels
 
-        self.classifier = nn.Linear(out_channels, self.num_classes)
+        self.classifier = nn.Linear(out_channels, num_classes)
 
         self._initialize_weights()
 
@@ -95,25 +113,31 @@ class Network(BaseNASNetwork):
 
     @property
     def arch(self):
-        if self.query_type == 'original':
+        if self.query_type == 'tfrecord':
             return self.arch_spec
         elif self.query_type == 'db':
             return self.arch_db
 
     def query_by_key(self, key='test_acc', spec=None, num_epochs=108, isomorphism=True, reduction='mean'):
+        if not os.path.exists(self.ROOT_PATH):
+            os.makedirs(self.ROOT_PATH)
+        if not os.path.exists(self.TFRECORD_FULL_PATH):
+            os.system('wget https://storage.googleapis.com/nasbench/nasbench_full.tfrecord')
+            os.system(f'cp nasbench_full.tfrecord {self.ROOT_PATH}')
+        if not os.path.exists(self.TFRECORD_108_PATH):
+            os.system('wget https://storage.googleapis.com/nasbench/nasbench_only_108.tfrecord')
+            os.system(f'cp nasbench_only_108.tfrecord {self.ROOT_PATH}')
         if self.query_api is None:
-            if self.query_type == 'original':
+            if self.query_type == 'tfrecord':
                 if self.query_file is not None:
-                    # https://github.com/google-research/nasbench
-                    from nasbench import api
                     self.query_api = api.NASBench(self.query_file).query
                 else:
-                    raise ValueError('query_file must be specified for query_type=original')
+                    raise ValueError('query_file must be specified for query_type=tfrecord')
             elif self.query_type == 'db':
                 from hyperbox.networks.nasbench101.db_gen.query import query_nb101_trial_stats
                 self.query_api = query_nb101_trial_stats
 
-        if self.query_type == 'original':
+        if self.query_type == 'tfrecord':
             self.arch_info = self.query_api(self.arch)
             return self.arch_info[key]
         else:
@@ -320,6 +344,8 @@ if __name__ == '__main__':
     import torch
     from nasbench import api
     from hyperbox.networks.nasbench101.model_spec import ModelSpec
+
+    PATH = os.path.expanduser('~/.hyperbox/nasbench101')
     matrix = [
         [0, 1, 1, 0, 1, 0, 0],
         [0, 0, 0, 0, 0, 0, 1],
@@ -331,14 +357,14 @@ if __name__ == '__main__':
     ]
     operations = ['input', 'conv1x1-bn-relu', 'conv3x3-bn-relu', 'conv3x3-bn-relu', 'conv3x3-bn-relu', 'maxpool3x3', 'output']
     spec = api.ModelSpec(matrix, operations)
-    # query_api = api.NASBench('/home/xihe/xinhe/hyperbox/hyperbox/networks/nasbench101/db_gen/nasbench_only108.tfrecord')
-    # data = query_api.query(spec)
-    # for k, v in data.items():
-    #     print('%s: %s' % (k, str(v)))
+    query_api = api.NASBench(f'{PATH}/nasbench_only108.tfrecord')
+    data = query_api.query(spec)
+    for k, v in data.items():
+        print('%s: %s' % (k, str(v)))
 
     x = torch.rand(2,3,64,64)
 
-    net1 = Network(spec)
+    net1 = NASBench101Network(spec)
     print(net1(x).shape)
     # net1.query_by_key()
 
@@ -358,12 +384,11 @@ if __name__ == '__main__':
         'output']
     spec = ModelSpec(matrix2, operations2)
 
-    net2 = Network(spec, query_type='db')    
-    print(net2.query_by_key('test_acc'))
-    print(net2(x).shape)
+    # net2 = NASBench101Network(spec, query_type='db')    
+    # print(net2.query_by_key('test_acc'))
+    # print(net2(x).shape)
     
     spec = ModelSpec(matrix, operations)
-    net3 = Network(spec, query_file='~/.hyperbox/nasbenchmark/nasbench_only108.tfrecord')
+    net3 = NASBench101Network(spec, query_file=f'{PATH}/nasbench_only108.tfrecord')
     print(net3.query_by_key('test_accuracy'))
     print(net3(x).shape)
-    pass

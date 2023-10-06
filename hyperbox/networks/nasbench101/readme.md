@@ -2,17 +2,22 @@
 
 1. install `nasbench-101`
 
+- for tensorflow 1.x
+```bash
+pip install git+https://github.com/google-research/nasbench.git
 ```
-git clone https://github.com/google-research/nasbench
-cd nasbench
-pip install -e .
+
+- for tensorflow 2.x
+```bash
+pip install git+https://github.com/gabikadlecova/nasbench.git
+pip install protobuf==3.20.0
 ```
 
 2. downlowd tfrecord
 
 ```
-curl -O https://storage.googleapis.com/nasbench/nasbench_full.tfrecord
-curl -O https://storage.googleapis.com/nasbench/nasbench_only_108.tfrecord
+wget https://storage.googleapis.com/nasbench/nasbench_full.tfrecord
+wget https://storage.googleapis.com/nasbench/nasbench_only_108.tfrecord
 ```
 
 - nasbench_full.tfrecord includes the results on epoch of 4, 12, 36, 108
