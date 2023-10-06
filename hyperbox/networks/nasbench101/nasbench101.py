@@ -55,7 +55,7 @@ class NASBench101Network(BaseNASNetwork):
         out_channels = stem_out_channels
 
         self.query_type = query_type
-        if query_file is None:
+        if query_file is not None:
             self.query_file = query_file
         else:
             if query_type == 'tfrecord':
