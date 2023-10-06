@@ -141,22 +141,27 @@ class NASBench201Network(BaseNASNetwork):
     def query_by_key(self, key='test_acc', arch=None, num_epochs=200, dataset='cifar10', reduction='mean'):
         DATABASE_DIR = os.environ.get("NASBENCHMARK_DIR", os.path.expanduser("~/.hyperbox/nasbench201"))
         if not os.path.exists(DATABASE_DIR) or len(os.listdir(DATABASE_DIR)) <=0:
-            # prepare nasbench201 datasets
-            os.makedirs(DATABASE_DIR)
-            os.system('gdown https://drive.google.com/uc\?id\=16Y0UwGisiouVRxW-W5hEtbxmcHw_0hF_ -O nb201.pth')
-            os.system('mv nb201.pth {}'.format(DATABASE_DIR))
+            try:
+                # prepare nasbench201 datasets
+                os.system(f"mkdir -p {DATABASE_DIR}")
+                os.system('pip install gdown')
+                os.system('gdown https://drive.google.com/uc\?id\=16Y0UwGisiouVRxW-W5hEtbxmcHw_0hF_ -O nb201.pth')
+                os.system(f'mv nb201.pth {DATABASE_DIR}')
 
-            # get abs path of current file
-            current_script_path = os.path.abspath(__file__)
+                # get abs path of current file
+                current_script_path = os.path.abspath(__file__)
 
-            # build relative path of db_gen.py
-            relative_path_to_b = "db_gen/db_gen.py"
+                # build relative path of db_gen.py
+                relative_path_to_b = "db_gen/db_gen.py"
 
-            # convert rel-path to abs-path for db_gen.py
-            absolute_path_to_b = os.path.join(os.path.dirname(current_script_path), relative_path_to_b)
+                # convert rel-path to abs-path for db_gen.py
+                absolute_path_to_b = os.path.join(os.path.dirname(current_script_path), relative_path_to_b)
 
-            # 执行'python /path/to/b.py'
-            os.system(f"python {absolute_path_to_b} {DATABASE_DIR}/nb201.pth")
+                # 执行'python /path/to/b.py'
+                os.system(f"python {absolute_path_to_b} {DATABASE_DIR}/nb201.pth")
+            except Exception as e:
+                print('Failed to download and parse nasbench201 dataset, please manually setup iy via yperbox/networks/nasbench201/nasbench201.py')
+                raise RuntimeError(e)
 
         if arch is None:
             arch = self.arch
@@ -470,6 +475,7 @@ if __name__ == "__main__":
     from hyperbox.mutator import RandomMutator
     from hyperbox.networks.nasbench201.db_gen import query_nb201_trial_stats
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = 'cpu'
 
     net = NASBench201Network(16, 5).to(device)
     net.verbose = 0
