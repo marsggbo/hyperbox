@@ -346,7 +346,8 @@ if __name__ == '__main__':
     from hyperbox.networks.nasbench101.model_spec import ModelSpec
 
     PATH = os.path.expanduser('~/.hyperbox/nasbench101')
-    matrix = [
+    x = torch.rand(2,3,64,64)
+    matrix1 = [
         [0, 1, 1, 0, 1, 0, 0],
         [0, 0, 0, 0, 0, 0, 1],
         [0, 0, 0, 0, 0, 1, 1],
@@ -355,19 +356,29 @@ if __name__ == '__main__':
         [0, 0, 0, 0, 0, 0, 1],
         [0, 0, 0, 0, 0, 0, 0]
     ]
-    operations = ['input', 'conv1x1-bn-relu', 'conv3x3-bn-relu', 'conv3x3-bn-relu', 'conv3x3-bn-relu', 'maxpool3x3', 'output']
-    spec = api.ModelSpec(matrix, operations)
-    query_api = api.NASBench(f'{PATH}/nasbench_only108.tfrecord')
-    data = query_api.query(spec)
+    operations1 = ['input', 'conv1x1-bn-relu', 'conv3x3-bn-relu', 'conv3x3-bn-relu', 'conv3x3-bn-relu', 'maxpool3x3', 'output']
+    spec1 = api.ModelSpec(matrix1, operations1)
+
+    # query by original nasbench101 qpi
+    origin_query_api = api.NASBench(f'{PATH}/nasbench_only108.tfrecord')
+    data = origin_query_api.query(spec1)
     for k, v in data.items():
         print('%s: %s' % (k, str(v)))
 
-    x = torch.rand(2,3,64,64)
-
-    net1 = NASBench101Network(spec)
+    # query by hyperbox nasbench_full.tfrecord
+    net1 = NASBench101Network(spec1)
     print(net1(x).shape)
-    # net1.query_by_key()
+    for key in ['module_adjacency', 'module_operations', 'trainable_parameters',
+                'training_time', 'train_accuracy', 'validation_accuracy', 'test_accuracy']:
+        print(key, net1.query_by_key('test_accuracy'))
 
+    # query by hyperbox nasbench_only_108.tfrecord
+    # net2 = NASBench101Network(spec1, query_file=f'{PATH}/nasbench_only108.tfrecord')
+    # print(net2.query_by_key('test_accuracy'))
+    # print(net2(x).shape)
+
+
+    # query by *.db 
     matrix2 = [[0, 1, 0, 0, 1, 1, 0],
         [0, 0, 1, 0, 0, 0, 0],
         [0, 0, 0, 1, 0, 0, 1],
@@ -383,12 +394,7 @@ if __name__ == '__main__':
         'conv1x1-bn-relu',
         'output']
     spec = ModelSpec(matrix2, operations2)
+    net2 = NASBench101Network(spec, query_type='db')    
+    print(net2.query_by_key('test_acc'))
+    print(net2(x).shape)
 
-    # net2 = NASBench101Network(spec, query_type='db')    
-    # print(net2.query_by_key('test_acc'))
-    # print(net2(x).shape)
-    
-    spec = ModelSpec(matrix, operations)
-    net3 = NASBench101Network(spec, query_file=f'{PATH}/nasbench_only108.tfrecord')
-    print(net3.query_by_key('test_accuracy'))
-    print(net3(x).shape)
