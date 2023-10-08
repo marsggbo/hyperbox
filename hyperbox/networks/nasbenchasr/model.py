@@ -224,6 +224,42 @@ class NASBenchASR(BaseNASNetwork):
         self._query = from_folder(folder, max_epochs, seeds, devices, include_static_info, validate_data)
         return self._query
 
+    def is_dataset_ready(self):
+        flag1 = os.path.exists(self.NASBenchASR_DATAPATH)
+        if flag1:
+            flag2 = len(os.listdir(self.NASBenchASR_DATAPATH)) > 0
+            return flag1 and flag2
+        return flag1
+
+    def prepare_dataset(self):
+        if not os.path.exists(self.NASBenchASR_DATAPATH):
+            os.makedirs(self.NASBenchASR_DATAPATH)
+        if len(os.listdir(self.NASBenchASR_DATAPATH)) <= 0:
+            crt_file_path = os.path.abspath(__file__)
+            crt_folder_path = os.path.dirname(crt_file_path)
+            download_shell = os.path.join(crt_folder_path, 'download_nasbenchasr.sh')
+            print('Downloading NASBenchASR dataset...')
+            os.system(f"bash {download_shell}")
+            print('Done')
+
+    def query_by_key(self, key: str, **kwargs):
+        if not self.is_dataset_ready():
+            self.prepare_dataset()
+        if key == 'full':
+            return self.query_full_info(**kwargs)
+        elif key == 'test_acc':
+            return self.query_test_acc(**kwargs)
+        elif key == 'val_acc':
+            return self.query_val_acc(**kwargs)
+        elif key == 'latency':
+            return self.query_latency(**kwargs)
+        elif key == 'params':
+            return self.query_params(**kwargs)
+        elif key == 'flops':
+            return self.query_flops(**kwargs)
+        else:
+            raise NotImplementedError(f'{key} not supported.')
+
     def query_full_info(self, **kwargs):
         default_kwargs = {
             "arch": self.arch,
@@ -377,9 +413,12 @@ if __name__ == '__main__':
     y = model(x)
     print(NASBenchASR.dict_mask_to_list_desc(mask))
 
-    print(model2.query_full_info(max_epochs=5))
-    print(model2.query_flops())
-    print(model2.query_latency())
-    print(model2.query_params())
-    print(model2.query_test_acc())
-    print(model2.query_val_acc())
+    # print(model2.query_full_info(max_epochs=5))
+    # print(model2.query_flops())
+    # print(model2.query_latency())
+    # print(model2.query_params())
+    # print(model2.query_test_acc())
+    # print(model2.query_val_acc())
+
+    for key in ['full', 'flops', 'test_acc', 'params', 'val_acc', 'latency']:
+        print(key, model2.query_by_key(key))
