@@ -278,7 +278,7 @@ Twisted==18.7.0
 typed-ast==1.4.3
 typing-extensions==3.7.4.3
 unicodecsv==0.14.1
-urllib3==1.23
+urllib3==1.26.5
 urwid==2.1.2
 virtualenv==20.9.0
 visdom==0.1.8.9
