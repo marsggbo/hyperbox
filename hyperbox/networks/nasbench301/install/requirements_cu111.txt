@@ -199,7 +199,7 @@ python-dateutil==2.7.3
 python-dotenv==0.19.1
 python-louvain==0.15
 PythonWebHDFS==0.2.3
-pytorch-lightning==1.4.9
+pytorch-lightning==1.6.0
 pytz==2018.5
 PyWavelets==1.0.0
 PyYAML==6.0
